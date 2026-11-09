@@ -1,6 +1,7 @@
+import { categoryOf, SKILLS as skills } from '@/lib/community';
+
 const API = "https://api.wiseoldman.net/v2";
 const TTL = 300_000;
-const skills = new Set(["overall", "attack", "defence", "strength", "hitpoints", "ranged", "prayer", "magic", "cooking", "woodcutting", "fletching", "fishing", "firemaking", "crafting", "smithing", "mining", "herblore", "agility", "thieving", "slayer", "farming", "runecrafting", "hunter", "construction", "sailing"]);
 type Player = { id: number; username: string; displayName: string; type: string; updatedAt: string };
 type Event = { id: number; title: string; metric: string; type: string; startsAt: string; endsAt: string; groupId: number; participantCount: number; metrics?: { metric: string }[]; participations?: { player: Player; teamName: string | null; deltas: { metric: string; values: { gained: number; start: number; end: number }; levels: { gained: number } }[] }[] };
 const cache = new Map<string, { time: number; data: unknown }>();
@@ -29,21 +30,22 @@ export async function GET(request: Request) {
   const category = url.searchParams.get("category") || "all";
   if ((id && !/^[1-9]\d{0,9}$/.test(id)) || !["all", "skill", "boss"].includes(category)) return Response.json({ error: "Ongeldige eventselectie." }, { status: 400 });
   const edge = typeof caches !== "undefined" ? (caches as CacheStorage & { default?: Cache }).default : undefined;
-  const key = new Request(`${url.origin}/__event-cache/${category}/${id || "current"}`);
+  const key = new Request(`${url.origin}/__event-cache/v2/${category}/${id || "current"}`);
   try {
     const hit = await edge?.match(key);
     if (hit) {
       const body = await hit.clone().json() as { data: { competition?: Event } };
-      if (!body.data.competition || Date.parse(body.data.competition.endsAt) > Date.now()) return new Response(hit.body, { status: hit.status, headers: new Headers(hit.headers) });
+      if (id || !body.data.competition || Date.parse(body.data.competition.endsAt) > Date.now()) return new Response(hit.body, { status: hit.status, headers: new Headers(hit.headers) });
     }
   } catch { /* Continue when the optional edge cache is unavailable. */ }
   try {
     const all = await read<Event[]>("/groups/7059/competitions");
     if (!Array.isArray(all)) throw new Error("De eventgegevens zijn tijdelijk niet beschikbaar.");
-    const active = all.filter(e => e.groupId === 7059 && Date.parse(e.startsAt) <= Date.now() && Date.parse(e.endsAt) > Date.now()).sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt));
-    const matching = active.filter(e => category === "all" || (category === "skill" ? skills.has(e.metric) : !skills.has(e.metric)));
+    const clanEvents = all.filter(e => e.groupId === 7059);
+    const active = clanEvents.filter(e => Date.parse(e.startsAt) <= Date.now() && Date.parse(e.endsAt) > Date.now()).sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt));
+    const matching = (id ? clanEvents : active).filter(e => category === "all" || categoryOf(e) === category);
     const selected = id ? matching.find(e => e.id === Number(id)) : matching[0];
-    if (id && !selected) return Response.json({ error: "Dit event is niet actief voor deze clan en selectie." }, { status: 404 });
+    if (id && !selected) return Response.json({ error: "Dit event hoort niet bij deze clan of selectie." }, { status: 404 });
     let competition = null;
     if (selected) {
       const detail = await read<Event>(`/competitions/${selected.id}`);

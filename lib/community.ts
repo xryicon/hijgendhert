@@ -9,6 +9,18 @@ export function localDay(value: string | number | Date) {
 }
 export const monthKey = (value: string | number | Date) => localDay(value).slice(0, 7);
 export function categoryOf(c: Competition) { return SKILLS.has(c.metric) ? 'skill' : /\bbotw\b|boss of the week/i.test(c.title) ? 'boss' : 'other'; }
+export type WeeklyCategory = 'skill' | 'boss';
+export type EventState = 'active' | 'upcoming' | 'past' | 'empty';
+export function weeklyRound(competitions: Competition[], category: WeeklyCategory, now: number): { state: EventState; events: Competition[] } {
+  const matching = competitions.filter(c => categoryOf(c) === category && Date.parse(c.endsAt) > Date.parse(c.startsAt));
+  const active = matching.filter(c => Date.parse(c.startsAt) <= now && Date.parse(c.endsAt) > now);
+  if (active.length) return { state: 'active', events: active.sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt) || a.id - b.id) };
+  const upcoming = matching.filter(c => Date.parse(c.startsAt) > now).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt) || a.id - b.id);
+  if (upcoming.length) return { state: 'upcoming', events: upcoming.filter(c => c.startsAt === upcoming[0].startsAt && c.endsAt === upcoming[0].endsAt) };
+  const past = matching.filter(c => Date.parse(c.endsAt) <= now).sort((a, b) => Date.parse(b.endsAt) - Date.parse(a.endsAt) || a.id - b.id);
+  if (past.length) return { state: 'past', events: past.filter(c => c.startsAt === past[0].startsAt && c.endsAt === past[0].endsAt) };
+  return { state: 'empty', events: [] };
+}
 export function unitOf(c: Competition) { return (c.metrics?.length || 0) > 1 ? 'punten' : SKILLS.has(c.metric) ? 'XP' : ['ehb', 'ehp'].includes(c.metric) ? 'uur' : 'kills'; }
 export function awardFrom(detail: CompetitionDetail): Award {
   const metric = (detail.metrics?.length || 0) > 1 ? 'total' : detail.metric;

@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, Check, Copy, Crown, ExternalLink, Flame, Globe2, Menu, Search, Shield, Sparkles, Swords, Target, Trophy, Users, X, RefreshCw, Clock3, Sprout, CalendarDays } from "lucide-react";
 import CurrentEvent from "@/components/current-event";
+import { BreathingCrest, WoodlandBackdrop } from "@/components/home-ambience";
+import EventsOverview, { WeeklyEvent, eventHash, type EventView } from "@/components/events-overview";
 import LiveEventBackdrop from "@/components/live-event-backdrop";
 import PastEvents from "@/components/past-events";
 import ClanCalendar from "@/components/clan-calendar";
@@ -28,7 +30,7 @@ const playerUrl = (p: Player) => `https://wiseoldman.net/players/${encodeURIComp
 function Stag({ className = "" }: { className?: string }) {
   return <svg className={className} width="42" height="46" viewBox="0 0 64 70" fill="none" aria-hidden="true"><path d="M24 31 13 20 10 6M14 21 4 16 2 8M13 14 21 9 22 2M40 31 51 20 54 6M50 21 60 16 62 8M51 14 43 9 42 2" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/><path d="m22 28 10 5 10-5 7 3-8 10-3 17-6 8-6-8-3-17-8-10 7-3Z" stroke="currentColor" strokeWidth="2.5"/><path d="m25 41 7 6 7-6M32 48v16M26 56h12" stroke="currentColor" strokeWidth="2"/></svg>;
 }
-function useWom<T>(query: string, wait = 0, enabled = true) {
+function useWom<T>(query: string, wait = 0, enabled = true, pollMs = 0) {
   const [result, setResult] = useState<Result<T> | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -37,17 +39,24 @@ function useWom<T>(query: string, wait = 0, enabled = true) {
     if (!enabled) { setLoading(false); return; }
     const controller = new AbortController();
     setLoading(true); setError(""); setResult(null);
-    const timer = setTimeout(async () => {
+    let fetching = false;
+    async function load() {
+      if (fetching || controller.signal.aborted) return;
+      fetching = true;
       try {
         const response = await fetch(`/api/clan?${query}`, { signal: controller.signal });
         const body = await response.json() as Result<T> & { error?: string };
         if (!response.ok) throw new Error(body.error || "De verbinding is tijdelijk onderbroken.");
-        setResult(body);
+        if (!controller.signal.aborted) { setResult(body); setError(""); }
       } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Laden mislukt."); }
-      finally { if (!controller.signal.aborted) setLoading(false); }
-    }, wait);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [query, retry, wait, enabled]);
+      finally { fetching = false; if (!controller.signal.aborted) setLoading(false); }
+    }
+    const timer = setTimeout(load, wait);
+    const poll = pollMs ? setInterval(() => { if (!document.hidden) void load(); }, pollMs) : undefined;
+    const onVisible = () => { if (!document.hidden && pollMs) void load(); };
+    if (pollMs) document.addEventListener('visibilitychange', onVisible);
+    return () => { clearTimeout(timer); clearInterval(poll); controller.abort(); document.removeEventListener('visibilitychange', onVisible); };
+  }, [query, retry, wait, enabled, pollMs]);
   return { result, error, loading, reload: () => setRetry(x => x + 1) };
 }
 function LoadError({ message, retry }: { message: string; retry: () => void }) {
@@ -57,7 +66,7 @@ function Skeleton({ lines = 3 }: { lines?: number }) { return <div className="sk
 
 export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | 'events' }) {
   const group = useWom<Group>("resource=group");
-  const competitions = useWom<Competition[]>("resource=competitions", 400, view !== 'home');
+  const competitions = useWom<Competition[]>("resource=competitions", 400, view !== 'home', 300_000);
   const [clanSection, setClanSection] = useState<ClanSection>('leden');
   const [metric, setMetric] = useState("overall");
   const [period, setPeriod] = useState("week");
@@ -69,7 +78,7 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
   const [query, setQuery] = useState("");
   const [account, setAccount] = useState("all");
   const [memberPage, setMemberPage] = useState(0);
-  const [eventView, setEventView] = useState<"live" | "calendar" | "past">("live");
+  const [eventView, setEventView] = useState<EventView>("overview");
   useEffect(() => {
     if (view !== 'clan') return;
     const syncSection = () => {
@@ -87,12 +96,21 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
   }
   useEffect(() => {
     if (view !== "events") return;
-    const syncView = () => setEventView(window.location.hash === "#past-events" ? "past" : ["#kalender", "#agenda", "#clanleven", "#competities"].includes(window.location.hash) ? "calendar" : "live");
+    const syncView = () => {
+      const hash = window.location.hash;
+      setEventView((Object.keys(eventHash) as EventView[]).find(key => eventHash[key] === hash) || (["#agenda", "#clanleven", "#competities"].includes(hash) ? "calendar" : "overview"));
+    };
     syncView();
     window.addEventListener("hashchange", syncView);
-    return () => window.removeEventListener("hashchange", syncView);
+    window.addEventListener("popstate", syncView);
+    return () => { window.removeEventListener("hashchange", syncView); window.removeEventListener("popstate", syncView); };
   }, [view]);
-  function changeEventView(next: "live" | "calendar" | "past") { setEventView(next); window.history.replaceState(null, "", next === "calendar" ? "/events#kalender" : next === "past" ? "/events#past-events" : "/events"); }
+  function changeEventView(next: EventView) {
+    setEventView(next);
+    const href = '/events' + eventHash[next];
+    if (window.location.pathname + window.location.hash !== href) window.history.pushState(null, '', href);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
   const dialog = useRef<HTMLDialogElement>(null);
   const members = group.result?.data.memberships || [];
   const totals = useMemo(() => members.reduce((s, m) => ({ exp: s.exp + Math.max(0, m.player.exp || 0), ehb: s.ehb + Math.max(0, m.player.ehb || 0) }), { exp: 0, ehb: 0 }), [members]);
@@ -115,29 +133,31 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
   }
   return <>
     <a className="skip-link" href="#main">Ga naar inhoud</a>
-    <header className={`header${view === 'home' ? ' header-home' : ''}${view === 'clan' ? ' header-clan' : ''}${view === 'events' && eventView === 'live' ? ' header-event' : ''}${headerScrolled ? ' is-scrolled' : ''}`}><div className="container nav-wrap">
+    <header className={`header${view === 'home' ? ' header-home' : ''}${view === 'clan' ? ' header-clan' : ''}${view === 'events' ? ' header-event' : ''}${headerScrolled ? ' is-scrolled' : ''}`}><div className="container nav-wrap">
       <a className="brand" href={view === 'home' ? '#home' : '/'} aria-label="Hijgend Hert home"><img src="/clan-logo.png" alt=""/><span>Hijgend Hert<small>OLD SCHOOL RUNESCAPE CLAN</small></span></a>
       <nav className={menu ? "navigation open" : "navigation"} aria-label="Hoofdnavigatie">{nav.map(n => <a key={n.label} className={view === n.id ? "active" : ""} href={n.href} aria-current={view === n.id ? "page" : undefined} onClick={() => setMenu(false)}>{n.label}</a>)}</nav>
       <a className="button gold nav-join" href={DISCORD} target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={16}/></a>
       <button className="menu-button" onClick={() => setMenu(!menu)} aria-label={menu ? "Menu sluiten" : "Menu openen"} aria-expanded={menu}>{menu ? <X/> : <Menu/>}</button>
     </div></header>
-    <main id="main" className={view === 'home' ? 'homepage' : `clan-inner-page${view === 'clan' ? ' clan-page' : ''}${view === 'events' && eventView === 'live' ? ' live-events-page' : ''}`}>
-      {view === 'events' && eventView === 'live' && <LiveEventBackdrop/>}
+    <main id="main" className={view === 'home' ? 'homepage' : `clan-inner-page${view === 'clan' ? ' clan-page' : ''}${view === 'events' ? ' events-page live-events-page' : ''}`}>
+      {view === 'events' && <LiveEventBackdrop/>}
       {view === 'events' && <h1 className="sr-only">Clancompetities — Hijgend Hert</h1>}
       {view === 'home' && <><section id="home" className="hero">
-        <img className="hero-landscape" src="/hijgend-hert-woodland.webp" alt="" aria-hidden="true" width="2172" height="724" fetchPriority="high"/>
+        <WoodlandBackdrop/>
         <div className="hero-pattern" aria-hidden="true"/>
         <div className="hero-shade" aria-hidden="true"/>
         <div className="container hero-inner"><div className="hero-copy hero-poem">
-          <h1>Waarom join je<br/><em>Het Hijgend Hert?</em></h1>
+          <h1>Waarom join je<br/><em>Hijgend Hert?</em></h1>
           <div className="poem-rule" aria-hidden="true"><span/>◆<span/></div>
-          <p className="clan-rhyme"><span>Omdat je daar pas echt een legend wordt!</span><span>Van raids tot PK, we strijden zij aan zij,</span><span>bij Het Hijgend Hert hoor jij erbij!</span></p>
+          <p className="clan-rhyme"><span>Omdat je daar pas echt een legend wordt!</span><span>Van raids tot PK, we strijden zij aan zij,</span><span>bij Hijgend Hert hoor jij erbij!</span></p>
           <a className="poem-discord" href={DISCORD} target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={15}/></a>
-        </div><div className="hero-identity"><div className="emblem-ring"/><div className="hero-crest"><img className="hero-logo" src="/clan-logo.png" alt="Hijgend Hert — hert met kroon en zwart-gouden clanbanieren" fetchPriority="high" width="1254" height="1254"/><span className="stag-breath" aria-hidden="true"><i/><i/><i/><i/><i/><i/></span></div></div></div>
+        </div><div className="hero-identity"><div className="emblem-ring"/><BreathingCrest/></div></div>
       </section>
       <ClanStats memberCount={group.result?.data.memberCount ?? null} totalXp={group.result ? totals.exp : null} homeWorld={group.result?.data.homeworld || null} fetchedAt={group.result?.fetchedAt ?? null} loading={group.loading} error={group.error} stale={!!group.result?.stale} onRetry={group.reload}/>
       </>}
-      {view === 'events' && <div className="container event-page-controls"><div className="event-view-switch" role="group" aria-label="Evenementen bekijken"><button type="button" aria-pressed={eventView === 'live'} onClick={() => changeEventView('live')}>Live event</button><button type="button" aria-pressed={eventView === 'calendar'} onClick={() => changeEventView('calendar')}>Kalender</button><button type="button" aria-pressed={eventView === 'past'} onClick={() => changeEventView('past')}>Past events</button></div></div>}
+      {view === 'events' && <div className="container event-page-controls"><div className="event-view-switch" role="group" aria-label="Evenementen bekijken"><button type="button" aria-pressed={eventView === 'overview'} onClick={() => changeEventView('overview')}>Overzicht</button><button type="button" aria-pressed={eventView === 'live'} onClick={() => changeEventView('live')}>Live event</button><button type="button" aria-pressed={eventView === 'calendar'} onClick={() => changeEventView('calendar')}>Kalender</button><button type="button" aria-pressed={eventView === 'past'} onClick={() => changeEventView('past')}>Past events</button></div></div>}
+      {view === 'events' && eventView === 'overview' && <EventsOverview competitions={events} loading={competitions.loading} error={competitions.error} onRetry={competitions.reload} stale={competitions.result?.stale} onNavigate={changeEventView}/>}
+      {view === 'events' && (eventView === 'skill' || eventView === 'boss') && <WeeklyEvent key={eventView} category={eventView} competitions={events} loading={competitions.loading} error={competitions.error} onRetry={competitions.reload} stale={competitions.result?.stale} onNavigate={changeEventView}/>}
       {view === 'events' && eventView === 'live' && <CurrentEvent/>}
       {view === 'events' && eventView === 'past' && <PastEvents competitions={events} loading={competitions.loading} error={competitions.error} onRetry={competitions.reload} stale={competitions.result?.stale} fetchedAt={competitions.result?.fetchedAt}/>}
       {view === 'events' && eventView === 'calendar' && <ClanCalendar context="events" competitions={events} loading={competitions.loading} error={competitions.error} onRetry={competitions.reload} stale={competitions.result?.stale} fetchedAt={competitions.result?.fetchedAt}/>} 
@@ -151,9 +171,9 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
           {gains.loading ? <Skeleton lines={5}/> : gains.error ? <LoadError message={gains.error} retry={gains.reload}/> : <><div className="leader-labels"><span>RANG / SPELER</span><span>{metric === "overall" ? "XP BEHAALD" : "EHB BEHAALD"}</span></div><ol className="leader-list">{gains.result?.data.slice(0, 5).map((g, i) => <li key={g.player.id}><a href={playerUrl(g.player)} target="_blank" rel="noreferrer"><span className={`rank rank-${i}`}>{i === 0 ? <Crown size={17}/> : String(i + 1).padStart(2, "0")}</span><span className={`avatar avatar-${i}`}>{g.player.displayName.slice(0, 1).toUpperCase()}</span><span className="leader-name">{g.player.displayName}<small>{["ironman", "hardcore", "ultimate"].includes(g.player.type) ? "Ironman" : "Clanspeler"}</small></span><strong>+{metric === "overall" ? compact(Math.max(0, g.data.gained)) : number(Math.max(0, g.data.gained), 2)}</strong><ArrowUpRight className="row-arrow" size={14}/></a></li>)}</ol>{!gains.result?.data.length && <p className="empty">Nog geen voortgang beschikbaar voor deze periode.</p>}</>}
           <div className="panel-footer"><span><span className={gains.error ? "dot muted" : "dot"}/> {gains.result?.stale ? "Laatst bekende meting" : gains.error ? "Verbinding onderbroken" : "Gegevens via Wise Old Man"}</span><a href={`${WOM}/gained?metric=${metric}&period=${period}`} target="_blank" rel="noreferrer">Volledige ranglijst <ArrowUpRight size={14}/></a></div>
         </div>
-        <div className="spotlight"><div className="spotlight-top"><span className="event-tag"><Flame size={13}/> {featured && Date.parse(featured.startsAt) <= now ? "COMPETITIE ACTIEF" : "CLANCOMPETITIES"}</span><Target size={24}/></div><div className="clan-competition-art" aria-hidden="true"><img src="/hijgend-hert-event-arena.webp" alt="" loading="lazy" width="1536" height="1024"/></div><div className="spotlight-content"><p className="eyebrow">DE CLANCOMPETITIE</p><h3>{competitions.loading ? "Competitie ophalen…" : featured ? featured.title : "De volgende competitie"}</h3><p>{featured ? `${number(featured.participantCount)} geregistreerde deelnemers.` : "Ontdek de skill- en bosscompetities van Hijgend Hert op Wise Old Man."}</p>{featured && <div className="event-deadline"><Clock3 size={15}/>{Date.parse(featured.startsAt) > now ? `Start ${date(featured.startsAt)}` : `Loopt tot ${date(featured.endsAt)}`}</div>}<a className="button gold" href={featured && Date.parse(featured.startsAt) <= now ? "/events" : "/events#kalender"}>{featured && Date.parse(featured.startsAt) <= now ? "Bekijk de live stand" : "Bekijk de kalender"} <ArrowUpRight size={16}/></a></div></div>
+        <div className="spotlight"><div className="spotlight-top"><span className="event-tag"><Flame size={13}/> {featured && Date.parse(featured.startsAt) <= now ? "COMPETITIE ACTIEF" : "CLANCOMPETITIES"}</span><Target size={24}/></div><div className="clan-competition-art" aria-hidden="true"><img src="/hijgend-hert-event-arena.webp" alt="" loading="lazy" width="1536" height="1024"/></div><div className="spotlight-content"><p className="eyebrow">DE CLANCOMPETITIE</p><h3>{competitions.loading ? "Competitie ophalen…" : featured ? featured.title : "De volgende competitie"}</h3><p>{featured ? `${number(featured.participantCount)} geregistreerde deelnemers.` : "Ontdek de skill- en bosscompetities van Hijgend Hert op Wise Old Man."}</p>{featured && <div className="event-deadline"><Clock3 size={15}/>{Date.parse(featured.startsAt) > now ? `Start ${date(featured.startsAt)}` : `Loopt tot ${date(featured.endsAt)}`}</div>}<a className="button gold" href={featured && Date.parse(featured.startsAt) <= now ? "/events#live" : "/events#kalender"}>{featured && Date.parse(featured.startsAt) <= now ? "Bekijk de live stand" : "Bekijk de kalender"} <ArrowUpRight size={16}/></a></div></div>
       </div><p className="data-note">EHB = efficiënte boss-uren, de bossing-maatstaf van Wise Old Man. Gegevens worden maximaal vijf minuten gecachet; spelers hebben hun eigen laatste update.</p></div></section>}
-      {clanSection === 'leden' && <section className="section container" id="leden"><div className="section-heading"><div><p className="eyebrow">HET HIJGEND HERT</p><h2>Onze clanleden<span className="count-badge">{group.result?.data.memberCount || "—"}</span></h2></div><p className="heading-note">Vind je clanmates. Gesorteerd op totale XP.</p></div><div className="panel members-panel"><div className="member-toolbar"><label className="search"><Search size={17}/><input value={query} onChange={e => { setQuery(e.target.value); setMemberPage(0); }} placeholder="Zoek op RuneScape-naam…" aria-label="Zoek een clanspeler"/>{query && <button aria-label="Zoekopdracht wissen" onClick={() => { setQuery(""); setMemberPage(0); }}><X size={15}/></button>}</label><select aria-label="Filter op accounttype" value={account} onChange={e => { setAccount(e.target.value); setMemberPage(0); }}><option value="all">Alle accounttypes</option><option value="regular">Reguliere accounts</option><option value="ironman">Ironman-accounts</option></select></div>
+      {clanSection === 'leden' && <section className="section container" id="leden"><div className="section-heading"><div><p className="eyebrow">HIJGEND HERT</p><h2>Onze clanleden<span className="count-badge">{group.result?.data.memberCount || "—"}</span></h2></div><p className="heading-note">Vind je clanmates. Gesorteerd op totale XP.</p></div><div className="panel members-panel"><div className="member-toolbar"><label className="search"><Search size={17}/><input value={query} onChange={e => { setQuery(e.target.value); setMemberPage(0); }} placeholder="Zoek op RuneScape-naam…" aria-label="Zoek een clanspeler"/>{query && <button aria-label="Zoekopdracht wissen" onClick={() => { setQuery(""); setMemberPage(0); }}><X size={15}/></button>}</label><select aria-label="Filter op accounttype" value={account} onChange={e => { setAccount(e.target.value); setMemberPage(0); }}><option value="all">Alle accounttypes</option><option value="regular">Reguliere accounts</option><option value="ironman">Ironman-accounts</option></select></div>
         {group.loading ? <Skeleton lines={5}/> : group.error ? <LoadError message={group.error} retry={group.reload}/> : <><div className="table-scroll"><table><caption className="sr-only">Clanleden, gesorteerd op totale XP. Profielen en statistieken via Wise Old Man.</caption><thead><tr><th>CLANSPELER</th><th>RANG</th><th>TOTALE XP ↓</th><th>EHB</th><th>LAATSTE UPDATE</th><th><span className="sr-only">Profiel</span></th></tr></thead><tbody>{filteredMembers.slice(memberPage * 8, memberPage * 8 + 8).map(m => <tr key={m.player.id}><td><a className="member-name" href={playerUrl(m.player)} target="_blank" rel="noreferrer"><span className={`member-avatar ${["ironman", "hardcore", "ultimate"].includes(m.player.type) ? "iron" : ""}`}>{["ironman", "hardcore", "ultimate"].includes(m.player.type) ? <Shield size={15}/> : <Users size={15}/>}</span>{m.player.displayName}</a></td><td><span className={`role ${m.role === "owner" || m.role === "deputy_owner" ? "owner" : ""}`}>{m.role === "owner" && <Crown size={12}/>} {roleLabel(m.role)}</span></td><td className="numeric">{compact(m.player.exp)}</td><td className="numeric muted-text">{number(m.player.ehb, 1)}</td><td className="muted-text">{m.player.updatedAt ? date(m.player.updatedAt) : "Onbekend"}</td><td><a className="profile-link" aria-label={`Bekijk ${m.player.displayName} op Wise Old Man`} href={playerUrl(m.player)} target="_blank" rel="noreferrer"><ArrowUpRight size={16}/></a></td></tr>)}</tbody></table></div>{!filteredMembers.length && <div className="empty"><Search size={22}/><p>Geen clanleden gevonden voor deze selectie.</p><button className="text-link" onClick={() => { setQuery(""); setAccount("all"); setMemberPage(0); }}>Filters wissen</button></div>}<div className="member-pagination"><span>{filteredMembers.length ? `${memberPage * 8 + 1}–${Math.min((memberPage + 1) * 8, filteredMembers.length)} van ${number(filteredMembers.length)} clanleden` : "0 clanleden"}</span><div><button aria-label="Vorige pagina" disabled={memberPage === 0} onClick={() => setMemberPage(p => p - 1)}><ChevronLeft size={17}/></button><span>Pagina {memberPage + 1} / {Math.max(1, Math.ceil(filteredMembers.length / 8))}</span><button aria-label="Volgende pagina" disabled={(memberPage + 1) * 8 >= filteredMembers.length} onClick={() => setMemberPage(p => p + 1)}><ChevronRight size={17}/></button></div></div></>}
       </div></section>}</>}
       {view === 'clan' && <section className="join-section container"><div className="join-banner"><div className="join-emblem"><img src="/clan-logo.png" alt=""/></div><div><p className="eyebrow">LID WORDEN</p><h2>Zin om mee te spelen?</h2><p>Je vindt ons in de clanchat en op Discord.</p></div><a className="button gold" href={DISCORD} target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={17}/></a></div></section>}

@@ -1,0 +1,47 @@
+/* Warm light stays registered to the three torches in the original artwork. */
+.hero-woodland { position: absolute; inset: 0; z-index: -3; overflow: hidden; pointer-events: none; }
+.hero-woodland .hero-landscape { z-index: auto; }
+.woodland-firelight { position: absolute; top: 0; left: 0; width: 2172px; height: 724px; transform-origin: 0 0; mix-blend-mode: screen; }
+.woodland-firelight i { position: absolute; display: block; border-radius: 50%; background: radial-gradient(ellipse, #ffcf61a6 0%, #ec8c244d 22%, #e87b1724 43%, transparent 70%); animation: woodland-flicker 3.7s ease-in-out infinite; }
+.firelight-near { left: 1705px; top: 326px; width: 220px; height: 270px; }
+.woodland-firelight .firelight-middle { left: 1640px; top: 415px; width: 84px; height: 100px; animation-delay: -1.8s; animation-duration: 4.3s; }
+.woodland-firelight .firelight-far { left: 1465px; top: 431px; width: 106px; height: 124px; animation-delay: -2.5s; animation-duration: 3.1s; }
+@keyframes woodland-flicker { 0%, 100% { opacity: .28; } 12% { opacity: .45; } 24% { opacity: .32; } 38% { opacity: .5; } 49% { opacity: .37; } 63% { opacity: .47; } 76% { opacity: .3; } 88% { opacity: .42; } }
+.stag-eye { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; pointer-events: none; }
+.stag-eyelid { transform-origin: 632px 288px; transform: scaleY(0); animation: stag-blink 12.6s ease-in-out infinite; }
+@keyframes stag-blink {
+  0%, 36%, 39%, 80%, 83%, 85%, 88%, 100% { transform: scaleY(0); }
+  37.1%, 37.8%, 81.1%, 81.8%, 86.1%, 86.8% { transform: scaleY(1); }
+}
+.hero [data-motion="off"], .hero [data-motion="off"] * { animation-play-state: paused !important; }
+
+/* Framed clan plaques: label, number and brass badge, with no actions. */
+body .homepage .clan-stat-card { min-height: 170px; padding: 30px 32px 27px; border: 1px solid #846333; border-radius: 5px; background: radial-gradient(ellipse at 100% 0%, #a3752517, transparent 70%), linear-gradient(125deg, #221c13, #13110d 75%); box-shadow: inset 0 0 0 3px #0d0b08, 0 12px 30px #0005; }
+body .homepage .clan-stat-card::before { inset: 7px; border-color: #9e79422e; border-radius: 1px; }
+body .homepage .clan-stat-card::after { inset: -1px 25% auto; width: 50%; height: 1px; background: linear-gradient(90deg, transparent, #dfb96c, transparent); }
+body .homepage .clan-stat-card:hover { transform: none; border-color: #846333; box-shadow: inset 0 0 0 3px #0d0b08, 0 12px 30px #0005; }
+body .homepage .clan-stat-heading h2 { color: #bca16e; font: 500 11px/1.5 Cinzel, Georgia, serif; letter-spacing: 1.5px; }
+body .homepage .clan-stat-medallion { position: absolute; right: 27px; top: 50%; transform: translateY(-50%); width: 52px; height: 60px; color: #b89150; border: 1px solid #916d333d; border-radius: 26px 26px 18px 18px; background: linear-gradient(145deg, #a27a3014, #100e0a80); box-shadow: inset 0 0 0 4px #17130e, inset 0 0 0 5px #ab834222; }
+body .homepage .clan-stat-medallion svg { width: 24px; height: 24px; }
+body .homepage .clan-stat-amount { margin: 15px 65px 0 0; color: #f0d69d; font: 500 clamp(34px, 3.8vw, 50px)/1.12 Cinzel, Georgia, serif; letter-spacing: -1.5px; font-variant-numeric: lining-nums tabular-nums; text-shadow: 0 2px 2px #0009; white-space: nowrap; }
+body .homepage .clan-stat-amount small { display: inline-block; margin-left: 7px; color: #ad956b; font: 400 15px/1.2 Georgia, serif; letter-spacing: 0; }
+@media (min-width: 701px) and (max-width: 1050px) {
+  body .homepage .clan-stat-card { padding: 26px 22px; }
+  body .homepage .clan-stat-medallion { width: 34px; height: 41px; right: 17px; }
+  body .homepage .clan-stat-medallion svg { width: 19px; height: 19px; }
+  body .homepage .clan-stat-amount { margin-right: 36px; font-size: 34px; }
+  body .homepage .clan-stat-amount small { font-size: 12px; margin-left: 4px; }
+  body .homepage .clan-stat-heading h2 { font-size: 9px; letter-spacing: 1px; }
+}
+@media (max-width: 700px) {
+  body .homepage .clan-stats-grid { gap: 12px; }
+  body .homepage .clan-stat-card { min-height: 116px; padding: 23px 26px 22px 87px; }
+  body .homepage .clan-stat-medallion { left: 23px; right: auto; width: 43px; height: 50px; }
+  body .homepage .clan-stat-heading h2 { font-size: 10px; letter-spacing: 1.4px; }
+  body .homepage .clan-stat-amount { margin: 9px 0 0; font-size: 37px; }
+  body .homepage .clan-stat-amount small { font-size: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stag-eyelid { animation: none; transform: scaleY(0); }
+  .woodland-firelight i { animation: none; opacity: .3; }
+}
