@@ -10,6 +10,8 @@ import "./hijgend-hert.css";
 import "./live-event-background.css";
 import "./home-refinements.css";
 import "./events-overview.css";
+import "./brass-controls.css";
+import "./clan-calendar.css";
 
 export const metadata: Metadata = {
   title: "Hijgend Hert — Samen op avontuur in Gielinor",

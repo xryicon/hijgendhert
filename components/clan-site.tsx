@@ -135,7 +135,7 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
     <a className="skip-link" href="#main">Ga naar inhoud</a>
     <header className={`header${view === 'home' ? ' header-home' : ''}${view === 'clan' ? ' header-clan' : ''}${view === 'events' ? ' header-event' : ''}${headerScrolled ? ' is-scrolled' : ''}`}><div className="container nav-wrap">
       <a className="brand" href={view === 'home' ? '#home' : '/'} aria-label="Hijgend Hert home"><img src="/clan-logo.png" alt=""/><span>Hijgend Hert<small>OLD SCHOOL RUNESCAPE CLAN</small></span></a>
-      <nav className={menu ? "navigation open" : "navigation"} aria-label="Hoofdnavigatie">{nav.map(n => <a key={n.label} className={view === n.id ? "active" : ""} href={n.href} aria-current={view === n.id ? "page" : undefined} onClick={() => setMenu(false)}>{n.label}</a>)}</nav>
+      <nav className={menu ? "navigation open" : "navigation"} aria-label="Hoofdnavigatie">{nav.map(n => <a key={n.label} className={view === n.id ? "active" : ""} href={n.href} aria-current={view === n.id ? "page" : undefined} onClick={() => setMenu(false)}>{n.id === 'clan' ? <Shield size={15} strokeWidth={1.6} aria-hidden="true"/> : <Swords size={15} strokeWidth={1.6} aria-hidden="true"/>}<span>{n.label}</span></a>)}</nav>
       <a className="button gold nav-join" href={DISCORD} target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={16}/></a>
       <button className="menu-button" onClick={() => setMenu(!menu)} aria-label={menu ? "Menu sluiten" : "Menu openen"} aria-expanded={menu}>{menu ? <X/> : <Menu/>}</button>
     </div></header>

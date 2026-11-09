@@ -16,27 +16,28 @@
 .hero [data-motion="off"], .hero [data-motion="off"] * { animation-play-state: paused !important; }
 
 /* Framed clan plaques: label, number and brass badge, with no actions. */
-body .homepage .clan-stat-card { min-height: 170px; padding: 30px 32px 27px; border: 1px solid #846333; border-radius: 5px; background: radial-gradient(ellipse at 100% 0%, #a3752517, transparent 70%), linear-gradient(125deg, #221c13, #13110d 75%); box-shadow: inset 0 0 0 3px #0d0b08, 0 12px 30px #0005; }
-body .homepage .clan-stat-card::before { inset: 7px; border-color: #9e79422e; border-radius: 1px; }
-body .homepage .clan-stat-card::after { inset: -1px 25% auto; width: 50%; height: 1px; background: linear-gradient(90deg, transparent, #dfb96c, transparent); }
-body .homepage .clan-stat-card:hover { transform: none; border-color: #846333; box-shadow: inset 0 0 0 3px #0d0b08, 0 12px 30px #0005; }
-body .homepage .clan-stat-heading h2 { color: #bca16e; font: 500 11px/1.5 Cinzel, Georgia, serif; letter-spacing: 1.5px; }
-body .homepage .clan-stat-medallion { position: absolute; right: 27px; top: 50%; transform: translateY(-50%); width: 52px; height: 60px; color: #b89150; border: 1px solid #916d333d; border-radius: 26px 26px 18px 18px; background: linear-gradient(145deg, #a27a3014, #100e0a80); box-shadow: inset 0 0 0 4px #17130e, inset 0 0 0 5px #ab834222; }
-body .homepage .clan-stat-medallion svg { width: 24px; height: 24px; }
-body .homepage .clan-stat-amount { margin: 15px 65px 0 0; color: #f0d69d; font: 500 clamp(34px, 3.8vw, 50px)/1.12 Cinzel, Georgia, serif; letter-spacing: -1.5px; font-variant-numeric: lining-nums tabular-nums; text-shadow: 0 2px 2px #0009; white-space: nowrap; }
+body .homepage .clan-stat-card { min-height: 154px; padding: 31px 26px 28px 108px; border: 1px solid #866c40; border-radius: 4px; background: radial-gradient(ellipse at 0% 0%, #9f7c3820, transparent 70%), linear-gradient(125deg, #211b13, #12100c 80%); box-shadow: inset 0 0 0 3px #0d0b08, inset 0 1px 0 #e5c9901a, 0 10px 28px #0005; }
+body .homepage .clan-stat-card::before { inset: 6px; border-color: #b698582b; border-radius: 1px; }
+body .homepage .clan-stat-card::after { inset: 3px; width: auto; height: auto; background: linear-gradient(#c9a769,#c9a769) left top/14px 1px no-repeat, linear-gradient(#c9a769,#c9a769) left top/1px 14px no-repeat, linear-gradient(#c9a769,#c9a769) right top/14px 1px no-repeat, linear-gradient(#c9a769,#c9a769) right top/1px 14px no-repeat, linear-gradient(#c9a769,#c9a769) left bottom/14px 1px no-repeat, linear-gradient(#c9a769,#c9a769) left bottom/1px 14px no-repeat, linear-gradient(#c9a769,#c9a769) right bottom/14px 1px no-repeat, linear-gradient(#c9a769,#c9a769) right bottom/1px 14px no-repeat; opacity: .6; pointer-events: none; }
+body .homepage .clan-stat-card:hover { transform: none; border-color: #866c40; box-shadow: inset 0 0 0 3px #0d0b08, inset 0 1px 0 #e5c9901a, 0 10px 28px #0005; }
+body .homepage .clan-stat-heading h2 { color: #c7ae7a; font: 500 10px/1.5 Cinzel, Georgia, serif; letter-spacing: 1.3px; }
+body .homepage .clan-stat-medallion { position: absolute; left: 29px; right: auto; top: 50%; transform: translateY(-50%); width: 55px; height: 64px; color: #d0ad67; border: 0; border-radius: 0; clip-path: polygon(12% 0, 88% 0, 100% 12%, 100% 78%, 50% 100%, 0 78%, 0 12%); background: linear-gradient(145deg, #c2a064, #775728 48%, #b58b48); box-shadow: none; }
+body .homepage .clan-stat-medallion::before { content: ''; position: absolute; inset: 1px; clip-path: inherit; background: linear-gradient(145deg, #382a16, #1b160f 55%, #241c10); }
+body .homepage .clan-stat-medallion svg { position: relative; z-index: 1; width: 24px; height: 24px; margin-top: -4px; }
+body .homepage .clan-stat-amount { margin: 10px 0 0; color: #f0d69d; font: 500 46px/1.12 Cinzel, Georgia, serif; letter-spacing: -1.5px; font-variant-numeric: lining-nums tabular-nums; text-shadow: 0 2px 2px #0009; white-space: nowrap; }
 body .homepage .clan-stat-amount small { display: inline-block; margin-left: 7px; color: #ad956b; font: 400 15px/1.2 Georgia, serif; letter-spacing: 0; }
 @media (min-width: 701px) and (max-width: 1050px) {
-  body .homepage .clan-stat-card { padding: 26px 22px; }
-  body .homepage .clan-stat-medallion { width: 34px; height: 41px; right: 17px; }
+  body .homepage .clan-stat-card { min-height: 140px; padding: 28px 18px 26px 77px; }
+  body .homepage .clan-stat-medallion { width: 40px; height: 48px; left: 22px; right: auto; }
   body .homepage .clan-stat-medallion svg { width: 19px; height: 19px; }
-  body .homepage .clan-stat-amount { margin-right: 36px; font-size: 34px; }
+  body .homepage .clan-stat-amount { margin-right: 0; font-size: 32px; }
   body .homepage .clan-stat-amount small { font-size: 12px; margin-left: 4px; }
   body .homepage .clan-stat-heading h2 { font-size: 9px; letter-spacing: 1px; }
 }
 @media (max-width: 700px) {
   body .homepage .clan-stats-grid { gap: 12px; }
-  body .homepage .clan-stat-card { min-height: 116px; padding: 23px 26px 22px 87px; }
-  body .homepage .clan-stat-medallion { left: 23px; right: auto; width: 43px; height: 50px; }
+  body .homepage .clan-stat-card { min-height: 116px; padding: 23px 26px 22px 91px; }
+  body .homepage .clan-stat-medallion { left: 25px; right: auto; width: 43px; height: 51px; }
   body .homepage .clan-stat-heading h2 { font-size: 10px; letter-spacing: 1.4px; }
   body .homepage .clan-stat-amount { margin: 9px 0 0; font-size: 37px; }
   body .homepage .clan-stat-amount small { font-size: 14px; }

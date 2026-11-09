@@ -1,0 +1,122 @@
+/* The agenda uses the same charcoal, parchment and worn brass as the clan crest. */
+body .clan-calendar { padding-top: 48px; padding-bottom: 70px; }
+body .clan-calendar > .section-heading { align-items: center; gap: 24px; margin-bottom: 28px; }
+body .clan-calendar > .section-heading h2 { font-size: clamp(26px, 3vw, 38px); margin: 9px 0 12px; line-height: 1.2; }
+body .clan-calendar .section-description { color: #b9ad98; font-size: 13px; line-height: 1.8; margin: 0; }
+body .clan-calendar .calendar-back { display: inline-flex; align-items: center; gap: 9px; padding: 12px 0; flex-shrink: 0; font-size: 11px; color: #ceb27b; }
+body .clan-calendar .calendar-back:hover { color: #ffe0a2; }
+body .clan-calendar .community-filters { gap: 7px; margin-bottom: 21px; }
+body .clan-calendar .community-filters button { min-height: 38px; padding: 9px 17px; border: 1px solid #8f754042; border-radius: 3px; color: #bfb099; background: #15130fe8; font-size: 11px; box-shadow: inset 0 1px 0 #e0bd7b0a; }
+body .clan-calendar .community-filters button.selected { color: #f0cf8b; border-color: #a58142; background: linear-gradient(135deg, #49361c, #292013); box-shadow: inset 0 1px 0 #f3d38c26; }
+body .clan-calendar .calendar-layout { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); border: 1px solid #87663880; border-radius: 5px; background: #14120f; box-shadow: 0 20px 50px #0005, inset 0 1px 0 #e7c58412; }
+body .clan-calendar .calendar-month { padding: 30px; background: radial-gradient(ellipse at top left, #90703d0d, transparent 80%), #181611; border-right: 1px solid #8b6b3a47; border-bottom: 0; }
+body .clan-calendar .calendar-heading { margin-bottom: 28px; gap: 14px; }
+body .clan-calendar .calendar-heading .calendar-month-title { display: block; min-width: 0; }
+body .clan-calendar .mini-label { color: #a68b5d; font-size: 8px; letter-spacing: 1.6px; }
+body .clan-calendar .calendar-heading h3 { margin-top: 8px; color: #ead1a0; font: 500 23px/1.3 Cinzel, Georgia, serif; letter-spacing: -.45px; }
+body .clan-calendar .calendar-month-controls { gap: 5px; flex-shrink: 0; }
+body .clan-calendar .calendar-month-controls button { width: 35px; height: 36px; border: 1px solid #8c703a80; border-radius: 3px; background: linear-gradient(145deg, #30271b, #1b1711); box-shadow: inset 0 1px 0 #ebc78813; color: #d7bd89; }
+body .clan-calendar .calendar-month-controls .today-button { width: auto; padding: 0 12px; font-size: 10px; }
+body .clan-calendar .calendar-weekdays { margin-bottom: 10px; color: #a8997f; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+body .clan-calendar .calendar-days, body .clan-calendar .calendar-weekdays { gap: 5px; }
+body .clan-calendar .calendar-days button { min-height: 67px; aspect-ratio: auto; padding: 10px 3px 9px; gap: 5px; border: 1px solid #8e75401a; border-radius: 3px; background: #0d0c0926; color: #bcb09a; transition: border-color .15s, background .15s, color .15s; }
+body .clan-calendar .calendar-day-number { font-size: 16px; font-variant-numeric: tabular-nums; line-height: 1; }
+body .clan-calendar .calendar-day-events { font-size: 8px; line-height: 1; color: #bb9b63; }
+body .clan-calendar .calendar-days button.has-events { background: linear-gradient(145deg, #a17e3713, #95733105); border-color: #9f7c3c45; color: #e2c795; }
+body .clan-calendar .calendar-days button.is-today { border-color: #b79255; }
+body .clan-calendar .calendar-days button.is-today::after { top: 6px; right: 6px; width: 3px; height: 3px; background: #edd098; }
+body .clan-calendar .calendar-days button.selected { color: #fff0cf; border-color: #d1a659; background: linear-gradient(145deg, #745225, #46321a); box-shadow: inset 0 1px 0 #ffdf9b40, 0 2px 9px #0003; }
+body .clan-calendar .calendar-days button.selected .calendar-day-events { color: #e7c88c; }
+body .clan-calendar .calendar-days button.selected .calendar-day-number { color: #ffedc1; }
+body .clan-calendar .calendar-markers { height: 3px; gap: 3px; }
+body .clan-calendar .calendar-markers i { width: 3px; height: 3px; }
+body .clan-calendar .calendar-blank { min-height: 67px; border: 1px solid #a1814110; border-radius: 3px; background: #08070514; }
+body .clan-calendar .calendar-footer { display: flex; flex-wrap: wrap; gap: 15px 20px; justify-content: space-between; align-items: center; padding-top: 21px; margin-top: 21px; border-top: 1px solid #89703f33; }
+body .clan-calendar .calendar-legend { gap: 13px; margin: 0; font-size: 9px; color: #b1a38c; }
+body .clan-calendar .calendar-legend i { width: 5px; height: 5px; }
+body .clan-calendar .calendar-legend .today { width: 7px; height: 7px; border: 1px solid #c8a264; border-radius: 2px; background: transparent; }
+body .clan-calendar .calendar-timezone { font-size: 9px; color: #958971; margin: 0; }
+body .clan-calendar .calendar-agenda { padding: 30px; background: linear-gradient(145deg, #1c1913, #12110e 70%); }
+body .clan-calendar .agenda-heading { gap: 16px; align-items: flex-start; padding-bottom: 23px; margin-bottom: 23px; border-bottom: 1px solid #8d713c35; }
+body .clan-calendar .agenda-heading h3 { margin-top: 9px; font: 500 22px/1.35 Cinzel, Georgia, serif; color: #e5cca0; text-transform: none; }
+body .clan-calendar .agenda-heading .text-link { min-height: 34px; display: inline-flex; align-items: center; gap: 5px; color: #cbb17d; margin-top: -7px; font-size: 10px; }
+body .clan-calendar .agenda-count { font-size: 11px; color: #a89a81; margin: 10px 0 0; }
+body .clan-calendar .agenda-list { gap: 12px; margin-bottom: 25px; }
+body .clan-calendar .agenda-item { gap: 13px; padding: 19px 16px; border: 1px solid #98743c42; border-radius: 3px; background: linear-gradient(135deg, #d3aa5908, #15130f70); box-shadow: inset 0 1px 0 #e1ba6e0b; }
+body .clan-calendar .agenda-icon { width: 34px; height: 40px; flex-basis: 34px; border-color: #9f7f464d; background: #3c2d184a; color: #d1b47b; clip-path: polygon(0 0, 100% 0, 100% 77%, 50% 100%, 0 77%); }
+body .clan-calendar .agenda-icon.clan { color: #9fbd9e; background: #243c2755; border-color: #849b7e4d; }
+body .clan-calendar .agenda-item .mini-label { font-size: 7px; letter-spacing: 1.15px; line-height: 1.8; }
+body .clan-calendar .agenda-item .mini-label b { font-weight: 500; color: #b1c39a; letter-spacing: .4px; }
+body .clan-calendar .agenda-item h4 { margin: 7px 0 11px; color: #f0dfbe; font: 500 17px/1.45 Cinzel, Georgia, serif; }
+body .clan-calendar .agenda-item p { color: #a99d87; font-size: 11px; line-height: 1.8; }
+body .clan-calendar .agenda-item .agenda-date { color: #cdbb98; font-size: 10px; }
+body .clan-calendar .agenda-item .text-link { font-size: 10px; min-height: 30px; margin-top: 9px; color: #d9b676; }
+body .clan-calendar .agenda-empty { padding: 22px 16px 32px; margin-bottom: 26px; text-align: center; border: 1px dashed #9c7a3f4a; border-radius: 3px; color: #ae8f55; }
+body .clan-calendar .agenda-empty > svg { margin: 4px auto 0; }
+body .clan-calendar .agenda-empty h4 { font: 500 17px/1.4 Cinzel, Georgia, serif; color: #dbcaab; }
+body .clan-calendar .agenda-empty p { margin: 0 auto; color: #a79a83; font-size: 11px; }
+body .clan-calendar .agenda-discord { padding: 21px 0 0; border-top: 1px solid #8d713c35; background: transparent; gap: 12px; }
+body .clan-calendar .agenda-discord > svg { width: 18px; color: #b99861; }
+body .clan-calendar .agenda-discord h4 { color: #d0bea0; font-size: 12px; }
+body .clan-calendar .agenda-discord p { color: #a19581; font-size: 11px; }
+body .clan-calendar .agenda-discord .text-link { color: #d4b67c; font-size: 10px; min-height: 28px; }
+body .clan-calendar button:focus-visible, body .clan-calendar a:focus-visible { outline: 2px solid #efd291; outline-offset: 3px; }
+body .clan-calendar button:disabled { opacity: .4; cursor: default; }
+@media (hover: hover) {
+  body .clan-calendar .calendar-days button:hover { background: #46351d; border-color: #c39a53; color: #ffe1a6; }
+  body .clan-calendar .calendar-days button.selected:hover { background: #6b4a24; }
+  body .clan-calendar .calendar-month-controls button:hover, body .clan-calendar .community-filters button:hover { border-color: #c19b58; color: #f5dba7; }
+}
+@media (max-width: 1100px) {
+  body .clan-calendar .calendar-month, body .clan-calendar .calendar-agenda { padding: 24px; }
+  body .clan-calendar .calendar-heading h3 { font-size: 20px; }
+  body .clan-calendar .calendar-month-controls button { width: 31px; }
+  body .clan-calendar .calendar-month-controls .today-button { padding-inline: 8px; }
+  body .clan-calendar .agenda-heading { flex-wrap: wrap; }
+  body .clan-calendar .agenda-heading h3 { font-size: 20px; }
+}
+@media (max-width: 900px) {
+  body .clan-calendar .calendar-layout { grid-template-columns: 1fr; }
+  body .clan-calendar .calendar-month { border-right: 0; border-bottom: 1px solid #8b6b3a47; }
+  body .clan-calendar .agenda-heading { flex-wrap: nowrap; }
+  body .clan-calendar .calendar-month-controls button { width: 36px; }
+  body .clan-calendar .calendar-month-controls .today-button { padding-inline: 13px; }
+  body .clan-calendar .calendar-heading h3 { font-size: 23px; }
+}
+@media (max-width: 600px) {
+  body .clan-calendar { padding-top: 26px; padding-bottom: 44px; }
+  body .clan-calendar > .section-heading { gap: 12px; margin-bottom: 20px; align-items: flex-start; flex-direction: column; }
+  body .clan-calendar > .section-heading h2 { font-size: 26px; }
+  body .clan-calendar .section-description { font-size: 12px; }
+  body .clan-calendar .calendar-back { padding: 4px 0; font-size: 10px; }
+  body .clan-calendar .community-filters { gap: 5px; margin-bottom: 17px; }
+  body .clan-calendar .community-filters button { min-height: 35px; padding: 8px 11px; font-size: 10px; }
+  body .clan-calendar .calendar-month, body .clan-calendar .calendar-agenda { padding: 21px 16px; }
+  body .clan-calendar .calendar-heading { gap: 10px; margin-bottom: 23px; flex-wrap: wrap; }
+  body .clan-calendar .calendar-heading h3 { font-size: 19px; }
+  body .clan-calendar .calendar-heading .mini-label { font-size: 7px; letter-spacing: 1.3px; }
+  body .clan-calendar .calendar-month-controls { gap: 4px; }
+  body .clan-calendar .calendar-month-controls button { width: 30px; height: 34px; }
+  body .clan-calendar .calendar-month-controls .today-button { padding-inline: 7px; font-size: 9px; }
+  body .clan-calendar .calendar-weekdays, body .clan-calendar .calendar-days { gap: 4px; }
+  body .clan-calendar .calendar-weekdays { font-size: 8px; }
+  body .clan-calendar .calendar-days button, body .clan-calendar .calendar-blank { min-height: 47px; }
+  body .clan-calendar .calendar-days button { padding: 9px 2px 7px; gap: 7px; }
+  body .clan-calendar .calendar-day-number { font-size: 14px; }
+  body .clan-calendar .calendar-day-events { display: none; }
+  body .clan-calendar .calendar-days button.is-today::after { top: 4px; right: 4px; }
+  body .clan-calendar .calendar-footer { gap: 14px; padding-top: 17px; margin-top: 17px; }
+  body .clan-calendar .calendar-legend { font-size: 8px; gap: 12px; }
+  body .clan-calendar .calendar-timezone { font-size: 8px; }
+  body .clan-calendar .agenda-heading { gap: 15px; flex-wrap: wrap; padding-bottom: 19px; margin-bottom: 20px; }
+  body .clan-calendar .agenda-heading h3 { font-size: 20px; }
+  body .clan-calendar .agenda-heading .text-link { margin-top: 0; }
+  body .clan-calendar .agenda-item { padding: 17px 12px; gap: 10px; }
+  body .clan-calendar .agenda-icon { width: 28px; height: 34px; flex-basis: 28px; }
+  body .clan-calendar .agenda-icon svg { width: 17px; }
+  body .clan-calendar .agenda-item h4 { font-size: 16px; }
+  body .clan-calendar .agenda-item .mini-label { font-size: 6.5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body .clan-calendar .calendar-days button { transition: none; }
+}
