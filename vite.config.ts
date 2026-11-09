@@ -18,8 +18,8 @@ const managedLinux = readExecutionProfile() === "managed-linux";
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
-  durable_objects: { bindings: [{ name: 'RAFFLES', class_name: 'ClanRaffle' }, { name: 'WOM_CACHE', class_name: 'WomCache' }] },
-  migrations: [{ tag: 'raffle-v1', new_sqlite_classes: ['ClanRaffle'] }, { tag: 'wom-cache-v1', new_sqlite_classes: ['WomCache'] }],
+  durable_objects: { bindings: [{ name: 'RAFFLES', class_name: 'ClanRaffle' }, { name: 'WOM_CACHE', class_name: 'WomCache' }, { name: 'PROGRESS', class_name: 'ClanProgress' }] },
+  migrations: [{ tag: 'raffle-v1', new_sqlite_classes: ['ClanRaffle'] }, { tag: 'wom-cache-v1', new_sqlite_classes: ['WomCache'] }, { tag: 'profile-progress-v1', new_sqlite_classes: ['ClanProgress'] }],
   // Public Discord application metadata. Credentials are encrypted runtime secrets.
   vars: {
     WOM_AUTH_MODE: "public",

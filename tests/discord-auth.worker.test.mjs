@@ -72,6 +72,8 @@ function runtime(options = {}) {
         if (options.womRedirect) return new Response(null, { status: 302, headers: { Location: 'https://untrusted.invalid/capture' } });
         if (options.womOffline) return Response.json({}, { status: options.womStatus || 503, headers: { 'Retry-After': options.womRetryAfter || '60' } });
         if (url.pathname === '/v2/groups/7059') return Response.json({ id: 7059, memberCount: 2, homeworld: 489, memberships: [testPlayer, secondPlayer].map(player => ({ player })) });
+        if (url.pathname === '/v2/players/hert') return Response.json({ id: 701, latestSnapshot: null });
+        if (decodeURIComponent(url.pathname) === '/v2/players/ander hert') return Response.json({ id: 702, latestSnapshot: null });
         if (url.pathname === '/v2/groups/7059/competitions') return Response.json([competition]);
         if (url.pathname === '/v2/groups/7059/gained') return Response.json([{ player: testPlayer, data: { gained: 12345 } }]);
         if (url.pathname.endsWith('/competitions')) {

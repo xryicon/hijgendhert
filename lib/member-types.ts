@@ -23,4 +23,8 @@ export type MemberProfile = {
   eventsError: string | null;
   fetchedAt: string;
   stale?: boolean;
+  bosses: import('./profile-progress').BossProfile | null;
+  bossesError: string | null;
+  progression: import('./profile-progress').RankProgress | null;
+  progressionError: string | null;
 };

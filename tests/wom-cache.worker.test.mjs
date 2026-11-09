@@ -41,6 +41,17 @@ const read = (mf, suffix='') => mf.dispatchFetch(origin + '/read' + suffix);
 const legacy = (mf, rows) => mf.dispatchFetch(origin + '/legacy',{method:'POST',body:JSON.stringify(rows)});
 const oldGroup = (age) => ({data:{id:7059,memberCount:423,memberships:[],source:'saved'},fetchedAt:new Date(Date.now()-age).toISOString(),stale:false});
 
+test('profile boss snapshots share the cache while unsupported player paths stay blocked', async()=>{
+  const {mf,calls}=runtime();
+  try {
+    const response=await read(mf,'?path='+encodeURIComponent('/players/hert'));
+    assert.equal(response.status,200); assert.equal(calls.length,1);
+    assert.equal((await read(mf,'?path='+encodeURIComponent('/players/hert'))).status,200); assert.equal(calls.length,1);
+    const invalid=await read(mf,'?path='+encodeURIComponent('/players/hert/competitions/standings'));
+    assert.equal(invalid.status,503); assert.equal((await invalid.json()).code,'WOM_PATH'); assert.equal(calls.length,1);
+  } finally { await mf.dispose(); }
+});
+
 test('shared cache coalesces simultaneous requests and spaces independent cache misses', async()=>{
   const {mf,calls}=runtime({delay:80});
   try {

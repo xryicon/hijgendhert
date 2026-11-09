@@ -4,7 +4,9 @@ import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 import { discordAuthRoute, privateHeaders } from "../lib/discord-auth";
 import { memberProfileRoute } from "../lib/member-profile";
 import { raffleRoute } from "../lib/raffle-route";
+import { profileProgressRoute } from "../lib/profile-progress-route";
 export { ClanRaffle } from './clan-raffle';
+export { ClanProgress } from './clan-progress';
 export { WomCache } from './wom-cache';
 
 const worker = {
@@ -13,6 +15,8 @@ const worker = {
     if (raffleResponse) return raffleResponse;
     const authResponse = await discordAuthRoute(request, env);
     if (authResponse) return authResponse;
+    const progressResponse = await profileProgressRoute(request, env);
+    if (progressResponse) return progressResponse;
     const profileResponse = await memberProfileRoute(request, env);
     if (profileResponse) return profileResponse;
     let binding = ctx.props?.CONNECTORS;

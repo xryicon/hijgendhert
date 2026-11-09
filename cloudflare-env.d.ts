@@ -15,5 +15,6 @@ declare namespace Cloudflare {
     WOM_PUBLIC_PAUSE_UNTIL?: string;
     WOM_CACHE?: DurableObjectNamespace<import('./worker/wom-cache').WomCache>;
     RAFFLES?: DurableObjectNamespace<import('./worker/clan-raffle').ClanRaffle>;
+    PROGRESS?: DurableObjectNamespace<import('./worker/clan-progress').ClanProgress>;
   }
 }

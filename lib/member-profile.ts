@@ -4,6 +4,8 @@ import { unitOf } from './community';
 import type { ClanPlayer, DiscordMember, MemberEvent, MemberProfile } from './member-types';
 import { normalizePlayerName } from './player-name';
 import { readWiseOldMan, womConnection, womErrorCode, womRetryAfter, type WomEnv } from './wise-old-man';
+import { bossProfile, mergeEventResults, rankProgress } from './profile-progress';
+import type { ClanProgress } from '../worker/clan-progress';
 
 const groupId = 7059;
 const finite = z.number().finite();
@@ -56,7 +58,7 @@ async function boundedJson(response: Response | Request, limit: number): Promise
   return JSON.parse(Buffer.concat(parts).toString('utf8'));
 }
 
-export async function memberProfileRoute(request: Request, env: DiscordEnv & WomEnv, fetcher: typeof fetch = fetch): Promise<Response | null> {
+export async function memberProfileRoute(request: Request, env: DiscordEnv & WomEnv & { PROGRESS?: DurableObjectNamespace<ClanProgress> }, fetcher: typeof fetch = fetch): Promise<Response | null> {
   const url = new URL(request.url);
   if (!['/api/members/profile', '/api/members/event'].includes(url.pathname)) return null;
   const isEvent = url.pathname === '/api/members/event';
@@ -84,7 +86,7 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv & Wom
         selectedId = body.playerId;
       } catch { return json({ error: 'Kies een RuneScape-account uit de clanlijst.' }, 400); }
     }
-    const group = z.object({ id: z.literal(groupId), memberships: z.array(z.object({ player: playerSchema })).max(2000) })
+    const group = z.object({ id: z.literal(groupId), memberships: z.array(z.object({ player: playerSchema, role: z.string().max(80).optional() })).max(2000) })
       .parse(await readWom('/groups/7059'));
     const players: ClanPlayer[] = group.memberships.map(({ player: p }) => ({ ...p, exp: p.exp ?? null, ehp: p.ehp ?? null, ehb: p.ehb ?? null }));
     if (selectedId !== undefined) {
@@ -105,6 +107,7 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv & Wom
       if (index === -1) return json({ error: 'Dit account staat niet op de deelnemerslijst van dit event.' }, 404);
       const event = profileEvents([{ ...detail.participations[index], rank: index + 1, competition: detail }], player.id)[0];
       if (!event) throw new Error('wom');
+      if (env.PROGRESS) await env.PROGRESS.getByName(`clan:7059:player:${player.id}`).recordEvents([event]);
       return json({ event, stale });
     }
     let events: MemberEvent[] = []; let eventsError: string | null = null;
@@ -115,9 +118,41 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv & Wom
         events = profileEvents(rows, player.id);
       } catch { eventsError = 'Je eventgeschiedenis is tijdelijk niet beschikbaar. Probeer het over een paar minuten opnieuw.'; }
     }
+    let bosses: MemberProfile['bosses'] = null; let bossesError: string | null = null;
+    let progression: MemberProfile['progression'] = null; let progressionError: string | null = null;
+    if (player) await Promise.all([
+      (async () => {
+        try { bosses = bossProfile(await readWom(`/players/${encodeURIComponent(player.username)}`), player.id); }
+        catch { bossesError = 'Je bosskills zijn tijdelijk niet beschikbaar.'; }
+      })(),
+      (async () => {
+        try {
+          if (!env.PROGRESS) throw new Error('storage');
+          const playerStore = env.PROGRESS.getByName(`clan:7059:player:${player.id}`);
+          const [rules, savedState] = await Promise.all([env.PROGRESS.getByName('clan:7059:rules').getRules(), playerStore.getPlayer()]);
+          let state = savedState;
+          events = mergeEventResults(events, state.events);
+          // WOM's aggregate standings endpoint is unreliable for this clan.
+          // Check only three unknown results per visit; all members share the
+          // event cache, and confirmed results persist across visits/devices.
+          const pending = events.filter(e => e.status === 'finished' && e.gained === null).slice(0, 3);
+          const checked = await Promise.allSettled(pending.map(async event => {
+            const detail = z.object({ id: z.literal(event.id), groupId: z.literal(groupId), participations: z.array(z.object({ playerId: z.number().int() }).passthrough()).max(2000) }).passthrough().parse(await readWom(`/competitions/${event.id}`));
+            const index = detail.participations.findIndex(p => p.playerId === player.id);
+            return index < 0 ? undefined : profileEvents([{ ...detail.participations[index], rank: index + 1, competition: detail }], player.id)[0];
+          }));
+          const results = checked.flatMap(result => result.status === 'fulfilled' && result.value ? [result.value] : []);
+          state = await playerStore.recordEvents([...events.filter(e => e.status === 'finished' && e.gained !== null), ...results]);
+          events = mergeEventResults(events, state.events);
+          if (eventsError) throw new Error('history');
+          const role = group.memberships.find(p => p.player.id === player.id)?.role || 'member';
+          progression = rankProgress(role, events, state, rules);
+        } catch { progressionError = 'Je rangvoortgang is tijdelijk niet beschikbaar. Opgeslagen instellingen blijven bewaard.'; }
+      })(),
+    ]);
     const profile: MemberProfile = { player, selection: saved ? 'saved' : player ? 'discord' : null,
       players: players.map(({ id, username, displayName }) => ({ id, username, displayName })).sort((a, b) => a.displayName.localeCompare(b.displayName)),
-      events, eventsError, fetchedAt, stale };
+      events, eventsError, fetchedAt, stale, bosses, bossesError, progression, progressionError };
     return json(profile);
   } catch (error) {
     if (error instanceof DiscordAccessError) return json({ error: 'Je Discord-toegang kon niet worden bevestigd.', reason: error.code }, error.code === 'unavailable' ? 503 : 401);

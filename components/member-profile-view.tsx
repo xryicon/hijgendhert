@@ -6,6 +6,8 @@ import { normalizePlayerName } from '@/lib/player-name';
 import { SKILLS } from '@/lib/community';
 import { useMemberSession } from './session-provider';
 import { ProfileRaffle } from './clan-raffle';
+import ProfileHighlights from './profile-highlights';
+import ProfileRankAdmin from './profile-rank-admin';
 
 const number = (value: number) => new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 0 }).format(value);
 const day = (value: string) => new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Amsterdam' }).format(new Date(value));
@@ -24,7 +26,7 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true); setError('');
     try {
-      const timeout = AbortSignal.timeout(30_000);
+      const timeout = AbortSignal.timeout(65_000);
       const response = await fetch('/api/members/profile', { credentials: 'same-origin', cache: 'no-store', signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
       const body = await response.json() as MemberProfile & { error?: string };
       if (response.status === 401) { await session.refresh(); throw new Error('Je toegang wordt opnieuw gecontroleerd.'); }
@@ -63,13 +65,14 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
       const result = body.event;
       setProfile(old => old ? { ...old, stale: old.stale || body.stale, events: old.events.map(e => e.id === id ? result : e) } : old);
       setResults(old => ({ ...old, [id]: 'loaded' }));
+      if (result.status === 'finished') await load();
     } catch { setResults(old => ({ ...old, [id]: 'error' })); }
   }
   const statsReady = !!profile?.player && !profile.eventsError && !error && !loading;
   return <div className="profile-shell">
     <div className="profile-breadcrumb"><a href="/">Hijgend Hert</a><span>/</span><span>Mijn profiel</span></div>
     <section className="profile-identity" aria-labelledby="profile-title">
-      <div className="profile-avatar" aria-hidden="true"><span>{Array.from(member.displayName)[0]}</span><ShieldCheck size={19}/></div>
+      <div className="profile-avatar" aria-hidden="true"><img src="/clan-logo.png" alt=""/><ShieldCheck size={19}/></div>
       <div className="profile-heading"><p className="member-eyebrow">HIJGEND HERT · CLANGENOOT</p><h1 id="profile-title">{member.displayName}</h1><p className="profile-discord"><span>@{member.username}</span><span className="profile-role"><ShieldCheck size={13}/>{member.clanRole}</span></p>{member.joinedAt && <p className="profile-since">Bij de Discord sinds {day(member.joinedAt)}</p>}</div>
       <a className="profile-agenda" href="/events#kalender"><CalendarDays size={17}/><span>Clanagenda</span><ArrowUpRight size={15}/></a>
       <img className="profile-watermark" src="/clan-logo.png" alt=""/>
@@ -99,6 +102,8 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
       </aside>
 
       <div className="profile-activity">
+        {profile?.player && <ProfileHighlights profile={profile} reload={load}/>}
+        {profile && ['Admin', 'Staff team'].includes(member.clanRole) && <ProfileRankAdmin players={profile.players} selectedPlayer={profile.player?.id} onChanged={load}/>}
         {profile?.player && <ProfileRaffle playerName={profile.player.displayName}/>}
         <div className="profile-summary" aria-label="Jouw clancompetities">
           <div><Swords size={20}/><strong>{statsReady ? stats.total : '—'}</strong><span>Clancompetities</span></div>
