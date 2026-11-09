@@ -19,7 +19,16 @@
 body .homepage .clan-stat-card { min-height: 154px; padding: 31px 26px 28px 108px; border: 1px solid #866c40; border-radius: 4px; background: radial-gradient(ellipse at 0% 0%, #9f7c3820, transparent 70%), linear-gradient(125deg, #211b13, #12100c 80%); box-shadow: inset 0 0 0 3px #0d0b08, inset 0 1px 0 #e5c9901a, 0 10px 28px #0005; }
 body .homepage .clan-stat-card::before { inset: 6px; border-color: #b698582b; border-radius: 1px; }
 body .homepage .clan-stat-card::after { inset: 3px; width: auto; height: auto; background: linear-gradient(#c9a769,#c9a769) left top/14px 1px no-repeat, linear-gradient(#c9a769,#c9a769) left top/1px 14px no-repeat, linear-gradient(#c9a769,#c9a769) right top/14px 1px no-repeat, linear-gradient(#c9a769,#c9a769) right top/1px 14px no-repeat, linear-gradient(#c9a769,#c9a769) left bottom/14px 1px no-repeat, linear-gradient(#c9a769,#c9a769) left bottom/1px 14px no-repeat, linear-gradient(#c9a769,#c9a769) right bottom/14px 1px no-repeat, linear-gradient(#c9a769,#c9a769) right bottom/1px 14px no-repeat; opacity: .6; pointer-events: none; }
-body .homepage .clan-stat-card:hover { transform: none; border-color: #866c40; box-shadow: inset 0 0 0 3px #0d0b08, inset 0 1px 0 #e5c9901a, 0 10px 28px #0005; }
+body .homepage .clan-stat-card { transition: transform .28s ease, border-color .28s ease, box-shadow .28s ease; }
+body .homepage .clan-stat-card::before, body .homepage .clan-stat-card::after { transition: border-color .28s ease, opacity .28s ease; }
+body .homepage .clan-stat-amount, body .homepage .clan-stat-medallion { transition: color .28s ease, text-shadow .28s ease, filter .28s ease; }
+@media (hover: hover) and (pointer: fine) {
+  body .homepage .clan-stat-card:hover { transform: translateY(-4px); border-color: #d6ad61; box-shadow: inset 0 0 0 3px #171108, inset 0 0 34px #e8b95516, 0 14px 32px #0007, 0 0 24px #dfad4826; }
+  body .homepage .clan-stat-card:hover::before { border-color: #d5b57070; }
+  body .homepage .clan-stat-card:hover::after { opacity: 1; }
+  body .homepage .clan-stat-card:hover .clan-stat-medallion { color: #ffe0a1; filter: brightness(1.22); }
+  body .homepage .clan-stat-card:hover .clan-stat-amount { color: #ffe5ad; text-shadow: 0 0 18px #dcb55755, 0 2px 2px #0009; }
+}
 body .homepage .clan-stat-heading h2 { color: #c7ae7a; font: 500 10px/1.5 Cinzel, Georgia, serif; letter-spacing: 1.3px; }
 body .homepage .clan-stat-medallion { position: absolute; left: 29px; right: auto; top: 50%; transform: translateY(-50%); width: 55px; height: 64px; color: #d0ad67; border: 0; border-radius: 0; clip-path: polygon(12% 0, 88% 0, 100% 12%, 100% 78%, 50% 100%, 0 78%, 0 12%); background: linear-gradient(145deg, #c2a064, #775728 48%, #b58b48); box-shadow: none; }
 body .homepage .clan-stat-medallion::before { content: ''; position: absolute; inset: 1px; clip-path: inherit; background: linear-gradient(145deg, #382a16, #1b160f 55%, #241c10); }
@@ -43,6 +52,8 @@ body .homepage .clan-stat-amount small { display: inline-block; margin-left: 7px
   body .homepage .clan-stat-amount small { font-size: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
+  body .homepage .clan-stat-card, body .homepage .clan-stat-card::before, body .homepage .clan-stat-card::after, body .homepage .clan-stat-amount, body .homepage .clan-stat-medallion { transition: none; }
+  body .homepage .clan-stat-card:hover { transform: none; }
   .stag-eyelid { animation: none; transform: scaleY(0); }
   .woodland-firelight i { animation: none; opacity: .3; }
 }

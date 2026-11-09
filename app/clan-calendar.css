@@ -22,6 +22,12 @@ body .clan-calendar .calendar-days, body .clan-calendar .calendar-weekdays { gap
 body .clan-calendar .calendar-days button { min-height: 67px; aspect-ratio: auto; padding: 10px 3px 9px; gap: 5px; border: 1px solid #8e75401a; border-radius: 3px; background: #0d0c0926; color: #bcb09a; transition: border-color .15s, background .15s, color .15s; }
 body .clan-calendar .calendar-day-number { font-size: 16px; font-variant-numeric: tabular-nums; line-height: 1; }
 body .clan-calendar .calendar-day-events { font-size: 8px; line-height: 1; color: #bb9b63; }
+body .clan-calendar .calendar-days button.hunter-day { display: grid; grid-template-columns: 1fr 1fr; column-gap: 0; padding-inline: 7px; }
+body .clan-calendar .hunter-day .calendar-day-number { grid-column: 1; grid-row: 1; }
+body .clan-calendar .calendar-day-chinchompa { grid-column: 2; grid-row: 1; width: 27px; height: 24px; object-fit: contain; justify-self: center; filter: drop-shadow(0 1px 2px #0009); }
+body .clan-calendar .hunter-day .calendar-day-events, body .clan-calendar .hunter-day .calendar-markers { grid-column: 1 / -1; }
+body .clan-calendar .agenda-icon.hunter-icon { width: 42px; height: 40px; flex-basis: 42px; clip-path: none; border-radius: 3px; border-color: #a7803f4d; background: radial-gradient(ellipse, #a5682733, #30241633); }
+body .clan-calendar .hunter-icon img { width: 36px; height: 32px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 2px 2px #0009); }
 body .clan-calendar .calendar-days button.has-events { background: linear-gradient(145deg, #a17e3713, #95733105); border-color: #9f7c3c45; color: #e2c795; }
 body .clan-calendar .calendar-days button.is-today { border-color: #b79255; }
 body .clan-calendar .calendar-days button.is-today::after { top: 6px; right: 6px; width: 3px; height: 3px; background: #edd098; }
@@ -100,7 +106,9 @@ body .clan-calendar button:disabled { opacity: .4; cursor: default; }
   body .clan-calendar .calendar-month-controls .today-button { padding-inline: 7px; font-size: 9px; }
   body .clan-calendar .calendar-weekdays, body .clan-calendar .calendar-days { gap: 4px; }
   body .clan-calendar .calendar-weekdays { font-size: 8px; }
-  body .clan-calendar .calendar-days button, body .clan-calendar .calendar-blank { min-height: 47px; }
+  body .clan-calendar .calendar-days button, body .clan-calendar .calendar-blank { min-height: 55px; }
+  body .clan-calendar .calendar-days button.hunter-day { display: flex; gap: 3px; padding: 5px 2px; }
+  body .clan-calendar .calendar-day-chinchompa { width: 23px; height: 20px; }
   body .clan-calendar .calendar-days button { padding: 9px 2px 7px; gap: 7px; }
   body .clan-calendar .calendar-day-number { font-size: 14px; }
   body .clan-calendar .calendar-day-events { display: none; }
@@ -114,6 +122,8 @@ body .clan-calendar button:disabled { opacity: .4; cursor: default; }
   body .clan-calendar .agenda-item { padding: 17px 12px; gap: 10px; }
   body .clan-calendar .agenda-icon { width: 28px; height: 34px; flex-basis: 28px; }
   body .clan-calendar .agenda-icon svg { width: 17px; }
+  body .clan-calendar .agenda-icon.hunter-icon { width: 36px; height: 36px; flex-basis: 36px; }
+  body .clan-calendar .hunter-icon img { width: 32px; height: 28px; }
   body .clan-calendar .agenda-item h4 { font-size: 16px; }
   body .clan-calendar .agenda-item .mini-label { font-size: 6.5px; }
 }
