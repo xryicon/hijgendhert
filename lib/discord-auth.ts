@@ -30,7 +30,8 @@ export type DiscordConfig = {
 export type AccessCode = 'setup' | 'expired' | 'role' | 'server' | 'pending' | 'unavailable' | 'state' | 'cancelled';
 export class DiscordAccessError extends Error {
   code: AccessCode;
-  constructor(code: AccessCode) { super(code); this.name = 'DiscordAccessError'; this.code = code; }
+  detail?: string;
+  constructor(code: AccessCode, detail?: string) { super(code); this.name = 'DiscordAccessError'; this.code = code; this.detail = detail; }
 }
 
 export function discordConfig(env: DiscordEnv): DiscordConfig | null {
@@ -104,7 +105,7 @@ async function unseal(config: DiscordConfig, purpose: 'state' | 'session' | 'pro
 const stateSchema = z.object({ nonce: z.string().length(43), verifier: z.string().length(43), expiresAt: z.number().int() }).strict();
 const sessionSchema = z.object({ accessToken: z.string().min(10).max(512), userId: snowflake, expiresAt: z.number().int() }).strict();
 const userSchema = z.object({ id: snowflake, username: z.string().min(1).max(100), global_name: z.string().max(100).nullable().optional() });
-const memberSchema = z.object({ roles: z.array(snowflake).max(500), pending: z.boolean().optional(), nick: z.string().max(100).nullable().optional(), joined_at: z.string().max(50).optional(), user: userSchema.optional() });
+const memberSchema = z.object({ roles: z.array(snowflake).max(500), pending: z.boolean().optional(), nick: z.string().max(100).nullable().optional(), joined_at: z.string().max(50).nullish(), user: userSchema.optional() });
 
 // A display preference, never proof of RuneScape account ownership. It survives
 // sign-out on this browser and is encrypted and bound to one Discord user.
@@ -123,21 +124,21 @@ async function discordFetch(url: string, init: RequestInit = {}, fetcher: typeof
     // Workers rejects redirect: 'error' before sending a request. Handle redirects
     // manually so Discord credentials are never forwarded to another endpoint.
     const response = await fetcher(url, { ...init, redirect: 'manual', cache: 'no-store', signal: AbortSignal.timeout(8_000) });
-    if (response.status >= 300 && response.status < 400) throw new DiscordAccessError('unavailable');
+    if (response.status >= 300 && response.status < 400) throw new DiscordAccessError('unavailable', `REDIRECT${response.status}`);
     return response;
   }
-  catch { throw new DiscordAccessError('unavailable'); }
+  catch (error) { throw error instanceof DiscordAccessError ? error : new DiscordAccessError('unavailable', 'NETWORK'); }
 }
 async function readJson(response: Response): Promise<unknown> {
-  try { return await response.json(); } catch { throw new DiscordAccessError('unavailable'); }
+  try { return await response.json(); } catch { throw new DiscordAccessError('unavailable', 'JSON'); }
 }
 export async function checkMembership(config: DiscordConfig, token: string, fetcher: typeof fetch = fetch) {
   const response = await discordFetch(`${API}/users/@me/guilds/${config.guildId}/member`, { headers: { Authorization: `Bearer ${token}` } }, fetcher);
   if (response.status === 401) throw new DiscordAccessError('expired');
   if (response.status === 403 || response.status === 404) throw new DiscordAccessError('server');
-  if (!response.ok) throw new DiscordAccessError('unavailable');
+  if (!response.ok) throw new DiscordAccessError('unavailable', `HTTP${response.status}`);
   const parsed = memberSchema.safeParse(await readJson(response));
-  if (!parsed.success) throw new DiscordAccessError('unavailable');
+  if (!parsed.success) throw new DiscordAccessError('unavailable', 'DATA');
   if (parsed.data.pending) throw new DiscordAccessError('pending');
   if (!config.roleIds.some(id => parsed.data.roles.includes(id))) throw new DiscordAccessError('role');
   return parsed.data;
@@ -181,6 +182,7 @@ async function start(request: Request, config: DiscordConfig) {
 async function callback(request: Request, config: DiscordConfig, fetcher: typeof fetch) {
   const params = new URL(request.url).searchParams;
   let accessToken: string | undefined;
+  let stage = 'STATE';
   try {
     const parsed = stateSchema.safeParse(await unseal(config, 'state', readCookie(request, STATE_COOKIE)));
     const nonce = params.get('state') || '';
@@ -189,28 +191,38 @@ async function callback(request: Request, config: DiscordConfig, fetcher: typeof
     if (params.has('error')) throw new DiscordAccessError(params.get('error') === 'access_denied' ? 'cancelled' : 'unavailable');
     const code = params.get('code');
     if (!code || code.length > 2048 || params.getAll('code').length !== 1) throw new DiscordAccessError('state');
+    stage = 'TOKEN';
     const response = await discordFetch(TOKEN_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret, grant_type: 'authorization_code', code, redirect_uri: `${config.origin}/api/auth/discord/callback`, code_verifier: parsed.data.verifier }),
     }, fetcher);
-    if (!response.ok) throw new DiscordAccessError(response.status === 400 ? 'expired' : 'unavailable');
+    if (!response.ok) throw new DiscordAccessError(response.status === 400 ? 'expired' : 'unavailable', `HTTP${response.status}`);
     const tokens = z.object({ access_token: z.string().min(10).max(512), token_type: z.literal('Bearer'), expires_in: z.number().int().positive(), scope: z.string() }).safeParse(await readJson(response));
-    if (!tokens.success) throw new DiscordAccessError('unavailable');
+    if (!tokens.success) throw new DiscordAccessError('unavailable', 'DATA');
     accessToken = tokens.data.access_token;
     if (!SCOPES.every(scope => tokens.data.scope.split(' ').includes(scope))) throw new DiscordAccessError('role');
+    stage = 'MEMBER';
     const member = await checkMembership(config, accessToken, fetcher);
     // identify is the only profile scope; email and message access are never requested.
+    stage = 'IDENTITY';
     const userResponse = await discordFetch(`${API}/users/@me`, { headers: { Authorization: `Bearer ${accessToken}` } }, fetcher);
-    if (!userResponse.ok) throw new DiscordAccessError('unavailable');
+    if (!userResponse.ok) throw new DiscordAccessError('unavailable', `HTTP${userResponse.status}`);
     const user = userSchema.safeParse(await readJson(userResponse));
-    if (!user.success || !member.user || user.data.id !== member.user.id) throw new DiscordAccessError('unavailable');
+    if (!user.success) throw new DiscordAccessError('unavailable', 'DATA');
+    if (!member.user) throw new DiscordAccessError('unavailable', 'MEMBERUSER');
+    if (user.data.id !== member.user.id) throw new DiscordAccessError('unavailable', 'MISMATCH');
+    stage = 'SESSION';
     const seconds = Math.min(tokens.data.expires_in, MAX_SESSION_SECONDS);
     const session = await seal(config, 'session', { accessToken, userId: user.data.id, expiresAt: Date.now() + seconds * 1000 });
     return redirect('/ledenomgeving', [clearState(), cookie(SESSION_COOKIE, session, seconds)]);
   } catch (error) {
     if (accessToken) await revoke(config, accessToken, fetcher);
     const code = error instanceof DiscordAccessError ? error.code : 'unavailable';
-    return redirect(`/login?error=${code}`, [clearState(), clearSession()]);
+    // Fixed stage labels and status codes only: never log provider bodies,
+    // authorization codes, tokens, cookies, secrets or account identifiers.
+    const reference = `HH-${stage}-${error instanceof DiscordAccessError ? error.detail || code.toUpperCase() : 'INTERNAL'}`;
+    console.warn(JSON.stringify({ event: 'discord_login_failed', reason: code, reference }));
+    return redirect(`/login?error=${code}${code === 'unavailable' ? `&ref=${reference}` : ''}`, [clearState(), clearSession()]);
   }
 }
 

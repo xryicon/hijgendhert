@@ -28,6 +28,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if (current.member) redirect('/profiel');
   const error = typeof params.error === 'string' ? errors[params.error] : undefined;
   const message = !config ? errors.setup : error || (current.reason === 'unavailable' ? errors.unavailable : undefined);
+  const reference = typeof params.ref === 'string' && /^HH-[A-Z]{2,12}-[A-Z0-9]{2,20}$/.test(params.ref) ? params.ref : null;
   return <>
     <LoginSessionRedirect/>
     <SiteHeader view="member"/>
@@ -40,6 +41,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <p className="member-intro">Eén clan. Eén Discord-account.<br/>Log in en stap de ledenomgeving binnen.</p>
         <div className="member-role"><ShieldCheck size={17}/><span>Member · Admin · Staff team</span></div>
         {message && <p className={`member-notice${!config ? ' member-notice-setup' : ''}`} role="status">{message}</p>}
+        {message && reference && <p className="member-help">Foutcode: {reference}</p>}
         {params.loggedOut === '1' && <p className="member-notice" role="status">Je bent uitgelogd.{params.revoke === 'pending' && ' Discord kon de koppeling nog niet intrekken. Je kunt deze zelf verwijderen onder Gebruikersinstellingen → Geautoriseerde apps.'}</p>}
         {config ? <a className="member-login" href={`${config.origin}/api/auth/discord`}><MessageCircle size={21}/><span>Inloggen met Discord</span><ArrowRight size={18}/></a> : <button className="member-login" disabled><MessageCircle size={21}/><span>Inloggen met Discord</span><ArrowRight size={18}/></button>}
         <p className="member-help">Nog geen toegang? <a href="https://discord.gg/KFNqA6bnZ4" target="_blank" rel="noreferrer">Kom naar onze Discord</a></p>

@@ -77,7 +77,7 @@ function runtime(options = {}) {
         access_token: token, token_type: 'Bearer', expires_in: 604800,
         scope: 'identify guilds.members.read',
       });
-      if (url.pathname.endsWith('/member')) return Response.json({ user, roles: options.roles ?? [env.DISCORD_MEMBER_ROLE_IDS], nick: 'Hert', joined_at: '2025-01-01T00:00:00Z' });
+      if (url.pathname.endsWith('/member')) return Response.json({ user, roles: options.roles ?? [env.DISCORD_MEMBER_ROLE_IDS], nick: 'Hert', joined_at: options.nullJoinDate ? null : '2025-01-01T00:00:00Z' });
       if (url.pathname.endsWith('/users/@me')) return Response.json(user);
       throw new Error(`Unexpected test endpoint: ${url.pathname}`);
     },
@@ -124,6 +124,19 @@ test('Cloudflare runtime completes Discord login, checks membership, and logs ou
     assert.equal(logout.headers.get('Location'), '/login?loggedOut=1');
     assert.ok(calls.at(-1).url.endsWith('/token/revoke'));
     assert.equal(cookie(logout, '__Host-hh-member'), '__Host-hh-member=');
+  } finally { await mf.dispose(); }
+});
+
+test('Discord members can sign in when the optional join date is null', async () => {
+  const { mf } = runtime({ nullJoinDate: true });
+  try {
+    const { finish } = await login(mf);
+    assert.equal(finish.headers.get('Location'), '/ledenomgeving');
+    const session = await mf.dispatchFetch(`${env.APP_ORIGIN}/api/auth/session`, { headers: { Cookie: cookie(finish, '__Host-hh-member') } });
+    assert.equal(session.status, 200);
+    const body = await session.json();
+    assert.equal(body.member.id, user.id);
+    assert.equal(body.member.joinedAt, null);
   } finally { await mf.dispose(); }
 });
 
@@ -202,7 +215,10 @@ test('Cloudflare runtime refuses provider redirects without forwarding credentia
       const { mf, calls } = runtime({ redirectAt, redirectStatus });
       try {
         const { finish } = await login(mf);
-        assert.equal(finish.headers.get('Location'), '/login?error=unavailable');
+        const errorUrl = new URL(finish.headers.get('Location'), env.APP_ORIGIN);
+        assert.equal(errorUrl.pathname, '/login');
+        assert.equal(errorUrl.searchParams.get('error'), 'unavailable');
+        assert.equal(errorUrl.searchParams.get('ref'), `HH-${redirectAt === '/token' ? 'TOKEN' : 'MEMBER'}-REDIRECT${redirectStatus}`);
         assert.equal(cookie(finish, '__Host-hh-member'), '__Host-hh-member=');
         assert.equal(calls.length, redirectAt === '/token' ? 1 : 3);
         assert.ok(calls.every(call => new URL(call.url).origin === 'https://discord.com'));
