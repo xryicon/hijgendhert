@@ -5,6 +5,7 @@ import type { DiscordMember, MemberEvent, MemberProfile } from '@/lib/member-typ
 import { normalizePlayerName } from '@/lib/player-name';
 import { SKILLS } from '@/lib/community';
 import { useMemberSession } from './session-provider';
+import { ProfileRaffle } from './clan-raffle';
 
 const number = (value: number) => new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 0 }).format(value);
 const day = (value: string) => new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Amsterdam' }).format(new Date(value));
@@ -98,6 +99,7 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
       </aside>
 
       <div className="profile-activity">
+        {profile?.player && <ProfileRaffle playerName={profile.player.displayName}/>}
         <div className="profile-summary" aria-label="Jouw clancompetities">
           <div><Swords size={20}/><strong>{statsReady ? stats.total : '—'}</strong><span>Clancompetities</span></div>
           <div><Trophy size={20}/><strong>{statsReady ? stats.finished : '—'}</strong><span>Afgeronde events</span></div>

@@ -18,8 +18,11 @@ const managedLinux = readExecutionProfile() === "managed-linux";
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
+  durable_objects: { bindings: [{ name: 'RAFFLES', class_name: 'ClanRaffle' }] },
+  migrations: [{ tag: 'raffle-v1', new_sqlite_classes: ['ClanRaffle'] }],
   // Public Discord application metadata. Credentials are encrypted runtime secrets.
   vars: {
+    WOM_AUTH_MODE: "public",
     APP_ORIGIN: "https://hijgendhert.xryicon.workers.dev",
     DISCORD_CLIENT_ID: "1569436253043167305",
     DISCORD_GUILD_ID: "1073630238115897455",

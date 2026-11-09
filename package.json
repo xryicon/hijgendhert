@@ -13,6 +13,7 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "test:discord": "node --test tests/discord-auth.test.mjs tests/discord-auth.worker.test.mjs",
+    "test:raffle": "node --test tests/raffle.worker.test.mjs",
     "discord:register": "node --env-file-if-exists=.dev.vars scripts/register-discord-command.mjs"
   },
   "dependencies": {

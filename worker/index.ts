@@ -3,9 +3,13 @@ import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 import { discordAuthRoute, privateHeaders } from "../lib/discord-auth";
 import { memberProfileRoute } from "../lib/member-profile";
+import { raffleRoute } from "../lib/raffle-route";
+export { ClanRaffle } from './clan-raffle';
 
 const worker = {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+    const raffleResponse = await raffleRoute(request, env);
+    if (raffleResponse) return raffleResponse;
     const authResponse = await discordAuthRoute(request, env);
     if (authResponse) return authResponse;
     const profileResponse = await memberProfileRoute(request, env);

@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, CalendarDays, Clock3, RefreshCw } from "lucide-react";
 import CurrentEvent from "@/components/current-event";
 import WeeklyWheelArt from "@/components/weekly-wheel-art";
+import { RaffleCard } from '@/components/clan-raffle';
 import { weeklyRound, type Competition, type WeeklyCategory } from "@/lib/community";
 
-export type EventView = "overview" | "live" | "calendar" | "past" | "skill" | "boss";
-export const eventHash: Record<EventView, string> = { overview: "", live: "#live", calendar: "#kalender", past: "#past-events", skill: "#sotw", boss: "#botw" };
+export type EventView = "overview" | "live" | "calendar" | "past" | "skill" | "boss" | "raffle";
+export const eventHash: Record<EventView, string> = { overview: "", live: "#live", calendar: "#kalender", past: "#past-events", skill: "#sotw", boss: "#botw", raffle: '#raffle' };
 type Props = { competitions: Competition[]; loading: boolean; error: string; onRetry: () => void; onNavigate: (view: EventView) => void; stale?: boolean };
 const names = { skill: "Skill of the Week", boss: "Boss of the Week" };
 const stateLabels = { active: "Nu bezig", upcoming: "Binnenkort", past: "Laatste ronde", empty: "Nog niet gepland" };
@@ -51,6 +52,7 @@ export default function EventsOverview({ competitions, loading, error, onRetry, 
           </div>
         </article>;
       })}
+      <RaffleCard onOpen={() => onNavigate('raffle')}/>
     </div>
     <p className="weekly-source">Competities en standen via <a href="https://wiseoldman.net/groups/7059/competitions" target="_blank" rel="noreferrer">Wise Old Man ↗</a></p>
   </section>;

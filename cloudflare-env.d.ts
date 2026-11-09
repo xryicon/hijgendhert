@@ -12,5 +12,6 @@ declare namespace Cloudflare {
     DISCORD_SESSION_SECRET?: string;
     WOM_API_KEY?: string;
     WOM_AUTH_MODE?: string;
+    RAFFLES?: DurableObjectNamespace<import('./worker/clan-raffle').ClanRaffle>;
   }
 }

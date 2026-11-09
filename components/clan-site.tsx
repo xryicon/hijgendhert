@@ -13,6 +13,7 @@ import ClanMoments from "@/components/clan-moments";
 import ClanStats from "@/components/clan-stats";
 import ClanOverview, { clanSections, type ClanSection } from "@/components/clan-overview";
 import { WOM_REFRESH_MS } from "@/lib/wom-refresh";
+import ClanRaffle from '@/components/clan-raffle';
 
 const WOM = "https://wiseoldman.net/groups/7059";
 const DISCORD = "https://discord.gg/KFNqA6bnZ4";
@@ -160,6 +161,7 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
       {view === 'events' && eventView === 'overview' && <EventsOverview competitions={events} loading={competitions.loading} error={competitions.error} onRetry={competitions.reload} stale={competitions.result?.stale} onNavigate={changeEventView}/>}
       {view === 'events' && (eventView === 'skill' || eventView === 'boss') && <WeeklyEvent key={eventView} category={eventView} competitions={events} loading={competitions.loading} error={competitions.error} onRetry={competitions.reload} stale={competitions.result?.stale} onNavigate={changeEventView}/>}
       {view === 'events' && eventView === 'live' && <CurrentEvent/>}
+      {view === 'events' && eventView === 'raffle' && <ClanRaffle onBack={() => changeEventView('overview')}/>}
       {view === 'events' && eventView === 'past' && <PastEvents competitions={events} loading={competitions.loading} error={competitions.error} onRetry={competitions.reload} stale={competitions.result?.stale} fetchedAt={competitions.result?.fetchedAt}/>}
       {view === 'events' && eventView === 'calendar' && <ClanCalendar context="events" competitions={events} loading={competitions.loading} error={competitions.error} onRetry={competitions.reload} stale={competitions.result?.stale} fetchedAt={competitions.result?.fetchedAt}/>} 
       {view === 'clan' && <>
