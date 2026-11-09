@@ -81,6 +81,9 @@ van de Sites-preview niet om de bot bereikbaar te maken.
   om gelijktijdige vernieuwing te voorkomen; een geweigerde oude refresh wist
   nooit een mogelijk nieuwere cookie. Geen tokens in localStorage, geen
   wachtwoorddatabase of D1-binding. Sleutelrotatie beëindigt alle sessies.
+  Slaagt vernieuwing maar is de aansluitende rolcontrole tijdelijk niet bereikbaar,
+  dan bewaart de cookie de vernieuwde tokens voor de volgende poging. De website
+  geeft pas weer toegang na een geslaagde, actuele rolcontrole.
 - Iedere beschermde serverpagina/API leest de actuele Discord-rollen. Een
   ontbrekende rol, vertrokken lid of nog niet afgeronde toelating weigert toegang.
   Bij een Discord-storing wordt geen toegang op basis van oude rollen verleend.

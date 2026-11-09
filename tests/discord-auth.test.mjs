@@ -195,6 +195,51 @@ test('returning members renew expired access tokens within the original 30-day s
   assert.equal(calls, 0);
 });
 
+test('rotated credentials survive a temporary membership outage without granting access', async () => {
+  for (const failure of [429, 503, 'network', 'invalid-data']) {
+    const expiresAt = Date.now() + 20 * 24 * 60 * 60 * 1000;
+    const encrypted = await seal(config, 'session', { accessToken: 'expired-test-access-token', refreshToken, accessExpiresAt: Date.now() - 1000, userId: user.id, expiresAt });
+    let offline = true;
+    let tokenRequests = 0;
+    let allowed = true;
+    const rotatedAccess = 'rotated-access-token-for-tests-only';
+    const rotatedRefresh = 'rotated-refresh-token-for-tests-only';
+    const fetcher = async (url, init) => {
+      if (url.endsWith('/token')) {
+        tokenRequests++;
+        // A provider may invalidate the previous refresh token on exchange.
+        if (tokenRequests > 1) return response({ error: 'invalid_grant' }, 400);
+        return response({ access_token: rotatedAccess, refresh_token: rotatedRefresh, token_type: 'Bearer', expires_in: 604800, scope: 'identify guilds.members.read' });
+      }
+      assert.ok(url.endsWith('/member'));
+      assert.equal(init.headers.Authorization, `Bearer ${rotatedAccess}`);
+      if (offline) {
+        if (failure === 'network') throw new Error('Temporary test outage');
+        return response({}, failure === 'invalid-data' ? 200 : failure);
+      }
+      return response({ user, roles: allowed ? [env.DISCORD_MEMBER_ROLE_IDS] : [] });
+    };
+    const unavailable = await discordAuthRoute(req('/api/auth/session', { headers: { Cookie: `__Host-hh-member=${encrypted}` } }), env, fetcher);
+    assert.equal(unavailable.status, 503);
+    assert.deepEqual(await unavailable.json(), { authenticated: false, reason: 'unavailable' });
+    const saved = getCookie(unavailable, '__Host-hh-member');
+    assert.ok(saved && saved !== '__Host-hh-member=', 'Keep the successfully rotated credentials for the next role check');
+    assert.ok(!saved.includes(rotatedAccess) && !saved.includes(rotatedRefresh));
+    assert.equal(unavailable.headers.get('Cache-Control'), 'private, no-store, max-age=0');
+    await assert.rejects(authorizeMember(req('/profiel', { headers: { Cookie: saved } }), config, fetcher), error => error.code === 'unavailable');
+    offline = false;
+    const recovered = await discordAuthRoute(req('/api/auth/session', { headers: { Cookie: saved } }), env, fetcher);
+    assert.equal(recovered.status, 200);
+    assert.equal((await recovered.json()).member.expiresAt, expiresAt);
+    assert.equal(tokenRequests, 1, 'Recovery must use the new access token instead of repeating the consumed refresh token');
+    allowed = false;
+    const denied = await discordAuthRoute(req('/api/auth/session', { headers: { Cookie: saved } }), env, fetcher);
+    assert.equal(denied.status, 401);
+    assert.equal((await denied.json()).reason, 'role');
+    assert.equal(getCookie(denied, '__Host-hh-member'), '__Host-hh-member=');
+  }
+});
+
 test('logout needs a same-origin POST and clears/revokes access', async () => {
   const { sessionCookie } = await flow();
   const mock = provider();

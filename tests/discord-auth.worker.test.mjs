@@ -83,7 +83,10 @@ function runtime(options = {}) {
         access_token: token, refresh_token: 'worker-test-refresh-token-only', token_type: 'Bearer', expires_in: options.shortToken && new URLSearchParams(calls.at(-1).body).get('grant_type') === 'authorization_code' ? 1 : 604800,
         scope: 'identify guilds.members.read',
       });
-      if (url.pathname.endsWith('/member')) return Response.json({ user, roles: options.roles ?? [env.DISCORD_MEMBER_ROLE_IDS], nick: 'Hert', joined_at: options.nullJoinDate ? null : '2025-01-01T00:00:00Z' });
+      if (url.pathname.endsWith('/member')) {
+        if (options.memberStatus) return Response.json({}, { status: options.memberStatus });
+        return Response.json({ user, roles: options.roles ?? [env.DISCORD_MEMBER_ROLE_IDS], nick: 'Hert', joined_at: options.nullJoinDate ? null : '2025-01-01T00:00:00Z' });
+      }
       if (url.pathname.endsWith('/users/@me')) return Response.json(user);
       throw new Error(`Unexpected test endpoint: ${url.pathname}`);
     },
@@ -169,6 +172,27 @@ test('Cloudflare renews short-lived Discord tokens without another login', async
     const refresh = calls.find(c => new URLSearchParams(c.body).get('grant_type') === 'refresh_token');
     assert.ok(refresh);
     assert.equal(new URLSearchParams(refresh.body).get('refresh_token'), 'worker-test-refresh-token-only');
+  } finally { await mf.dispose(); }
+});
+
+test('Cloudflare retains a renewed session while membership checks recover', async () => {
+  const options = { shortToken: true };
+  const { mf, calls } = runtime(options);
+  try {
+    const { finish } = await login(mf);
+    options.memberStatus = 503;
+    const outage = await mf.dispatchFetch(`${env.APP_ORIGIN}/api/auth/session`, { headers: { Cookie: cookie(finish, '__Host-hh-member') } });
+    assert.equal(outage.status, 503);
+    assert.deepEqual(await outage.json(), { authenticated: false, reason: 'unavailable' });
+    const renewed = cookie(outage, '__Host-hh-member');
+    assert.ok(renewed && renewed !== '__Host-hh-member=');
+    assert.match(outage.headers.getSetCookie()[0], /HttpOnly; Secure; SameSite=Lax/);
+    assert.equal((await mf.dispatchFetch(`${env.APP_ORIGIN}/api/members/profile`, { headers: { Cookie: renewed } })).status, 503);
+    options.memberStatus = undefined;
+    const recovered = await mf.dispatchFetch(`${env.APP_ORIGIN}/api/auth/session`, { headers: { Cookie: renewed } });
+    assert.equal(recovered.status, 200);
+    assert.equal((await recovered.json()).member.id, user.id);
+    assert.equal(calls.filter(c => new URLSearchParams(c.body).get('grant_type') === 'refresh_token').length, 1);
   } finally { await mf.dispose(); }
 });
 

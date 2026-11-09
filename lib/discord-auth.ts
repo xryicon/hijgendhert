@@ -312,13 +312,20 @@ export async function discordAuthRoute(request: Request, env: DiscordEnv, fetche
     const revoked = !session.success || await revoke(config, session.data.accessToken, fetcher);
     return redirect(revoked ? '/login?loggedOut=1' : '/login?loggedOut=1&revoke=pending', [clearSession(), clearState()]);
   }
+  let renewedCookie: string | null = null;
   try {
     const renewed = await renewSession(request, config, fetcher);
+    renewedCookie = renewed.renewedCookie;
     const member = await authorizeMember(renewed.request, config, fetcher);
-    return json({ authenticated: true, member }, 200, renewed.renewedCookie ? [renewed.renewedCookie] : []);
+    return json({ authenticated: true, member }, 200, renewedCookie ? [renewedCookie] : []);
   }
   catch (error) {
     const reason = error instanceof DiscordAccessError ? error.code : 'unavailable';
-    return json({ authenticated: false, reason }, reason === 'unavailable' ? 503 : 401, reason === 'unavailable' || (error instanceof DiscordAccessError && error.detail === 'REFRESH_EXPIRED') ? [] : [clearSession()]);
+    // Discord may already have invalidated the old refresh token. Preserve its
+    // encrypted replacement during an outage, but grant no access until a fresh
+    // membership check succeeds. Definitive role or identity denials still clear it.
+    const cookies = reason === 'unavailable' ? (renewedCookie ? [renewedCookie] : [])
+      : error instanceof DiscordAccessError && error.detail === 'REFRESH_EXPIRED' ? [] : [clearSession()];
+    return json({ authenticated: false, reason }, reason === 'unavailable' ? 503 : 401, cookies);
   }
 }
