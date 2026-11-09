@@ -77,6 +77,10 @@ van de Sites-preview niet om de bot bereikbaar te maken.
 `npm run test:discord` test onder meer een volledige OAuth-flow met een nagebootste
 Discord API, ongeldige state/issuer, verkeerde rollen, ingetrokken toegang,
 storingen, cookievervalsing, logout-CSRF en handtekeningen op botverzoeken.
+Dezelfde opdracht test de login ook in de Cloudflare-runtime die met de vaste
+Wrangler-versie wordt geleverd. Discord wordt daarin nagebootst; er worden geen
+echte accounts of sleutels gebruikt. Deze test controleert ook dat omleidingen
+van Discord nooit worden gevolgd en geen inloggegevens kunnen doorsturen.
 Typecontrole: `node node_modules/typescript/bin/tsc --noEmit`.
 
 Controleer na de echte koppeling ook met een Member en een account zonder Member:

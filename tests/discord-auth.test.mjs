@@ -19,7 +19,7 @@ function provider(options = {}) {
   const calls = [];
   const fetcher = async (url, init) => {
     calls.push({ url, init });
-    assert.equal(init.redirect, 'error');
+    assert.equal(init.redirect, 'manual');
     assert.equal(init.cache, 'no-store');
     if (url.endsWith('/token/revoke')) return response({}, options.revokeStatus || 200);
     if (url.endsWith('/token')) return response({ access_token: token, token_type: 'Bearer', expires_in: 604800, scope: options.scopes || 'identify guilds.members.read' });

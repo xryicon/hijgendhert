@@ -105,7 +105,13 @@ const userSchema = z.object({ id: snowflake, username: z.string().min(1).max(100
 const memberSchema = z.object({ roles: z.array(snowflake).max(500), pending: z.boolean().optional(), nick: z.string().max(100).nullable().optional(), user: userSchema.optional() });
 
 async function discordFetch(url: string, init: RequestInit = {}, fetcher: typeof fetch = fetch) {
-  try { return await fetcher(url, { ...init, redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(8_000) }); }
+  try {
+    // Workers rejects redirect: 'error' before sending a request. Handle redirects
+    // manually so Discord credentials are never forwarded to another endpoint.
+    const response = await fetcher(url, { ...init, redirect: 'manual', cache: 'no-store', signal: AbortSignal.timeout(8_000) });
+    if (response.status >= 300 && response.status < 400) throw new DiscordAccessError('unavailable');
+    return response;
+  }
   catch { throw new DiscordAccessError('unavailable'); }
 }
 async function readJson(response: Response): Promise<unknown> {
