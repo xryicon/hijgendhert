@@ -1,5 +1,11 @@
 # Hijgend Hert
 
+## Actuele status — 9 november 2026
+Bingo is tijdelijk uit de website gehaald. De pagina en API zijn buiten `app/` bewaard in `features/bingo/`, zonder actieve navigatie of automatische bingo-aanvragen. De D1-binding is uitgeschakeld, zodat de Cloudflare-build geen lokale placeholderdatabase meer probeert te verbinden. Er is geen database verwijderd. Zie `features/bingo/README.md` voor herintroductie; onderstaande oudere ontwerpnotities beschrijven de ontwikkelgeschiedenis.
+
+### Cloudflare
+De bestaande GitHub-koppeling kan de nieuwste `main`-commit opnieuw bouwen. Gebruik `npm run build` en laat Wrangler de gegenereerde configuratie `dist/server/wrangler.json` deployen. Voor de huidige website zijn geen D1-database of bingo-geheimen nodig. De productiebuild bevat geen `DB`-binding.
+
 Nederlandstalige OSRS-clanwebsite, gebaseerd op de bestaande zwart-gouden vormgeving van https://hijgend-hert.nl/, met het oorspronkelijke clanlogo en de daar vermelde Discord-link.
 
 ## Lokaal

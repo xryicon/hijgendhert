@@ -7,7 +7,6 @@ import PastEvents from "@/components/past-events";
 import ClanCalendar from "@/components/clan-calendar";
 import HallOfFame from "@/components/hall-of-fame";
 import ClanMoments from "@/components/clan-moments";
-import BingoEntry, { useBingoAccess } from "@/components/bingo-entry";
 import ClanStats from "@/components/clan-stats";
 
 const WOM = "https://wiseoldman.net/groups/7059";
@@ -56,7 +55,6 @@ function LoadError({ message, retry }: { message: string; retry: () => void }) {
 function Skeleton({ lines = 3 }: { lines?: number }) { return <div className="skeletons" aria-label="Gegevens worden geladen" role="status">{Array.from({ length: lines }, (_, i) => <div className="skeleton" key={i}/>)}</div>; }
 
 export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | 'events' }) {
-  const bingoAccess = useBingoAccess();
   const group = useWom<Group>("resource=group");
   const competitions = useWom<Competition[]>("resource=competitions", 400, view !== 'home');
   const [metric, setMetric] = useState("overall");
@@ -93,7 +91,7 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
     window.addEventListener('scroll', updateHeader, { passive: true });
     return () => window.removeEventListener('scroll', updateHeader);
   }, []);
-  const nav = [{ id: "clan", label: "De clan", href: '/clan' }, { id: "events", label: "Events", href: '/events' }, ...(bingoAccess.visible ? [{ id: "bingo", label: "Bingo", href: '/bingo' }] : [])];
+  const nav = [{ id: "clan", label: "De clan", href: '/clan' }, { id: "events", label: "Events", href: '/events' }];
   async function copyClan() {
     try { await navigator.clipboard.writeText(group.result?.data.clanChat || "Hijgend Hert"); setCopied(true); setTimeout(() => setCopied(false), 2500); }
     catch { setCopied(false); }
@@ -126,7 +124,7 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
       {view === 'events' && eventView === 'live' && <CurrentEvent/>}
       {view === 'events' && eventView === 'past' && <PastEvents competitions={events} loading={competitions.loading} error={competitions.error} onRetry={competitions.reload} stale={competitions.result?.stale} fetchedAt={competitions.result?.fetchedAt}/>}
       {view === 'events' && eventView === 'calendar' && <ClanCalendar context="events" competitions={events} loading={competitions.loading} error={competitions.error} onRetry={competitions.reload} stale={competitions.result?.stale} fetchedAt={competitions.result?.fetchedAt}/>} 
-      {view === 'clan' && <><BingoEntry access={bingoAccess}/>
+      {view === 'clan' && <>
       <section className="section container" id="de-clan"><div className="intro-grid">
         <div><p className="eyebrow">ONZE CLAN</p><h2>Over Hijgend Hert.</h2></div>
         <div className="intro-text"><p>Hijgend Hert is een Nederlandstalige OSRS-clan, opgericht in 2024. We spelen samen met leden uit Nederland en België: van raids en bossing tot PvP en skillcompetities.</p><a className="text-link" href="#leden">Ontmoet de clan <ArrowRight size={16}/></a></div>
