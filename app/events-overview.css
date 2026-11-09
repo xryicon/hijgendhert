@@ -11,10 +11,13 @@ body .agenda-banner .button { min-height: 48px; padding-inline: 24px; font-size:
 .weekly-event-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 25px; margin-top: 30px; }
 .weekly-event-card { overflow: hidden; border: 1px solid #6e502c; border-radius: 4px; background: #15120e; box-shadow: 0 12px 32px #0004; transition: border-color .2s; }
 .weekly-event-card:focus-within, .weekly-event-card:hover { border-color: #b78c47; }
-.weekly-art-link { display: block; position: relative; aspect-ratio: 2 / 1; overflow: hidden; }
-.weekly-art-link::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #100c0920, transparent 50%, #15120e); pointer-events: none; }
-.weekly-art-link img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 43%; transition: transform .4s ease; }
-.weekly-art-link:hover img { transform: scale(1.025); }
+.weekly-art-link { display: block; position: relative; aspect-ratio: 3 / 2; overflow: hidden; }
+.weekly-art-link::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #100c090d, transparent 60%, #15120e70 92%, #15120e); pointer-events: none; }
+.weekly-wheel-art { display: block; position: relative; width: 100%; height: 100%; transition: transform .4s ease; }
+.weekly-art-link .weekly-wheel-background { display: block; width: 100%; height: 100%; object-fit: cover; }
+.weekly-wheel-icon { position: absolute; display: block; aspect-ratio: 1; transform: translate(-50%, -50%); filter: drop-shadow(0 2px 3px #000c); }
+.weekly-art-link .weekly-wheel-icon img { display: block; width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+.weekly-art-link:hover .weekly-wheel-art { transform: scale(1.025); }
 .weekly-state { position: absolute; top: 19px; left: 20px; z-index: 1; padding: 5px 10px; font-size: 10px; letter-spacing: .2px; color: #cbb48c; border: 1px solid #8b693d; border-radius: 2px; background: #18130feb; }
 .weekly-state.active { color: #d4dfb2; border-color: #73834c; background: #202817eb; }
 .weekly-state.active::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #aec27b; margin: 0 7px 1px 0; }
@@ -65,7 +68,7 @@ body .agenda-banner .button { min-height: 48px; padding-inline: 24px; font-size:
   .agenda-banner-copy > p:last-child { font-size: 11px; }
   body .agenda-banner .button { margin: 20px 0 0; min-height: 44px; padding-inline: 18px; font-size: 10px; }
   .weekly-event-grid { grid-template-columns: 1fr; margin-top: 20px; gap: 21px; }
-  .weekly-art-link { aspect-ratio: 1.75; }
+  .weekly-art-link { aspect-ratio: 3 / 2; }
   .weekly-card-body { padding: 17px 24px 23px; }
   .weekly-card-body h2 { font-size: 25px; }
   .weekly-state { top: 15px; left: 15px; font-size: 9px; }
@@ -74,4 +77,4 @@ body .agenda-banner .button { min-height: 48px; padding-inline: 24px; font-size:
   .weekly-selection { gap: 9px; }
   .weekly-selection select { min-width: 0; }
 }
-@media (prefers-reduced-motion: reduce) { .weekly-art-link img, .weekly-card-link svg { transition: none; } .weekly-art-link:hover img, .weekly-card-link:hover svg { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .weekly-wheel-art, .weekly-card-link svg { transition: none; } .weekly-art-link:hover .weekly-wheel-art, .weekly-card-link:hover svg { transform: none; } }

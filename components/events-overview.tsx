@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, CalendarDays, Clock3, RefreshCw } from "lucide-react";
 import CurrentEvent from "@/components/current-event";
+import WeeklyWheelArt from "@/components/weekly-wheel-art";
 import { weeklyRound, type Competition, type WeeklyCategory } from "@/lib/community";
 
 export type EventView = "overview" | "live" | "calendar" | "past" | "skill" | "boss";
@@ -35,7 +36,7 @@ export default function EventsOverview({ competitions, loading, error, onRetry, 
         const busy = loading || !now;
         return <article className={`weekly-event-card weekly-${category}`} key={category}>
           <a className="weekly-art-link" href={eventHash[category]} aria-label={`Bekijk ${names[category]}`} onClick={e => { e.preventDefault(); onNavigate(category); }}>
-            <img src={`/hijgend-hert-${category === 'skill' ? 'sotw' : 'botw'}.webp`} alt="" width="1536" height="1024"/>
+            <WeeklyWheelArt category={category}/>
             <span className={`weekly-state ${!busy && !error ? round.state : ''}`}>{busy ? "Laden…" : error ? "Even niet beschikbaar" : stateLabels[round.state]}</span>
           </a>
           <div className="weekly-card-body">
