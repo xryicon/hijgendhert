@@ -1,5 +1,12 @@
 .clan-stats { position: relative; z-index: 2; margin-top: -37px; }
 .homepage { padding-bottom: 36px; }
+/* Restore the earlier framed cards; these statistics have no action buttons. */
+body .homepage .clan-stat-card { padding: 25px 27px 27px; border: 1px solid #98753d99; border-radius: 10px; background: radial-gradient(ellipse at 100% 0%, #9d73351a, transparent 70%), linear-gradient(135deg, #231d13, #14110c); box-shadow: 0 8px 25px #0003, inset 0 1px 0 #f2d69412; }
+body .homepage .clan-stat-card::before { display: block; inset: 6px; border: 1px solid #c3a36220; border-radius: 6px; }
+body .homepage .clan-stat-card::after { top: -1px; left: 27px; width: 48px; height: 2px; background: linear-gradient(90deg, #987337, #e2c37e, #987337); }
+body .homepage .clan-stat-card:hover { transform: none; border-color: #98753d99; box-shadow: 0 8px 25px #0003, inset 0 1px 0 #f2d69412; }
+body .homepage .clan-stat-medallion { border-radius: 6px; background: #c99d400a; border-color: #ac8b494d; }
+body .homepage .clan-stat-amount { margin: 20px 0 0; font-size: 44px; }
 .clan-inner-page .current-event-section { padding-top: 64px; padding-bottom: 64px; }
 .clan-stats-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 .clan-stat-card { position: relative; isolation: isolate; padding: 25px 26px 22px; border: 1px solid #8b734246; border-radius: 12px; background: radial-gradient(ellipse at 100% 0%, #7e673822, transparent 70%), linear-gradient(135deg, #1c2926, #141c1c); box-shadow: 0 12px 32px #0003, inset 0 1px 0 #f2d69412; transition: border-color .22s, box-shadow .22s, transform .22s; }

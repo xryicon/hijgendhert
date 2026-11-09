@@ -1,6 +1,8 @@
 # Hijgend Hert
 
 ## Actuele status — 9 november 2026
+De clanpagina heeft nu een eigen bosheader, compacte clancijfers en navigatie tussen clanleden, ranglijst, Hall of Fame, kalender en clanmomenten. De bestaande hashlinks blijven werken. De ledenlijst is de standaardweergave; zoeken, accountfilters, paginering en Wise Old Man-koppelingen blijven beschikbaar. De homepage heeft weer omlijste zwart-gouden statistiekkaarten, zonder de knoppen Bekijk leden, Bekijk ranglijst en Kopieer wereld.
+
 Bingo is tijdelijk uit de website gehaald. De pagina en API zijn buiten `app/` bewaard in `features/bingo/`, zonder actieve navigatie of automatische bingo-aanvragen. De D1-binding is uitgeschakeld, zodat de Cloudflare-build geen lokale placeholderdatabase meer probeert te verbinden. Er is geen database verwijderd. Zie `features/bingo/README.md` voor herintroductie; onderstaande oudere ontwerpnotities beschrijven de ontwikkelgeschiedenis.
 
 ### Cloudflare
