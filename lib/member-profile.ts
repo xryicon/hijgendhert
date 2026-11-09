@@ -3,9 +3,9 @@ import { authorizeMember, discordConfig, DiscordAccessError, playerPreferenceCoo
 import { unitOf } from './community';
 import type { ClanPlayer, DiscordMember, MemberEvent, MemberProfile } from './member-types';
 import { normalizePlayerName } from './player-name';
+import { readWiseOldMan } from './wise-old-man';
 
 const groupId = 7059;
-const API = 'https://api.wiseoldman.net/v2';
 const finite = z.number().finite();
 const playerSchema = z.object({
   id: z.number().int().positive(), username: z.string().min(1).max(30), displayName: z.string().min(1).max(30),
@@ -56,18 +56,6 @@ async function boundedJson(response: Response | Request, limit: number): Promise
   return JSON.parse(Buffer.concat(parts).toString('utf8'));
 }
 
-async function readWom(path: string, origin: string, fetcher: typeof fetch) {
-  const edge = typeof caches !== 'undefined' ? (caches as CacheStorage & { default?: Cache }).default : undefined;
-  const key = new Request(`${origin}/__member-wom-cache${path}`);
-  try { const hit = await edge?.match(key); if (hit) return await boundedJson(hit, 2_000_000); } catch { /* Fetch public data if the optional cache fails. */ }
-  const response = await fetcher(API + path, { redirect: 'manual', headers: { Accept: 'application/json', 'User-Agent': 'HijgendHertClanWebsite/1.0 (group/7059)' }, signal: AbortSignal.timeout(12_000) });
-  if (!response.ok) throw new Error('wom');
-  const data = await boundedJson(response, 2_000_000);
-  // Cache only public WOM responses. Discord identities and profile choices never enter this cache.
-  try { await edge?.put(key, Response.json(data, { headers: { 'Cache-Control': 'public, max-age=300' } })); } catch { /* Data remains usable. */ }
-  return data;
-}
-
 export async function memberProfileRoute(request: Request, env: DiscordEnv, fetcher: typeof fetch = fetch): Promise<Response | null> {
   const url = new URL(request.url);
   if (!['/api/members/profile', '/api/members/event'].includes(url.pathname)) return null;
@@ -81,6 +69,14 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv, fetc
   if (new URL(request.url).origin !== config.origin || (request.method === 'POST' && (request.headers.get('Origin') !== config.origin || request.headers.get('Sec-Fetch-Site') === 'cross-site'))) return json({ error: 'Ongeldig verzoek.' }, 403);
   try {
     const member = await authorizeMember(request, config, fetcher);
+    let stale = false;
+    let fetchedAt = new Date().toISOString();
+    const readWom = async (path: string) => {
+      const value = await readWiseOldMan<unknown>(path, config.origin, fetcher);
+      stale ||= value.stale;
+      if (Date.parse(value.fetchedAt) < Date.parse(fetchedAt)) fetchedAt = value.fetchedAt;
+      return value.data;
+    };
     let selectedId: number | undefined;
     if (request.method === 'POST') {
       try {
@@ -89,7 +85,7 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv, fetc
       } catch { return json({ error: 'Kies een RuneScape-account uit de clanlijst.' }, 400); }
     }
     const group = z.object({ id: z.literal(groupId), memberships: z.array(z.object({ player: playerSchema })).max(2000) })
-      .parse(await readWom('/groups/7059', config.origin, fetcher));
+      .parse(await readWom('/groups/7059'));
     const players: ClanPlayer[] = group.memberships.map(({ player: p }) => ({ ...p, exp: p.exp ?? null, ehp: p.ehp ?? null, ehb: p.ehb ?? null }));
     if (selectedId !== undefined) {
       if (!players.some(p => p.id === selectedId)) return json({ error: 'Dit account staat niet in de clanlijst van Hijgend Hert.' }, 400);
@@ -103,25 +99,25 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv, fetc
       const detail = z.object({
         id: z.number().int(), groupId: z.number().nullable(),
         participations: z.array(z.object({ playerId: z.number().int() }).passthrough()).max(2000),
-      }).passthrough().parse(await readWom(`/competitions/${eventId}`, config.origin, fetcher));
+      }).passthrough().parse(await readWom(`/competitions/${eventId}`));
       if (detail.id !== Number(eventId) || detail.groupId !== groupId) return json({ error: 'Dit event hoort niet bij Hijgend Hert.' }, 404);
       const index = detail.participations.findIndex(p => p.playerId === player.id);
       if (index === -1) return json({ error: 'Dit account staat niet op de deelnemerslijst van dit event.' }, 404);
       const event = profileEvents([{ ...detail.participations[index], rank: index + 1, competition: detail }], player.id)[0];
       if (!event) throw new Error('wom');
-      return json({ event });
+      return json({ event, stale });
     }
     let events: MemberEvent[] = []; let eventsError: string | null = null;
     if (player) {
       try {
-        const rows = await readWom(`/players/${encodeURIComponent(player.username)}/competitions`, config.origin, fetcher);
+        const rows = await readWom(`/players/${encodeURIComponent(player.username)}/competitions`);
         if (!Array.isArray(rows)) throw new Error('wom');
         events = profileEvents(rows, player.id);
       } catch { eventsError = 'Je eventgeschiedenis is tijdelijk niet beschikbaar. Probeer het over een paar minuten opnieuw.'; }
     }
     const profile: MemberProfile = { player, selection: saved ? 'saved' : player ? 'discord' : null,
       players: players.map(({ id, username, displayName }) => ({ id, username, displayName })).sort((a, b) => a.displayName.localeCompare(b.displayName)),
-      events, eventsError, fetchedAt: new Date().toISOString() };
+      events, eventsError, fetchedAt, stale };
     return json(profile);
   } catch (error) {
     if (error instanceof DiscordAccessError) return json({ error: 'Je Discord-toegang kon niet worden bevestigd.', reason: error.code }, error.code === 'unavailable' ? 503 : 401);

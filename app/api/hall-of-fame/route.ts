@@ -1,9 +1,7 @@
+import { readWiseOldMan } from '@/lib/wise-old-man';
 import { awardFrom, categoryOf, monthKey, monthlyLeaders, unitOf, type Award, type Competition, type CompetitionDetail } from '@/lib/community';
 import communitySnapshot from '@/content/community-snapshot.json';
 
-const BASE = 'https://api.wiseoldman.net/v2';
-const memory = new Map<string, { at: number; data: unknown }>();
-const pending = new Map<string, Promise<unknown>>();
 function fallback(month?: string | null) {
   const snapshots = communitySnapshot.hall as Record<string, { month: string; months: string[]; awards: Award[]; leaders: unknown[]; partial: boolean; ongoingMonth: boolean }>;
   const selected = month || Object.keys(snapshots).sort().reverse()[0];
@@ -11,27 +9,16 @@ function fallback(month?: string | null) {
   if (!data) return null;
   return Response.json({ data: { ...data, ongoingMonth: data.month === monthKey(Date.now()) }, fetchedAt: communitySnapshot.fetchedAt, stale: true }, { headers: { 'Cache-Control': 'no-store' } });
 }
-async function read<T>(path: string, ttl: number): Promise<T> {
-  const saved = memory.get(path);
-  if (saved && Date.now() - saved.at < ttl) return saved.data as T;
-  let job = pending.get(path);
-  if (!job) {
-    job = (async () => {
-      const response = await fetch(BASE + path, { headers: { Accept: 'application/json', 'User-Agent': 'HijgendHertClanWebsite/1.0 (group/7059)' }, signal: AbortSignal.timeout(12000) });
-      if (!response.ok) throw new Error('Wise Old Man is tijdelijk niet bereikbaar. Probeer het later opnieuw.');
-      const data: unknown = await response.json();
-      if (memory.size > 150) memory.clear();
-      memory.set(path, { at: Date.now(), data });
-      return data;
-    })();
-    pending.set(path, job);
-  }
-  try { return await job as T; } finally { pending.delete(path); }
-}
-
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const requested = url.searchParams.get('month');
+  let stale = false; let fetchedAt = new Date().toISOString();
+  const read = async <T,>(path: string, ttl: number): Promise<T> => {
+    const value = await readWiseOldMan<T>(path, url.origin, fetch, ttl);
+    stale ||= value.stale;
+    if (Date.parse(value.fetchedAt) < Date.parse(fetchedAt)) fetchedAt = value.fetchedAt;
+    return value.data;
+  };
   if (requested && !/^20\d{2}-(0[1-9]|1[0-2])$/.test(requested)) return Response.json({ error: 'Ongeldige maand.' }, { status: 400 });
   const edge = typeof caches !== 'undefined' ? (caches as CacheStorage & { default?: Cache }).default : undefined;
   const key = new Request(`${url.origin}/__hall-cache/${requested || 'latest'}`);
@@ -59,8 +46,8 @@ export async function GET(request: Request) {
     awards.sort((a, b) => Date.parse(b.endsAt) - Date.parse(a.endsAt) || b.id - a.id);
     const partial = awards.some(a => a.unavailable);
     if (partial) { const saved = fallback(month); if (saved) return saved; }
-    const response = Response.json({ data: { month, months, awards, leaders: partial ? [] : monthlyLeaders(awards), partial, ongoingMonth: month === monthKey(Date.now()) }, fetchedAt: new Date().toISOString() }, { headers: { 'Cache-Control': partial ? 'no-store' : 'public, max-age=60, s-maxage=600' } });
-    if (!partial) try { await edge?.put(key, response.clone()); } catch { /* Data remains usable without cache. */ }
+    const response = Response.json({ data: { month, months, awards, leaders: partial ? [] : monthlyLeaders(awards), partial, ongoingMonth: month === monthKey(Date.now()) }, fetchedAt, stale }, { headers: { 'Cache-Control': partial || stale ? 'no-store' : 'public, max-age=60, s-maxage=600' } });
+    if (!partial && !stale) try { await edge?.put(key, response.clone()); } catch { /* Data remains usable without cache. */ }
     return response;
   } catch (e) { return fallback(requested) || Response.json({ error: e instanceof Error ? e.message : 'De erelijst is tijdelijk niet beschikbaar.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } }); }
 }

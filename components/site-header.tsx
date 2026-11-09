@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ChevronDown, CalendarDays, LogOut, Menu, Shield, Swords, UserRound, X } from 'lucide-react';
-import { useMemberSession } from './session-provider';
+import { useMemberSession, VerifiedMemberSession } from './session-provider';
 import type { DiscordMember } from '@/lib/member-types';
 
 const navigation = [
@@ -31,6 +31,7 @@ export default function SiteHeader({ view, initialMember }: { view: 'home' | 'cl
     return () => { window.removeEventListener('keydown', close); document.removeEventListener('pointerdown', outside); };
   }, [accountOpen]);
   return <>
+    {initialMember && <VerifiedMemberSession member={initialMember}/>}
     <a className="skip-link" href="#main">Ga naar inhoud</a>
     <header className={`header header-${view === 'events' ? 'event' : view}${scrolled ? ' is-scrolled' : ''}`}>
       <div className="container nav-wrap">

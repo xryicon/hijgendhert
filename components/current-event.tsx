@@ -8,6 +8,8 @@ type EventData = { competition: { id: number; title: string; startsAt: string; e
 
 export default function CurrentEvent({ competitionId, category = 'all' }: { competitionId?: number; category?: 'all' | 'skill' | 'boss' }) {
   const [data, setData] = useState<EventData | null>(null);
+  const [stale, setStale] = useState(false);
+  const [fetchedAt, setFetchedAt] = useState('');
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
@@ -19,9 +21,9 @@ export default function CurrentEvent({ competitionId, category = 'all' }: { comp
     async function fetchEvent() {
       try {
         const response = await fetch(`/api/event?category=${category}${competitionId ? `&id=${competitionId}` : ''}`, { signal: controller.signal });
-        const body = await response.json() as { data: EventData; error?: string };
+        const body = await response.json() as { data: EventData; error?: string; stale?: boolean; fetchedAt?: string };
         if (!response.ok) throw new Error(body.error || "De tussenstand kon niet worden geladen.");
-        setData(body.data); setNow(Date.now());
+        setData(body.data); setNow(Date.now()); setStale(!!body.stale); setFetchedAt(body.fetchedAt || '');
       } catch (e) { if (!controller.signal.aborted) { setError(e instanceof Error ? e.message : "Laden mislukt."); setData(null); } }
       finally { if (!controller.signal.aborted) setLoading(false); }
     }
@@ -45,6 +47,7 @@ export default function CurrentEvent({ competitionId, category = 'all' }: { comp
           <div className="active-timer-units" aria-hidden="true"><span><strong>{String(days).padStart(2, "0")}</strong><small>dagen</small></span><i>:</i><span><strong>{String(hours).padStart(2, "0")}</strong><small>uren</small></span><i>:</i><span><strong>{String(mins).padStart(2, "0")}</strong><small>minuten</small></span></div>
         </div>}
         <h2>{event.title}</h2>
+        {stale && <p className="community-fallback" role="status">Wise Old Man is even druk. Laatst bevestigde stand{fetchedAt ? `: ${new Date(fetchedAt).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' })}` : ''}.</p>}
       </div>
       <div className="panel current-event-panel">{upcoming ? <div className="event-upcoming-note"><p>De competitie begint binnenkort. De eerste scores verschijnen hier zodra het event start.</p><a className="text-link" href={`https://wiseoldman.net/competitions/${event.id}`} target="_blank" rel="noreferrer">Bekijk op Wise Old Man <ArrowUpRight size={14}/></a></div> : <EventPodium participants={event.participants} unit={event.unit} finished={finished}/>}</div>
     </> : <div className="empty" role="status"><h2>Er is op dit moment geen actief event.</h2><p>Het volgende event verschijnt hier automatisch zodra het begint.</p></div>}

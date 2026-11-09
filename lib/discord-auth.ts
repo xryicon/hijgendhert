@@ -18,7 +18,7 @@ const SCOPES = ['identify', 'guilds.members.read'];
 const SESSION_COOKIE = '__Host-hh-member';
 const STATE_COOKIE = '__Host-hh-discord-state';
 const PROFILE_COOKIE = '__Host-hh-profile';
-const MAX_SESSION_SECONDS = 8 * 60 * 60;
+const MAX_SESSION_SECONDS = 30 * 24 * 60 * 60;
 const encoder = new TextEncoder();
 const snowflake = z.string().regex(/^\d{17,20}$/);
 const randomText = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url');
@@ -103,7 +103,8 @@ async function unseal(config: DiscordConfig, purpose: 'state' | 'session' | 'pro
   } catch { return null; }
 }
 const stateSchema = z.object({ nonce: z.string().length(43), verifier: z.string().length(43), expiresAt: z.number().int() }).strict();
-const sessionSchema = z.object({ accessToken: z.string().min(10).max(512), userId: snowflake, expiresAt: z.number().int() }).strict();
+const sessionSchema = z.object({ accessToken: z.string().min(10).max(512), refreshToken: z.string().min(10).max(512).optional(), accessExpiresAt: z.number().int().optional(), userId: snowflake, expiresAt: z.number().int() }).strict();
+const tokenSchema = z.object({ access_token: z.string().min(10).max(512), refresh_token: z.string().min(10).max(512).optional(), token_type: z.literal('Bearer'), expires_in: z.number().int().positive(), scope: z.string() });
 const userSchema = z.object({ id: snowflake, username: z.string().min(1).max(100), global_name: z.string().max(100).nullable().optional() });
 const memberSchema = z.object({ roles: z.array(snowflake).max(500), pending: z.boolean().optional(), nick: z.string().max(100).nullable().optional(), joined_at: z.string().max(50).nullish(), user: userSchema.optional() });
 
@@ -145,7 +146,7 @@ export async function checkMembership(config: DiscordConfig, token: string, fetc
 }
 export async function authorizeMember(request: Request, config: DiscordConfig, fetcher: typeof fetch = fetch, now = Date.now()): Promise<DiscordMember> {
   const parsed = sessionSchema.safeParse(await unseal(config, 'session', readCookie(request, SESSION_COOKIE)));
-  if (!parsed.success || parsed.data.expiresAt <= now || parsed.data.expiresAt > now + MAX_SESSION_SECONDS * 1000) throw new DiscordAccessError('expired');
+  if (!parsed.success || parsed.data.expiresAt <= now || parsed.data.expiresAt > now + MAX_SESSION_SECONDS * 1000 || (parsed.data.accessExpiresAt !== undefined && parsed.data.accessExpiresAt <= now)) throw new DiscordAccessError('expired');
   // Never use roles stored in a session. Removed roles and server departures
   // are checked against Discord on every protected page or API request.
   const member = await checkMembership(config, parsed.data.accessToken, fetcher);
@@ -167,6 +168,31 @@ async function revoke(config: DiscordConfig, accessToken: string, fetcher: typeo
     }, fetcher);
     return response.ok;
   } catch { return false; }
+}
+
+// Only the session endpoint renews credentials. Protected pages and data APIs
+// remain read-only and still verify the current Discord roles on every request.
+async function renewSession(request: Request, config: DiscordConfig, fetcher: typeof fetch) {
+  const now = Date.now();
+  const parsed = sessionSchema.safeParse(await unseal(config, 'session', readCookie(request, SESSION_COOKIE)));
+  if (!parsed.success || parsed.data.expiresAt <= now || parsed.data.expiresAt > now + MAX_SESSION_SECONDS * 1000) throw new DiscordAccessError('expired');
+  const old = parsed.data;
+  if (!old.refreshToken || (old.accessExpiresAt ?? old.expiresAt) > now + 300_000) return { request, renewedCookie: null };
+  const response = await discordFetch(TOKEN_URL, {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret, grant_type: 'refresh_token', refresh_token: old.refreshToken }),
+  }, fetcher);
+  // A stale request from another tab must not erase a newer rotated cookie.
+  if (response.status === 400 || response.status === 401) throw new DiscordAccessError('expired', 'REFRESH_EXPIRED');
+  if (!response.ok) throw new DiscordAccessError('unavailable', `HTTP${response.status}`);
+  const tokens = tokenSchema.safeParse(await readJson(response));
+  if (!tokens.success) throw new DiscordAccessError('unavailable', 'DATA');
+  if (!SCOPES.every(scope => tokens.data.scope.split(' ').includes(scope))) throw new DiscordAccessError('role');
+  const value = await seal(config, 'session', { ...old, accessToken: tokens.data.access_token, refreshToken: tokens.data.refresh_token || old.refreshToken, accessExpiresAt: now + tokens.data.expires_in * 1000 });
+  const headers = new Headers(request.headers);
+  const otherCookies = (headers.get('Cookie') || '').split(';').map(c => c.trim()).filter(c => c && !c.startsWith(`${SESSION_COOKIE}=`));
+  headers.set('Cookie', [...otherCookies, `${SESSION_COOKIE}=${value}`].join('; '));
+  return { request: new Request(request.url, { method: request.method, headers }), renewedCookie: cookie(SESSION_COOKIE, value, (old.expiresAt - now) / 1000) };
 }
 
 async function start(request: Request, config: DiscordConfig) {
@@ -197,7 +223,7 @@ async function callback(request: Request, config: DiscordConfig, fetcher: typeof
       body: new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret, grant_type: 'authorization_code', code, redirect_uri: `${config.origin}/api/auth/discord/callback`, code_verifier: parsed.data.verifier }),
     }, fetcher);
     if (!response.ok) throw new DiscordAccessError(response.status === 400 ? 'expired' : 'unavailable', `HTTP${response.status}`);
-    const tokens = z.object({ access_token: z.string().min(10).max(512), token_type: z.literal('Bearer'), expires_in: z.number().int().positive(), scope: z.string() }).safeParse(await readJson(response));
+    const tokens = tokenSchema.safeParse(await readJson(response));
     if (!tokens.success) throw new DiscordAccessError('unavailable', 'DATA');
     accessToken = tokens.data.access_token;
     if (!SCOPES.every(scope => tokens.data.scope.split(' ').includes(scope))) throw new DiscordAccessError('role');
@@ -212,8 +238,8 @@ async function callback(request: Request, config: DiscordConfig, fetcher: typeof
     if (!member.user) throw new DiscordAccessError('unavailable', 'MEMBERUSER');
     if (user.data.id !== member.user.id) throw new DiscordAccessError('unavailable', 'MISMATCH');
     stage = 'SESSION';
-    const seconds = Math.min(tokens.data.expires_in, MAX_SESSION_SECONDS);
-    const session = await seal(config, 'session', { accessToken, userId: user.data.id, expiresAt: Date.now() + seconds * 1000 });
+    const seconds = tokens.data.refresh_token ? MAX_SESSION_SECONDS : Math.min(tokens.data.expires_in, MAX_SESSION_SECONDS);
+    const session = await seal(config, 'session', { accessToken, refreshToken: tokens.data.refresh_token, accessExpiresAt: Date.now() + tokens.data.expires_in * 1000, userId: user.data.id, expiresAt: Date.now() + seconds * 1000 });
     return redirect('/ledenomgeving', [clearState(), cookie(SESSION_COOKIE, session, seconds)]);
   } catch (error) {
     if (accessToken) await revoke(config, accessToken, fetcher);
@@ -286,9 +312,13 @@ export async function discordAuthRoute(request: Request, env: DiscordEnv, fetche
     const revoked = !session.success || await revoke(config, session.data.accessToken, fetcher);
     return redirect(revoked ? '/login?loggedOut=1' : '/login?loggedOut=1&revoke=pending', [clearSession(), clearState()]);
   }
-  try { return json({ authenticated: true, member: await authorizeMember(request, config, fetcher) }); }
+  try {
+    const renewed = await renewSession(request, config, fetcher);
+    const member = await authorizeMember(renewed.request, config, fetcher);
+    return json({ authenticated: true, member }, 200, renewed.renewedCookie ? [renewed.renewedCookie] : []);
+  }
   catch (error) {
     const reason = error instanceof DiscordAccessError ? error.code : 'unavailable';
-    return json({ authenticated: false, reason }, reason === 'unavailable' ? 503 : 401, reason === 'unavailable' ? [] : [clearSession()]);
+    return json({ authenticated: false, reason }, reason === 'unavailable' ? 503 : 401, reason === 'unavailable' || (error instanceof DiscordAccessError && error.detail === 'REFRESH_EXPIRED') ? [] : [clearSession()]);
   }
 }

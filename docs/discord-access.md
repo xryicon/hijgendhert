@@ -74,9 +74,13 @@ van de Sites-preview niet om de bot bereikbaar te maken.
 
 - OAuth authorization code + PKCE S256, 10 minuten geldige browsergebonden state,
   vaste redirect en issuercontrole. Geen e-mail- of berichtenscope.
-- Access token in een versleutelde AES-GCM-cookie met `__Host-`, HttpOnly, Secure,
-  SameSite=Lax en maximaal 8 uur geldigheid. Geen refresh token, localStorage,
-  wachtwoorddatabase of D1-binding nodig. Sleutelrotatie beëindigt alle sessies.
+- Access- en refresh-token in een versleutelde AES-GCM-cookie met `__Host-`,
+  HttpOnly, Secure, SameSite=Lax en maximaal 30 dagen geldigheid vanaf login.
+  Alleen `/api/auth/session` vernieuwt bijna verlopen Discord-tokens. De
+  oorspronkelijke einddatum schuift niet op. Browser-tabs gebruiken Web Locks
+  om gelijktijdige vernieuwing te voorkomen; een geweigerde oude refresh wist
+  nooit een mogelijk nieuwere cookie. Geen tokens in localStorage, geen
+  wachtwoorddatabase of D1-binding. Sleutelrotatie beëindigt alle sessies.
 - Iedere beschermde serverpagina/API leest de actuele Discord-rollen. Een
   ontbrekende rol, vertrokken lid of nog niet afgeronde toelating weigert toegang.
   Bij een Discord-storing wordt geen toegang op basis van oude rollen verleend.
@@ -95,6 +99,10 @@ van de Sites-preview niet om de bot bereikbaar te maken.
   hetzelfde privéantwoord. Voeg voor toekomstige opdrachten met mutaties een
   duurzame deduplicatie op interaction ID toe.
 - Geen logging van OAuth codes, cookies, tokens of Discord response bodies.
+  Foutreferenties bevatten uitsluitend vaste stapnamen en HTTP-statuscodes.
+- Openbare Wise Old Man-data deelt één edge-cache tussen clanpagina, events en
+  profielen. Bij throttling wordt kort gewacht en kunnen maximaal 24 uur oude
+  gegevens met een melding worden getoond. Discord-rollen worden nooit gecachet.
 
 ## Controle
 

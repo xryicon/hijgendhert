@@ -11,6 +11,7 @@ const env = {
 const config = discordConfig(env);
 const user = { id: '234567890123456789', username: 'Clanmaat', global_name: 'Hert' };
 const token = 'fake-access-token-for-tests-only';
+const refreshToken = 'fake-refresh-token-for-tests-only';
 const req = (path, init) => new Request(`${env.APP_ORIGIN}${path}`, init);
 const getCookie = (response, name) => response.headers.getSetCookie().find(cookie => cookie.startsWith(`${name}=`))?.split(';')[0];
 const response = (body, status = 200) => Response.json(body, { status });
@@ -22,7 +23,7 @@ function provider(options = {}) {
     assert.equal(init.redirect, 'manual');
     assert.equal(init.cache, 'no-store');
     if (url.endsWith('/token/revoke')) return response({}, options.revokeStatus || 200);
-    if (url.endsWith('/token')) return response({ access_token: token, token_type: 'Bearer', expires_in: 604800, scope: options.scopes || 'identify guilds.members.read' });
+    if (url.endsWith('/token')) return response({ access_token: token, refresh_token: refreshToken, token_type: 'Bearer', expires_in: 604800, scope: options.scopes || 'identify guilds.members.read' });
     if (url.endsWith(`/guilds/${env.DISCORD_GUILD_ID}/member`)) return response({ user: options.user || user, roles: options.roles ?? [env.DISCORD_MEMBER_ROLE_IDS], pending: options.pending || false, nick: 'Het Hert' }, options.status || 200);
     if (url.endsWith('/users/@me')) return response(user);
     throw Error(`Unexpected endpoint: ${url}`);
@@ -75,7 +76,7 @@ test('full login binds PKCE, state, exact origin and current member identity', a
   assert.equal(finish.status, 303);
   assert.equal(finish.headers.get('Location'), '/ledenomgeving');
   const header = finish.headers.getSetCookie().find(value => value.startsWith('__Host-hh-member='));
-  for (const flag of ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/', 'Max-Age=28800']) assert.ok(header.includes(flag));
+  for (const flag of ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/', 'Max-Age=2592000']) assert.ok(header.includes(flag));
   assert.ok(!header.includes('Domain='));
   assert.ok(!sessionCookie.includes(token));
   const member = await authorizeMember(req('/ledenomgeving', { headers: { Cookie: sessionCookie } }), config, provider().fetcher);
@@ -158,6 +159,40 @@ test('expired, malformed, tampered, wrong-purpose and rotated-key cookies are re
     assert.equal(calls, 0);
   }
   await assert.rejects(authorizeMember(req('/ledenomgeving', { headers: { Cookie: sessionCookie } }), { ...config, sessionSecret: randomBytes(32).toString('base64url') }), error => error.code === 'expired');
+});
+
+test('returning members renew expired access tokens within the original 30-day session', async () => {
+  const expiresAt = Date.now() + 20 * 86400000;
+  const encrypted = await seal(config, 'session', { accessToken: 'expired-test-access-token', refreshToken, accessExpiresAt: Date.now() - 1000, userId: user.id, expiresAt });
+  const request = req('/api/auth/session', { headers: { Cookie: `__Host-hh-member=${encrypted}` } });
+  const mock = provider();
+  const renewed = await discordAuthRoute(request, env, mock.fetcher);
+  assert.equal(renewed.status, 200);
+  const body = await renewed.json();
+  assert.equal(body.member.expiresAt, expiresAt, 'Renewal never extends the absolute sign-in deadline');
+  assert.equal(mock.calls[0].init.body.get('grant_type'), 'refresh_token');
+  assert.equal(mock.calls[0].init.body.get('refresh_token'), refreshToken);
+  assert.equal(mock.calls[1].init.headers.Authorization, `Bearer ${token}`);
+  const saved = getCookie(renewed, '__Host-hh-member');
+  assert.ok(saved && !saved.includes(token) && !saved.includes(refreshToken));
+  assert.ok(!JSON.stringify(body).includes(refreshToken));
+  const again = await discordAuthRoute(req('/api/auth/session', { headers: { Cookie: saved } }), env, mock.fetcher);
+  assert.equal(again.status, 200);
+  assert.equal(mock.calls.filter(c => c.url.endsWith('/token')).length, 1);
+  const denied = await discordAuthRoute(request, env, provider({ roles: [] }).fetcher);
+  assert.equal(denied.status, 401);
+  assert.equal((await denied.json()).reason, 'role');
+  assert.equal(getCookie(denied, '__Host-hh-member'), '__Host-hh-member=');
+  for (const status of [400, 401, 429, 503]) {
+    const failed = await discordAuthRoute(request, env, async () => response({}, status));
+    assert.equal(failed.status, status < 429 ? 401 : 503);
+    assert.equal(failed.headers.get('Set-Cookie'), null, 'Failed or racing refresh must not overwrite a newer cookie');
+  }
+  const expired = await seal(config, 'session', { accessToken: token, refreshToken, accessExpiresAt: Date.now() - 1000, userId: user.id, expiresAt: Date.now() - 1 });
+  let calls = 0;
+  const deniedExpired = await discordAuthRoute(req('/api/auth/session', { headers: { Cookie: `__Host-hh-member=${expired}` } }), env, async () => { calls++; return response({}); });
+  assert.equal(deniedExpired.status, 401);
+  assert.equal(calls, 0);
 });
 
 test('logout needs a same-origin POST and clears/revokes access', async () => {

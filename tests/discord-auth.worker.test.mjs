@@ -14,7 +14,13 @@ const bundle = await build({
   stdin: {
     contents: `import { discordAuthRoute } from './lib/discord-auth.ts';
       import { memberProfileRoute } from './lib/member-profile.ts';
+      import { readWiseOldMan } from './lib/wise-old-man.ts';
       export default { async fetch(request, env) {
+        const url = new URL(request.url);
+        if (url.pathname === '/__test/public-wom') {
+          try { return Response.json(await readWiseOldMan('/groups/7059', url.origin, fetch, 300000, Date.now() + Number(url.searchParams.get('age') || 0))); }
+          catch { return Response.json({ unavailable: true }, { status: 503 }); }
+        }
         return await discordAuthRoute(request, env) || await memberProfileRoute(request, env) || new Response('Public page');
       } };`,
     resolveDir: root,
@@ -52,7 +58,7 @@ function runtime(options = {}) {
       calls.push({ url: request.url, body: await request.text() });
       if (url.origin === 'https://api.wiseoldman.net') {
         assert.equal(request.headers.has('Authorization'), false, 'Never send Discord tokens to WOM');
-        if (options.womOffline) return Response.json({}, { status: 503 });
+        if (options.womOffline) return Response.json({}, { status: options.womStatus || 503, headers: { 'Retry-After': '60' } });
         if (url.pathname === '/v2/groups/7059') return Response.json({ id: 7059, memberships: [testPlayer, secondPlayer].map(player => ({ player })) });
         if (url.pathname.endsWith('/competitions')) {
           const playerId = decodeURIComponent(url.pathname).includes('ander hert') ? 702 : 701;
@@ -74,7 +80,7 @@ function runtime(options = {}) {
       }
       if (url.pathname.endsWith('/token/revoke')) return Response.json({});
       if (url.pathname.endsWith('/token')) return Response.json({
-        access_token: token, token_type: 'Bearer', expires_in: 604800,
+        access_token: token, refresh_token: 'worker-test-refresh-token-only', token_type: 'Bearer', expires_in: options.shortToken && new URLSearchParams(calls.at(-1).body).get('grant_type') === 'authorization_code' ? 1 : 604800,
         scope: 'identify guilds.members.read',
       });
       if (url.pathname.endsWith('/member')) return Response.json({ user, roles: options.roles ?? [env.DISCORD_MEMBER_ROLE_IDS], nick: 'Hert', joined_at: options.nullJoinDate ? null : '2025-01-01T00:00:00Z' });
@@ -115,7 +121,8 @@ test('Cloudflare runtime completes Discord login, checks membership, and logs ou
     assert.equal(body.member.id, user.id);
     assert.equal(body.member.displayName, 'Hert');
     assert.ok(body.member.expiresAt > Date.now());
-    assert.ok(body.member.expiresAt <= Date.now() + 8 * 60 * 60 * 1000);
+    assert.ok(body.member.expiresAt > Date.now() + 29 * 24 * 60 * 60 * 1000);
+    assert.ok(body.member.expiresAt <= Date.now() + 30 * 24 * 60 * 60 * 1000);
     assert.equal(body.member.accessToken, undefined);
     assert.equal(calls.length, 4, 'Recheck Discord roles for the member session');
     const logout = await mf.dispatchFetch(`${env.APP_ORIGIN}/api/auth/logout`, {
@@ -124,6 +131,44 @@ test('Cloudflare runtime completes Discord login, checks membership, and logs ou
     assert.equal(logout.headers.get('Location'), '/login?loggedOut=1');
     assert.ok(calls.at(-1).url.endsWith('/token/revoke'));
     assert.equal(cookie(logout, '__Host-hh-member'), '__Host-hh-member=');
+  } finally { await mf.dispose(); }
+});
+
+test('public WOM data is reused across pages and remains available during rate limiting', async () => {
+  const options = {};
+  const { mf, calls } = runtime(options);
+  try {
+    const first = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom`);
+    assert.equal(first.status, 200);
+    const initial = await first.json();
+    const second = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom`);
+    assert.equal((await second.json()).stale, false);
+    assert.equal(calls.filter(c => c.url.includes('api.wiseoldman.net')).length, 1);
+    options.womOffline = true; options.womStatus = 429;
+    const stale = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=600000`);
+    const data = await stale.json();
+    assert.equal(stale.status, 200);
+    assert.equal(data.stale, true);
+    assert.equal(data.fetchedAt, initial.fetchedAt);
+    assert.equal(data.data.id, 7059);
+    await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=600000`);
+    assert.equal(calls.filter(c => c.url.includes('api.wiseoldman.net')).length, 2, 'Cooldown prevents repeated rate-limited calls');
+    assert.equal((await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=90000000`)).status, 503, 'Old data expires after one day');
+  } finally { await mf.dispose(); }
+});
+
+test('Cloudflare renews short-lived Discord tokens without another login', async () => {
+  const { mf, calls } = runtime({ shortToken: true });
+  try {
+    const { finish } = await login(mf);
+    assert.ok(finish.headers.getSetCookie().some(c => c.includes('Max-Age=2592000')));
+    const session = await mf.dispatchFetch(`${env.APP_ORIGIN}/api/auth/session`, { headers: { Cookie: cookie(finish, '__Host-hh-member') } });
+    assert.equal(session.status, 200);
+    assert.equal((await session.json()).member.id, user.id);
+    assert.ok(cookie(session, '__Host-hh-member'));
+    const refresh = calls.find(c => new URLSearchParams(c.body).get('grant_type') === 'refresh_token');
+    assert.ok(refresh);
+    assert.equal(new URLSearchParams(refresh.body).get('refresh_token'), 'worker-test-refresh-token-only');
   } finally { await mf.dispose(); }
 });
 

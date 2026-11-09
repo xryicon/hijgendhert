@@ -57,10 +57,10 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
     setResults(old => ({ ...old, [id]: 'loading' }));
     try {
       const response = await fetch(`/api/members/event?id=${id}`, { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(30_000) });
-      const body = await response.json() as { event?: MemberEvent };
+      const body = await response.json() as { event?: MemberEvent; stale?: boolean };
       if (!response.ok || !body.event) throw new Error('unavailable');
       const result = body.event;
-      setProfile(old => old ? { ...old, events: old.events.map(e => e.id === id ? result : e) } : old);
+      setProfile(old => old ? { ...old, stale: old.stale || body.stale, events: old.events.map(e => e.id === id ? result : e) } : old);
       setResults(old => ({ ...old, [id]: 'loaded' }));
     } catch { setResults(old => ({ ...old, [id]: 'error' })); }
   }
@@ -74,6 +74,7 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
       <img className="profile-watermark" src="/clan-logo.png" alt=""/>
     </section>
 
+    {profile?.stale && <p className="profile-muted" role="status">Wise Old Man is even druk. Je ziet de laatst bevestigde gegevens.</p>}
     <div className="profile-layout">
       <aside className="profile-character" aria-labelledby="character-title">
         <div className="profile-section-label"><Swords size={17}/><span>IN GIELINOR</span></div><h2 id="character-title">Jouw RuneScape-account</h2>

@@ -22,4 +22,5 @@ export type MemberProfile = {
   events: MemberEvent[];
   eventsError: string | null;
   fetchedAt: string;
+  stale?: boolean;
 };
