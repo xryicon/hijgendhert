@@ -3,8 +3,13 @@ import { WOM_FAILURE_RETRY_SECONDS, WOM_REFRESH_MS, WOM_REQUEST_TIMEOUT_MS } fro
 const API = 'https://api.wiseoldman.net/v2';
 const RETAIN = 24 * 60 * 60 * 1000;
 export type WomResult<T> = { data: T; fetchedAt: string; stale: boolean };
-export type WomEnv = { WOM_API_KEY?: string };
+export type WomEnv = { WOM_API_KEY?: string; WOM_AUTH_MODE?: string };
 type WomOptions = { apiKey?: string; fetcher?: typeof fetch; freshFor?: number; now?: number; retryRejectedKey?: boolean };
+// Public access is the default, even if an old key remains in Cloudflare.
+// A working key can be enabled explicitly later without changing the routes.
+export const womConnection = (env: WomEnv): Pick<WomOptions, 'apiKey'> => ({
+  apiKey: env.WOM_AUTH_MODE === 'api-key' ? env.WOM_API_KEY : undefined,
+});
 export class WomUnavailable extends Error {
   constructor(message: string, public retryAfter = WOM_FAILURE_RETRY_SECONDS, public code = 'WOM_UNAVAILABLE') { super(message); this.name = 'WomUnavailable'; }
 }

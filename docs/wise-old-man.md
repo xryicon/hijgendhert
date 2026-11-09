@@ -1,14 +1,21 @@
 # Wise Old Man
 
-De website leest de openbare gegevens van clan 7059 via de officiële v2-API.
-`WOM_API_KEY` is een versleuteld Cloudflare Worker-secret. Sla de sleutel op bij
+De website leest de openbare gegevens van clan 7059 via de officiële v2-API,
+standaard **zonder API-sleutel**. Een eerder opgeslagen `WOM_API_KEY` wordt
+genegeerd zolang `WOM_AUTH_MODE` niet op `api-key` staat. Er hoeft dus geen
+secret verwijderd te worden om de openbare koppeling te gebruiken.
+
+Een API-sleutel is optioneel en geeft hogere verzoeklimieten. Alleen om die
+later te gebruiken: zet `WOM_AUTH_MODE` op `api-key` en sla `WOM_API_KEY` op als
+versleuteld Cloudflare Worker-secret bij
 **hijgendhert → Settings → Variables and Secrets**, als type **Secret**, en deploy.
 De sleutel hoort niet in Git, de browser, `VITE_*`, `NEXT_PUBLIC_*` of de chat.
 Er is geen nieuwe build nodig wanneer alleen de waarde van deze secret wijzigt.
 
 Alle serverroutes gebruiken dezelfde koppeling: clancijfers, leden, XP-winst,
-competities, standen, erelijst en persoonlijke eventgeschiedenis. De sleutel gaat
-uitsluitend als `x-api-key` naar `https://api.wiseoldman.net/v2`; redirects worden
+competities, standen, erelijst en persoonlijke eventgeschiedenis. Bij expliciet
+ingeschakelde sleuteltoegang gaat de sleutel uitsluitend als `x-api-key` naar
+`https://api.wiseoldman.net/v2`; redirects worden
 niet gevolgd. Discord-rollen blijven onafhankelijk gecontroleerd.
 
 Openbare data wordt vijftien minuten hergebruikt. Uitslagen voor de erelijst blijven

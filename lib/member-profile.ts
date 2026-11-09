@@ -3,7 +3,7 @@ import { authorizeMember, discordConfig, DiscordAccessError, playerPreferenceCoo
 import { unitOf } from './community';
 import type { ClanPlayer, DiscordMember, MemberEvent, MemberProfile } from './member-types';
 import { normalizePlayerName } from './player-name';
-import { readWiseOldMan, womErrorCode, womRetryAfter, type WomEnv } from './wise-old-man';
+import { readWiseOldMan, womConnection, womErrorCode, womRetryAfter, type WomEnv } from './wise-old-man';
 
 const groupId = 7059;
 const finite = z.number().finite();
@@ -72,7 +72,7 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv & Wom
     let stale = false;
     let fetchedAt = new Date().toISOString();
     const readWom = async (path: string) => {
-      const value = await readWiseOldMan<unknown>(path, config.origin, { fetcher, apiKey: env.WOM_API_KEY });
+      const value = await readWiseOldMan<unknown>(path, config.origin, { fetcher, ...womConnection(env) });
       stale ||= value.stale;
       if (Date.parse(value.fetchedAt) < Date.parse(fetchedAt)) fetchedAt = value.fetchedAt;
       return value.data;

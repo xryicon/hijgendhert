@@ -58,7 +58,7 @@ function runtime(options = {}) {
   const mf = new Miniflare({
     modules: true, script: bundle.outputFiles[0].text,
     compatibilityDate: '2026-05-15', compatibilityFlags: ['nodejs_compat'],
-    bindings: env,
+    bindings: { ...env, ...options.bindings },
     // Every outbound request is intercepted; no real accounts or network access.
     outboundService: async request => {
       const url = new URL(request.url);
@@ -67,7 +67,7 @@ function runtime(options = {}) {
         assert.equal(request.headers.has('Authorization'), false, 'Never send Discord tokens to WOM');
         if (request.headers.has('x-api-key')) assert.equal(request.headers.get('x-api-key'), env.WOM_API_KEY);
         if (options.womDelay) await new Promise(resolve => setTimeout(resolve, options.womDelay));
-        if (options.womInvalidKey) return Response.json({ message: 'Invalid API Key. Please check https://docs.wiseoldman.net/api#rate-limits--api-keys' }, { status: 403 });
+        if (options.womInvalidKey && request.headers.has('x-api-key')) return Response.json({ message: 'Invalid API Key. Please check https://docs.wiseoldman.net/api#rate-limits--api-keys' }, { status: 403 });
         if (options.requireWomKey && !request.headers.has('x-api-key')) return Response.json({}, { status: 403 });
         if (options.womRedirect) return new Response(null, { status: 302, headers: { Location: 'https://untrusted.invalid/capture' } });
         if (options.womOffline) return Response.json({}, { status: options.womStatus || 503, headers: { 'Retry-After': options.womRetryAfter || '60' } });
@@ -176,8 +176,10 @@ test('public WOM data is reused across pages and remains available during rate l
   } finally { await mf.dispose(); }
 });
 
-test('all website statistics routes use the WOM secret without exposing it', async () => {
-  const { mf, calls } = runtime({ requireWomKey: true });
+for (const useApiKey of [false, true]) test(`all website statistics routes work with ${useApiKey ? 'an explicitly enabled API key' : 'public access despite an old invalid key'}`, async () => {
+  const { mf, calls } = runtime(useApiKey
+    ? { requireWomKey: true, bindings: { WOM_AUTH_MODE: 'api-key' } }
+    : { womInvalidKey: true });
   try {
     for (const path of ['/api/clan?resource=group', '/api/clan?resource=gained', '/api/clan?resource=competitions', '/api/event?id=123&category=skill', '/api/hall-of-fame?month=2026-01']) {
       const result = await mf.dispatchFetch(env.APP_ORIGIN + path);
@@ -193,7 +195,7 @@ test('all website statistics routes use the WOM secret without exposing it', asy
     const profile = await mf.dispatchFetch(`${env.APP_ORIGIN}/api/members/profile`, { headers: { Cookie: cookie(finish, '__Host-hh-member') } });
     assert.equal(profile.status, 200);
     assert.ok(!JSON.stringify(await profile.json()).includes(env.WOM_API_KEY));
-    assert.ok(calls.filter(c => c.url.includes('api.wiseoldman.net')).every(c => c.hasWomKey));
+    assert.ok(calls.filter(c => c.url.includes('api.wiseoldman.net')).every(c => c.hasWomKey === useApiKey));
     assert.equal(calls.filter(c => c.url.includes('/v2/groups/7059/competitions')).length, 1, 'Events, calendar and hall share the same upstream listing');
   } finally { await mf.dispose(); }
 });
@@ -252,7 +254,7 @@ test('slow successful WOM responses have time to finish', async () => {
 });
 
 test('an invalid WOM key is identified safely and retried less often', async () => {
-  const { mf, calls } = runtime({ womInvalidKey: true });
+  const { mf, calls } = runtime({ womInvalidKey: true, bindings: { WOM_AUTH_MODE: 'api-key' } });
   try {
     const result = await mf.dispatchFetch(`${env.APP_ORIGIN}/api/clan?resource=group`);
     const body = await result.json();

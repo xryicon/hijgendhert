@@ -11,5 +11,6 @@ declare namespace Cloudflare {
     DISCORD_PUBLIC_KEY?: string;
     DISCORD_SESSION_SECRET?: string;
     WOM_API_KEY?: string;
+    WOM_AUTH_MODE?: string;
   }
 }

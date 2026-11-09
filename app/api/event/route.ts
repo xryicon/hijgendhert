@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { readWiseOldMan, womErrorCode, womRetryAfter } from '@/lib/wise-old-man';
+import { readWiseOldMan, womConnection, womErrorCode, womRetryAfter } from '@/lib/wise-old-man';
 import { categoryOf, SKILLS as skills } from '@/lib/community';
 
 type Player = { id: number; username: string; displayName: string; type: string; updatedAt: string };
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     }
   } catch { /* Continue when the optional edge cache is unavailable. */ }
   try {
-    const womOptions = { apiKey: env.WOM_API_KEY, retryRejectedKey: url.searchParams.get('retry') === '1' };
+    const womOptions = { ...womConnection(env), retryRejectedKey: url.searchParams.get('retry') === '1' };
     const listing = await readWiseOldMan<Event[]>("/groups/7059/competitions", url.origin, womOptions);
     const all = listing.data;
     let stale = listing.stale; let fetchedAt = listing.fetchedAt;

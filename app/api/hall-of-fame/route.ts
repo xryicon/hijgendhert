@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { readWiseOldMan, womErrorCode, womRetryAfter } from '@/lib/wise-old-man';
+import { readWiseOldMan, womConnection, womErrorCode, womRetryAfter } from '@/lib/wise-old-man';
 import { WOM_REFRESH_MS } from '@/lib/wom-refresh';
 import { awardFrom, categoryOf, monthKey, monthlyLeaders, unitOf, type Award, type Competition, type CompetitionDetail } from '@/lib/community';
 import communitySnapshot from '@/content/community-snapshot.json';
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const requested = url.searchParams.get('month');
   let stale = false; let fetchedAt = new Date().toISOString();
   const read = async <T,>(path: string, ttl: number): Promise<T> => {
-    const value = await readWiseOldMan<T>(path, url.origin, { apiKey: env.WOM_API_KEY, freshFor: ttl });
+    const value = await readWiseOldMan<T>(path, url.origin, { ...womConnection(env), freshFor: ttl });
     stale ||= value.stale;
     if (Date.parse(value.fetchedAt) < Date.parse(fetchedAt)) fetchedAt = value.fetchedAt;
     return value.data;
