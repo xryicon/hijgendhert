@@ -34,7 +34,7 @@ export default function CurrentEvent({ competitionId, category = 'all' }: { comp
       fetching = true;
       nextPollAt = Date.now() + WOM_REFRESH_MS;
       try {
-        const response = await fetch(`/api/event?category=${category}${competitionId ? `&id=${competitionId}` : ''}`, { signal: controller.signal });
+        const response = await fetch(`/api/event?category=${category}${competitionId ? `&id=${competitionId}` : ''}${refresh ? '&retry=1' : ''}`, { signal: controller.signal });
         const body = await response.json() as { data: EventData; error?: string; stale?: boolean; fetchedAt?: string };
         if (!response.ok) {
           const delay = Number(response.headers.get('Retry-After'));

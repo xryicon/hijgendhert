@@ -52,7 +52,7 @@ function useWom<T>(query: string, wait = 0, enabled = true, pollMs = 0) {
       fetching = true;
       nextPollAt = Date.now() + (pollMs || WOM_REFRESH_MS);
       try {
-        const response = await fetch(`/api/clan?${query}`, { signal: controller.signal });
+        const response = await fetch(`/api/clan?${query}${retry ? '&retry=1' : ''}`, { signal: controller.signal });
         const body = await response.json() as Result<T> & { error?: string };
         if (!response.ok) {
           const delay = Number(response.headers.get('Retry-After'));

@@ -4,7 +4,7 @@ const API = 'https://api.wiseoldman.net/v2';
 const RETAIN = 24 * 60 * 60 * 1000;
 export type WomResult<T> = { data: T; fetchedAt: string; stale: boolean };
 export type WomEnv = { WOM_API_KEY?: string };
-type WomOptions = { apiKey?: string; fetcher?: typeof fetch; freshFor?: number; now?: number };
+type WomOptions = { apiKey?: string; fetcher?: typeof fetch; freshFor?: number; now?: number; retryRejectedKey?: boolean };
 export class WomUnavailable extends Error {
   constructor(message: string, public retryAfter = WOM_FAILURE_RETRY_SECONDS, public code = 'WOM_UNAVAILABLE') { super(message); this.name = 'WomUnavailable'; }
 }
@@ -46,7 +46,7 @@ export async function readWiseOldMan<T>(path: string, origin: string, options: W
   const cooldownKey = new Request(`${origin}/__wom-data/rate-limit/v2/${quota}`);
   const rememberFailure = async (failure: WomUnavailable) => {
     try {
-      await edge?.put(cooldownKey, Response.json({ retryAt: now + failure.retryAfter * 1000, code: failure.code }, { headers: { 'Cache-Control': `public, max-age=${failure.retryAfter}` } }));
+      await edge?.put(cooldownKey, Response.json({ retryAt: now + failure.retryAfter * 1000, attemptedAt: now, code: failure.code }, { headers: { 'Cache-Control': `public, max-age=${failure.retryAfter}` } }));
     } catch { /* The failure remains recoverable even without an edge cache. */ }
   };
   let saved: WomResult<T> | null = null;
@@ -61,12 +61,19 @@ export async function readWiseOldMan<T>(path: string, origin: string, options: W
   } catch { /* The optional edge cache must not prevent public API reads. */ }
   let retryAfter = 0;
   let failureCode = 'WOM_HTTP_429';
+  let rejectedKeyRetryAt: number | null = null;
   try {
     const cooling = await edge?.match(cooldownKey);
     if (cooling) {
-      const { retryAt, code } = await cooling.json() as { retryAt: number; code?: string };
+      const { retryAt, attemptedAt, code } = await cooling.json() as { retryAt: number; attemptedAt?: number; code?: string };
       if (Number.isFinite(retryAt)) retryAfter = Math.max(0, Math.ceil((retryAt - now) / 1000));
       if (code && /^WOM_[A-Z0-9_]+$/.test(code)) failureCode = code;
+      // Only our own invalid-key pause can be retried manually, at most once a
+      // minute. Provider rate limits are never bypassed. Older records used 900s.
+      const lastAttempt = attemptedAt ?? retryAt - 900_000;
+      if (options.retryRejectedKey && code === 'WOM_API_KEY_INVALID' && Number.isFinite(lastAttempt) && now - lastAttempt >= 60_000) {
+        rejectedKeyRetryAt = retryAt; retryAfter = 0;
+      }
     }
   } catch { /* Optional cache. */ }
   const busy = 'Wise Old Man is even druk. De laatst bekende gegevens blijven zichtbaar waar beschikbaar.';
@@ -101,6 +108,11 @@ export async function readWiseOldMan<T>(path: string, origin: string, options: W
     }
     const value: WomResult<T> = { data: await readJson(response) as T, fetchedAt: new Date(now).toISOString(), stale: false };
     try { await edge?.put(key, Response.json(value, { headers: { 'Cache-Control': 'public, max-age=86400' } })); } catch { /* Fresh data is still usable. */ }
+    if (rejectedKeyRetryAt !== null) try {
+      const latest = await edge?.match(cooldownKey);
+      const failure = latest ? await latest.json() as { retryAt?: number; code?: string } : null;
+      if (failure?.code === 'WOM_API_KEY_INVALID' && failure.retryAt === rejectedKeyRetryAt) await edge?.delete(cooldownKey);
+    } catch { /* A later retry can still recover if the optional cache is unavailable. */ }
     return value;
   } catch (error) {
     const failure = error instanceof WomUnavailable ? error : new WomUnavailable('Wise Old Man is tijdelijk niet bereikbaar.', WOM_FAILURE_RETRY_SECONDS,

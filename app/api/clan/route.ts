@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   if (!['group', 'competitions', 'gained'].includes(resource) || !['overall', 'ehb'].includes(metric) || !['week', 'month'].includes(period)) return Response.json({ error: 'Ongeldige selectie.' }, { status: 400 });
   const path = '/groups/7059' + (resource === 'group' ? '' : resource === 'competitions' ? '/competitions' : `/gained?metric=${metric}&period=${period}&limit=10`);
   try {
-    const value = await readWiseOldMan<unknown>(path, url.origin, { apiKey: env.WOM_API_KEY });
+    const value = await readWiseOldMan<unknown>(path, url.origin, { apiKey: env.WOM_API_KEY, retryRejectedKey: url.searchParams.get('retry') === '1' });
     let data = value.data;
     if (resource === 'group' && (!data || typeof data !== 'object' || !('id' in data) || data.id !== 7059 || !('memberships' in data) || !Array.isArray(data.memberships))) throw new Error('De clangegevens zijn tijdelijk niet beschikbaar.');
     if (resource !== 'group') {

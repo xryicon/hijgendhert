@@ -40,6 +40,10 @@ Foutresponses hebben een veilige diagnosecode zonder sleutel of providerbody.
 sleutel ongeldig is. Vervang dan `WOM_API_KEY` door de sleutel die Wise Old Man
 heeft uitgegeven; een Discord-secret, groepsverificatiecode of zelfgemaakte
 sleutel is geen Wise Old Man API-key.
+Na activering van een eerder afgewezen sleutel kan **Opnieuw proberen** de
+oude afwijzing opnieuw controleren. Dit mag hoogstens eenmaal per minuut.
+Een geslaagde controle heft alleen die oude sleutelafwijzing op; een 429-limiet
+of de door Wise Old Man opgegeven wachttijd kan niet worden overgeslagen.
 
 Controle: `npm run test:discord` test ook de echte Cloudflare-runtime met een
 testprovider: alle openbare routes, profieldata, sleutelafscherming, gedeelde

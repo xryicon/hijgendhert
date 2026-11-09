@@ -24,7 +24,7 @@ const bundle = await build({
         if (url.pathname === '/api/event') return eventData(request);
         if (url.pathname === '/api/hall-of-fame') return hallData(request);
         if (url.pathname === '/__test/public-wom') {
-          try { return Response.json(await readWiseOldMan('/groups/7059', url.origin, { apiKey: url.searchParams.has('anonymous') ? undefined : env.WOM_API_KEY, freshFor: url.searchParams.has('short-cache') ? 300000 : undefined, now: Date.now() + Number(url.searchParams.get('age') || 0) })); }
+          try { return Response.json(await readWiseOldMan('/groups/7059', url.origin, { apiKey: url.searchParams.has('anonymous') ? undefined : env.WOM_API_KEY, freshFor: url.searchParams.has('short-cache') ? 300000 : undefined, now: Date.now() + Number(url.searchParams.get('age') || 0), retryRejectedKey: url.searchParams.get('retry') === '1' })); }
           catch (error) { return Response.json({ unavailable: true, retryAfter: error.retryAfter, code: error.code }, { status: 503 }); }
         }
         return await discordAuthRoute(request, env) || await memberProfileRoute(request, env) || new Response('Public page');
@@ -264,6 +264,26 @@ test('an invalid WOM key is identified safely and retried less often', async () 
     assert.equal(cooling.status, 503);
     assert.equal((await cooling.json()).code, 'WOM_API_KEY_INVALID');
     assert.equal(calls.length, 1, 'A rejected key must not be retried on every page load');
+  } finally { await mf.dispose(); }
+});
+
+test('manual retry recovers an activated key without bypassing provider rate limits', async () => {
+  const options = { womInvalidKey: true };
+  const { mf, calls } = runtime(options);
+  try {
+    assert.equal((await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom`)).status, 503);
+    options.womInvalidKey = false;
+    assert.equal((await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?retry=1&age=30000`)).status, 503);
+    assert.equal(calls.length, 1, 'Manual retries still have a minimum delay');
+    const recovered = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?retry=1&age=61000`);
+    assert.equal(recovered.status, 200);
+    assert.equal((await recovered.json()).stale, false);
+    assert.equal((await mf.dispatchFetch(`${env.APP_ORIGIN}/api/clan?resource=competitions`)).status, 200, 'Success unlocks the other statistics routes');
+    options.womOffline = true; options.womStatus = 429; options.womRetryAfter = '3600';
+    await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=1000000`);
+    const before = calls.length;
+    await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?retry=1&age=1100000`);
+    assert.equal(calls.length, before, 'A manual retry must never override a WOM rate limit');
   } finally { await mf.dispose(); }
 });
 

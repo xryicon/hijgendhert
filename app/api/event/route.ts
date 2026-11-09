@@ -19,7 +19,8 @@ export async function GET(request: Request) {
     }
   } catch { /* Continue when the optional edge cache is unavailable. */ }
   try {
-    const listing = await readWiseOldMan<Event[]>("/groups/7059/competitions", url.origin, { apiKey: env.WOM_API_KEY });
+    const womOptions = { apiKey: env.WOM_API_KEY, retryRejectedKey: url.searchParams.get('retry') === '1' };
+    const listing = await readWiseOldMan<Event[]>("/groups/7059/competitions", url.origin, womOptions);
     const all = listing.data;
     let stale = listing.stale; let fetchedAt = listing.fetchedAt;
     if (!Array.isArray(all)) throw new Error("De eventgegevens zijn tijdelijk niet beschikbaar.");
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     if (id && !selected) return Response.json({ error: "Dit event hoort niet bij deze clan of selectie." }, { status: 404 });
     let competition = null;
     if (selected) {
-      const result = await readWiseOldMan<Event>(`/competitions/${selected.id}`, url.origin, { apiKey: env.WOM_API_KEY });
+      const result = await readWiseOldMan<Event>(`/competitions/${selected.id}`, url.origin, womOptions);
       const detail = result.data; stale ||= result.stale;
       if (Date.parse(result.fetchedAt) < Date.parse(fetchedAt)) fetchedAt = result.fetchedAt;
       if (detail.groupId !== 7059 || !Array.isArray(detail.participations)) throw new Error("De deelnemers zijn tijdelijk niet beschikbaar.");
