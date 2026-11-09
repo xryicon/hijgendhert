@@ -1,12 +1,12 @@
-/* The scene belongs only to the live competition view. */
+/* The courtyard continues behind the header across all event views. */
 body .header.header-event:not(.is-scrolled) { background: transparent; border-bottom-color: #c69b3e1c; box-shadow: none; backdrop-filter: none; }
 body .live-events-page { position: relative; isolation: isolate; min-height: 100vh; margin-top: -82px; padding-top: 82px; background: #0d0c0a; }
 .live-event-backdrop { position: absolute; z-index: -1; inset: 0 0 auto; height: clamp(820px, 70vw, 1120px); overflow: hidden; pointer-events: none; }
-.live-event-backdrop img, .live-event-animation { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; opacity: .86; }
+.live-event-backdrop img, .live-event-animation { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; opacity: .94; }
 .live-event-animation { position: absolute; inset: 0; visibility: hidden; }
 .live-event-backdrop[data-animated="true"] .live-event-animation { visibility: visible; }
 .live-event-backdrop[data-animated="true"] img { visibility: hidden; }
-.live-event-backdrop::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #0d0c0a3b, #0d0c0a14 32%, #0d0c0a38 62%, #0d0c0a 100%); }
+.live-event-backdrop::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #0d0c0a33, #0d0c0a0d 32%, #0d0c0a2e 65%, #0d0c0a 100%); }
 body .live-events-page .active-event-intro h2 { text-shadow: 0 2px 4px #000, 0 0 22px #000c; }
 body .live-events-page .timer-label { color: #d3b37b; text-shadow: 0 1px 5px #000; }
 body .live-events-page .event-view-switch button { background: linear-gradient(180deg, #332514f5, #171008f5); }
@@ -17,7 +17,7 @@ body .live-events-page .hert-top-ten { background: #14110df2; }
 @media (max-width: 700px) {
   body .live-events-page { margin-top: -70px; padding-top: 70px; }
   .live-event-backdrop { height: 820px; }
-  .live-event-backdrop img, .live-event-animation { object-position: 17% top; opacity: .68; }
+  .live-event-backdrop img, .live-event-animation { object-position: 17% top; opacity: .82; }
   .live-event-backdrop::after { background: linear-gradient(180deg, #0d0c0a38, #0d0c0a4d 48%, #0d0c0a 100%); }
 }
 @media (prefers-reduced-motion: reduce) {

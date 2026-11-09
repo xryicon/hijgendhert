@@ -10,7 +10,7 @@ void main() {
   gl_Position = vec4(position, 0.0, 1.0);
 }`;
 
-// Coordinates refer to the original 1536 × 1024 scene, before responsive cropping.
+// Both courtyard artworks share these flag and flame coordinates at 1536 × 1024.
 const FRAGMENT = `
 precision highp float;
 uniform sampler2D scene;
@@ -209,7 +209,7 @@ export default function LiveEventBackdrop() {
   }, []);
 
   return <div ref={wrapperRef} className="live-event-backdrop" aria-hidden="true">
-    <img ref={imageRef} src="/hijgend-hert-event-arena.webp" alt="" width="1536" height="1024" fetchPriority="high"/>
+    <img ref={imageRef} src="/hijgend-hert-event-courtyard.webp" alt="" width="1536" height="1024" fetchPriority="high"/>
     <canvas ref={canvasRef} className="live-event-animation" width="1536" height="1024"/>
   </div>;
 }
