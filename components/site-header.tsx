@@ -5,7 +5,6 @@ import { ArrowUpRight, Menu, Shield, Swords, UserRound, X } from 'lucide-react';
 const navigation = [
   { id: 'clan', label: 'De clan', href: '/clan', icon: Shield },
   { id: 'events', label: 'Events', href: '/events', icon: Swords },
-  { id: 'member', label: 'Ledenomgeving', href: '/ledenomgeving', icon: UserRound },
 ];
 
 export default function SiteHeader({ view }: { view: 'home' | 'clan' | 'events' | 'member' }) {
@@ -30,7 +29,10 @@ export default function SiteHeader({ view }: { view: 'home' | 'clan' | 'events' 
         <nav id="main-navigation" className={menu ? 'navigation open' : 'navigation'} aria-label="Hoofdnavigatie">
           {navigation.map(item => <a key={item.id} href={item.href} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => setMenu(false)}><item.icon size={15} strokeWidth={1.6} aria-hidden="true"/><span>{item.label}</span></a>)}
         </nav>
-        <a className="button gold nav-join" href="https://discord.gg/KFNqA6bnZ4" target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={16}/></a>
+        <div className="nav-actions">
+          <a className={`button gold nav-login${view === 'member' ? ' active' : ''}`} href="/login" aria-current={view === 'member' ? 'page' : undefined}><UserRound size={15} strokeWidth={1.6} aria-hidden="true"/>Login</a>
+          <a className="button gold nav-join" href="https://discord.gg/KFNqA6bnZ4" target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={16}/></a>
+        </div>
         <button className="menu-button" onClick={() => setMenu(!menu)} aria-label={menu ? 'Menu sluiten' : 'Menu openen'} aria-expanded={menu} aria-controls="main-navigation">{menu ? <X/> : <Menu/>}</button>
       </div>
     </header>
