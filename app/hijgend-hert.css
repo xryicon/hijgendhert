@@ -1,0 +1,198 @@
+/* The clan's own black-and-gold identity, drawn from the existing crest. */
+:root { --bg: #0d0c0a; --panel: #191610; --panel2: #241d13; --line: #493821; --gold: #d6a347; --gold-light: #f1cc78; --text: #eae1cd; --muted: #ada18a; --green: #91a46c; }
+body { background: #0d0c0a; color: #eae1cd; }
+body :focus-visible { outline-color: #e9b854; }
+body .header { background: #100e0bf5; border-color: #594020; }
+body .header.header-home { background: linear-gradient(180deg, #100d08c9, #100d0800); border-bottom-color: transparent; }
+body .header.header-home.is-scrolled { background: #110e0aeb; border-bottom-color: #70502466; }
+body .header .navigation a, body .header .nav-join.button.gold, body .header .menu-button,
+body .clan-stat-card .clan-stat-button, body .event-view-switch button, body .button.gold, body .button.outline, body .hero .poem-discord {
+  border-radius: 2px; border: 1px solid #8a642d; background: linear-gradient(180deg, #3b2b16, #241b0f 48%, #21190f); color: #e3bd6d;
+  box-shadow: inset 0 1px 0 #b8883d40, inset 0 -2px 0 #0907048c, 0 1px 2px #0008; font-family: Cinzel, Georgia, serif; font-weight: 600;
+}
+body .header .navigation a.active, body .event-view-switch button[aria-pressed="true"] { border-color: #c7943e; color: #ffe1a0; background: linear-gradient(180deg, #60431b, #39270f); }
+body .header .navigation a:hover, body .header .nav-join.button.gold:hover, body .header .menu-button:hover,
+body .clan-stat-card .clan-stat-button:hover:not(:disabled), body .event-view-switch button:hover, body .button.gold:hover, body .button.outline:hover, body .hero .poem-discord:hover {
+  border-color: #dfae55; background: linear-gradient(180deg, #5b3f1b, #32220f); color: #ffe5b0; box-shadow: inset 0 1px 0 #d5a75050, inset 0 -2px 0 #0907048c;
+}
+body .header .navigation { gap: 6px; }
+body .header .navigation a { font-size: 11px; }
+body .hero .hero-pattern { background: linear-gradient(90deg, #0e0d0ae8 0%, #100e0bc9 35%, #100e0b33 70%, #100e0b18 100%); }
+body .hero .hero-shade { background: linear-gradient(0deg, #0d0c0a, #0d0c0aa6 12%, transparent 48%); }
+body .hero .hero-poem h1 { font-family: Cinzel, Georgia, serif; font-size: clamp(35px, 3.9vw, 53px); font-weight: 500; line-height: 1.3; letter-spacing: -.7px; color: #f0e2c4; }
+body .hero .hero-poem h1 em { font-style: normal; font-weight: 600; color: #ebba57; background: none; -webkit-text-fill-color: #ebba57; }
+body .hero .hero-poem > .clan-rhyme { color: #d5c8ae; font-size: 18px; }
+body .hero .poem-discord { background: #1b150c80; color: #cfb07b; box-shadow: none; border-color: #79572d; font-size: 10px; }
+body .poem-rule { color: #b6893f; }
+body .poem-rule > span { background: #94703966; }
+body .emblem-ring { display: none; }
+body .clan-stats-grid { gap: 15px; }
+body .clan-stat-card { padding: 23px 25px; border-radius: 2px; border-color: #76532a; background: linear-gradient(180deg, #241d12, #17130e 48%, #13110d); box-shadow: inset 0 0 0 2px #0b0907, 0 3px 10px #0004; }
+body .clan-stat-card::before { display: none; }
+body .clan-stat-card::after { top: 0; left: 1px; width: calc(100% - 2px); height: 2px; background: linear-gradient(90deg, #342413, #bb8b3d70, #342413); box-shadow: none; }
+body .clan-stat-card:hover, body .clan-stat-card:focus-within { transform: none; border-color: #aa7b38; box-shadow: inset 0 0 0 2px #0b0907, 0 3px 10px #0004; }
+body .clan-stat-heading h2 { font-family: Cinzel, Georgia, serif; color: #d3af6d; letter-spacing: .8px; font-size: 11px; }
+body .clan-stat-medallion { border-radius: 2px; background: #110e09; border-color: #76542b; color: #cd9942; box-shadow: inset 0 1px 0 #d2ac4e1a; }
+body .clan-stat-amount { font-family: Cinzel, Georgia, serif; color: #edd2a0; margin: 18px 0 0; font-size: 41px; }
+body .clan-stat-amount small { color: #b69c6b; font-family: Georgia, serif; }
+body .clan-stat-card .clan-stat-button { min-height: 39px; font-size: 10px; padding: 10px 13px; margin-top: 18px; }
+body .clan-stat-button::before { display: none; }
+body .clan-stat-card .clan-stat-button.is-copied { color: #c6d5a5; border-color: #788b47; background: #252b15; }
+body .clan-stats-source { color: #a29477; font-size: 9px; }
+body .clan-stats-source > a { color: #bc9e6a; }
+body .panel { background: #17140f; border-color: #604725; border-radius: 3px; box-shadow: inset 0 1px 0 #c99c3f0e; }
+body .section-heading h2, body .intro-grid h2, body .hert-top-ten-heading h4 { font-family: Cinzel, Georgia, serif; color: #dfc18b; letter-spacing: -.4px; font-weight: 500; }
+body .section-description, body .intro-text p, body .pursuit p, body .heading-note, body .data-note { color: #b1a58b; }
+body .eyebrow, body .mini-label { color: #b89556; }
+body .event-page-controls > span { color: #bc985c; letter-spacing: 1px; font-family: Cinzel, Georgia, serif; }
+body .event-view-switch { gap: 6px; }
+body .event-view-switch button { font-size: 11px; }
+body .live-event-filter-row h2 { color: #b89a65; letter-spacing: 1px; }
+body .event-filters, body .live-event-filter-row .event-filters, body .community-filters button, body .hall-month-label select { border-color: #574124; background: #16120d; border-radius: 2px; }
+body .event-filters button, body .live-event-filter-row .event-filters button, body .community-filters button { color: #aa9c81; border-radius: 2px; }
+body .event-filters button.selected, body .live-event-filter-row .event-filters button.selected, body .community-filters button.selected { background: #50391b; color: #f0ce86; box-shadow: inset 0 1px 0 #d9ac4940; }
+body .current-event-panel { border-color: #86602c; background: #15120d; border-radius: 3px; box-shadow: inset 0 0 0 2px #080705, 0 8px 25px #0003; }
+body .current-event-panel .event-live-heading::before { background: linear-gradient(90deg, #17130e 10%, #17130ebd 55%, #17130e73), url('/hijgend-hert-woodland.webp') right 43% / cover; opacity: .65; }
+body .current-event-panel .event-live-heading h3 { font-family: Cinzel, Georgia, serif; font-size: 28px; color: #eac383; font-weight: 500; }
+body .current-event-panel .event-live-heading p, body .current-event-panel .event-summary { color: #b6a68a; }
+body .current-event-panel .event-summary { border-bottom-color: #705028; }
+body .current-event-panel .event-summary > a { color: #caa157; }
+body .current-event-panel .event-tag { color: #c9d2a6; border-color: #77804b55; background: #24271566; border-radius: 2px; }
+body .current-event-panel .event-countdown > small { color: #bca06a; }
+body .current-event-panel .countdown-units > span { background: #100d09b3; border-color: #79552d; border-radius: 2px; box-shadow: inset 0 1px 0 #d5a65020; }
+body .current-event-panel .countdown-units strong { color: #edc575; }
+body .current-event-panel .countdown-units small { color: #b09a72; }
+body .hert-podium { padding-top: 24px; background: radial-gradient(ellipse at 50% 100%, #77511b24, transparent 66%), #13110d; border-bottom-color: #654821; }
+body .hert-podium-title { margin-bottom: 20px; }
+body .hert-podium-title p { color: #b58d4d; font-family: Cinzel, Georgia, serif; font-size: 11px; letter-spacing: 2px; }
+body .hert-podium-title > span { width: 80px; background: linear-gradient(90deg, transparent, #96703977); }
+body .hert-podium-stage { max-width: 790px; gap: 10px; }
+body .hert-podium-step { border-radius: 0; }
+body .hert-podium-player, body .hert-place-1 .hert-podium-player, body .hert-place-3 .hert-podium-player { padding: 14px 9px 23px; border: 0; border-radius: 0; background: none; box-shadow: none; }
+body .hert-podium-medal { border-radius: 50%; color: #b5b2a9; border-color: #66625a; background: #24211c; box-shadow: inset 0 1px 0 #d4c5a12b; width: 34px; height: 34px; }
+body .hert-place-1 .hert-podium-medal { color: #eabc62; background: #4b3312; border-color: #b88835; width: 44px; height: 44px; box-shadow: inset 0 1px 0 #f3c66a55, 0 0 20px #bd7b1626; }
+body .hert-place-3 .hert-podium-medal { color: #c39864; background: #352618; border-color: #86603a; }
+body .hert-podium-player > small { color: #a6967b; letter-spacing: 1px; font-size: 8px; }
+body .hert-place-1 .hert-podium-player > small { color: #c9a05a; }
+body .hert-podium-player h4 { font-family: Inter, Arial, sans-serif; font-size: 19px; font-weight: 600; color: #e6dcc8; margin: 9px 0 10px; }
+body .hert-place-1 h4 { font-size: 24px; color: #f1ce89; }
+body .hert-podium-player > strong { color: #bdb3a1; font-size: 17px; }
+body .hert-place-1 .hert-podium-player > strong { color: #e3b863; font-size: 19px; }
+body .hert-place-3 .hert-podium-player > strong { color: #c29867; }
+body .hert-podium-plinth { gap: 0; border: 1px solid #66615a; border-top: 4px solid #a09a8a; border-radius: 2px 2px 0 0; background: linear-gradient(105deg, #24221e, #302c25 50%, #1d1b17); box-shadow: inset 3px 0 0 #c4b99b0c, inset -3px 0 0 #0005, 0 5px 12px #0005; }
+body .hert-place-1 .hert-podium-plinth { border-color: #987034; border-top-color: #d4a14e; background: linear-gradient(105deg, #3c2c16, #534020 50%, #30220f); }
+body .hert-place-3 .hert-podium-plinth { border-color: #795634; border-top-color: #ac7f4d; background: linear-gradient(105deg, #30251a, #42301e 50%, #261d13); }
+body .hert-podium-plinth::after { inset: 6px; border-color: #bcaa8117; }
+body .hert-podium-rank { color: #b8b1a3; font-family: Cinzel, Georgia, serif; font-size: 35px; }
+body .hert-place-1 .hert-podium-rank { color: #d8aa59; font-size: 52px; }
+body .hert-place-3 .hert-podium-rank { color: #b68c5d; }
+body .hert-podium-caption { color: #9f9076; margin-top: 18px; }
+body .hert-top-ten { padding-top: 24px; }
+body .hert-top-ten-heading h4 { font-size: 21px; margin: 0; }
+body .hert-contenders > li { grid-template-columns: 34px minmax(0, 1fr) 145px; border-color: #40311e; min-height: 56px; padding: 14px 8px; }
+body .hert-contenders > li:hover { background: #a77a2b09; }
+body .hert-contender-rank { font-family: Inter, Arial, sans-serif; color: #a28a61; font-size: 12px; }
+body .hert-contenders a { color: #d5c8ac; font-size: 13px; }
+body .hert-contenders strong { color: #d7ad60; }
+body .hert-contenders strong small { color: #a48b60; }
+body .current-event-panel .event-sync { border-color: #5c421f; background: #100e0a; color: #ad9974; }
+body .event-sync > a { color: #cfaa60; }
+body .hert-standings-empty { color: #b0a085; }
+body .calendar-month { background: #19150f; border-color: #5b4224; }
+body .calendar-agenda { background: #14110d; }
+body .calendar-heading h3, body .agenda-heading h3 { color: #d6b77a; }
+body .calendar-heading button { border-color: #634a28; color: #bba06e; }
+body .calendar-days button { border-radius: 2px; color: #c5b697; }
+body .calendar-days button.selected { background: #50391b; border-color: #b38a43; color: #f2d896; }
+body .calendar-days button.is-today { color: #e1b962; }
+body .calendar-legend, body .calendar-timezone, body .calendar-weekdays, body .agenda-item p { color: #ac9b7b; }
+body .agenda-item { border-color: #4c3820; }
+body .agenda-icon { background: #322615; border-color: #74552a; color: #ccaa66; border-radius: 2px; }
+body .agenda-discord { background: #20190f; border-color: #624721; }
+body .community-links a { color: #ab9a79; }
+body .community-links a.selected { color: #d6b271; border-color: #88652c; background: #30220e; border-radius: 2px; }
+body .dashboard-section { background: #100d09; border-color: #4b351d; }
+body .spotlight, body .month-champions, body .join-banner { background: #251b0e; border-color: #705125; border-radius: 3px; }
+body .member-toolbar, body th { background: #21190f; border-color: #49351f; }
+body .search, body select { background: #110e09; border-color: #6b4c27; color: #d0bb94; border-radius: 2px; }
+body .search input, body .member-name { color: #dfd2b8; }
+body td, body .tabs, body .panel-footer, body .member-pagination, body .pursuits, body .event-row { border-color: #49351f; }
+body th, body .muted-text, body .role, body .member-pagination { color: #b4a17e; }
+body .member-avatar, body .pursuit-icon, body .event-date { background: #2d2112; border-color: #75542a; color: #ca9f54; border-radius: 2px; }
+body .tabs button.selected { color: #e0b55e; }
+body footer { background: #100d09; border-color: #5d4120; }
+body .footer-main > div, body .footer-world, body .footer-bottom { color: #a7926c; }
+body .footer-bottom { border-color: #46311b; }
+body .bingo-nav { background: #100d09f5; border-color: #5d4120; }
+body .bingo-page-heading h1 { font-family: Cinzel, Georgia, serif; color: #e4c186; }
+body .bingo-empty, body .bingo-dialog, body .bingo-admin-bar { background: #19140e; border-color: #75542b; border-radius: 3px; }
+@media (max-width: 950px) { body .header .navigation { background: #120e09fa; border-bottom-color: #755129; } }
+@media (max-width: 700px) {
+  body .hero .hero-poem h1 { font-size: clamp(28px, 7.7vw, 42px); line-height: 1.35; }
+  body .hero .hero-poem > .clan-rhyme { font-size: 16px; }
+  body .hero .hero-pattern { background: linear-gradient(180deg, #0e0c09e8, #0e0c09bd 43%, #0e0c0933 75%, #0e0c0977); }
+  body .header .navigation a { font-size: 11px; }
+  body .clan-stat-amount { font-size: 39px; }
+  body .clan-stat-card .clan-stat-button { min-height: 44px; }
+}
+@media (max-width: 600px) {
+  body .event-view-switch button { font-size: 10px; padding-inline: 10px; }
+  body .current-event-panel .event-live-heading h3 { font-size: 23px; line-height: 1.4; }
+  body .hert-podium-stage { gap: 6px; }
+  body .hert-podium-player { padding: 10px 3px 17px; }
+  body .hert-podium-medal { width: 27px; height: 27px; }
+  body .hert-place-1 .hert-podium-medal { width: 35px; height: 35px; }
+  body .hert-podium-player h4 { font-size: 12px; }
+  body .hert-place-1 h4 { font-size: 14px; }
+  body .hert-podium-player > strong, body .hert-place-1 .hert-podium-player > strong { font-size: 10px; }
+  body .hert-podium-rank { font-size: 29px; }
+  body .hert-place-1 .hert-podium-rank { font-size: 41px; }
+  body .hert-top-ten-heading h4 { font-size: 18px; }
+  body .hert-contenders > li { grid-template-columns: 25px minmax(0, 1fr) auto; gap: 8px; padding: 15px 0; }
+  body .hert-contenders a, body .hert-contenders strong { font-size: 11px; }
+}
+
+/* Events: three centered views, countdown, event name, standings. */
+body .event-page-controls { display: flex; justify-content: center; padding-top: 38px; }
+body .event-view-switch { display: flex; justify-content: center; gap: 8px; }
+body .event-view-switch button { min-width: 136px; min-height: 46px; padding: 12px 22px; }
+body .clan-inner-page .active-event { max-width: 1000px; padding-top: 28px; padding-bottom: 56px; }
+body .active-event-intro { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 4px 0 30px; }
+body .active-event-timer { text-align: center; }
+body .timer-label { display: block; color: #a89063; font: 500 10px/1.4 Cinzel, Georgia, serif; letter-spacing: 1.8px; margin-bottom: 12px; }
+body .active-timer-units { display: flex; justify-content: center; align-items: center; gap: 12px; }
+body .active-timer-units > span { min-width: 68px; padding: 12px 10px 10px; border: 1px solid #725129; background: linear-gradient(#251c10, #15110b); border-radius: 2px; box-shadow: inset 0 1px 0 #dcac5426; }
+body .active-timer-units strong { display: block; font: 500 34px/1.1 Cinzel, Georgia, serif; font-variant-numeric: tabular-nums; color: #e4bd74; }
+body .active-timer-units small { display: block; font: 400 9px/1.2 Inter, Arial, sans-serif; color: #aa946e; margin-top: 7px; }
+body .active-timer-units > i { font: 400 24px Georgia, serif; color: #896735; transform: translateY(-8px); }
+body .active-event-intro h2 { font: 500 clamp(22px, 2.8vw, 32px)/1.4 Cinzel, Georgia, serif; color: #e6bf7e; margin: 24px 0 0; }
+body .active-event .hert-podium { padding-top: 22px; padding-bottom: 28px; }
+body .active-event .hert-top-ten { padding-bottom: 16px; }
+body .past-events { max-width: 1000px; padding-top: 36px; padding-bottom: 56px; }
+body .past-events > h2 { font: 500 27px/1.4 Cinzel, Georgia, serif; color: #e6bf7e; margin: 0 0 24px; text-align: center; }
+body .past-event-list { list-style: none; padding: 0; margin: 0; border: 1px solid #604725; border-radius: 2px; background: #15120d; }
+body .past-event-list li + li { border-top: 1px solid #49351f; }
+body .past-event-list a { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 21px 24px; }
+body .past-event-list a:hover { background: #a57a2810; }
+body .past-event-list h3 { margin: 5px 0 8px; font: 500 16px/1.4 Cinzel, Georgia, serif; color: #dec291; overflow-wrap: anywhere; }
+body .past-event-list a > span > small { color: #a28758; text-transform: capitalize; font-size: 10px; }
+body .past-event-list a > span > span:not(.sr-only) { color: #ad9d80; font-size: 11px; }
+body .past-event-result { display: inline-flex; align-items: center; flex-shrink: 0; gap: 8px; color: #d0a45c; font-size: 11px; }
+body .past-events-more { display: flex; margin: 24px auto 0; border: 1px solid #826032; background: #302211; color: #d7b378; border-radius: 2px; }
+body .past-events-source { display: flex; justify-content: center; margin-top: 24px; font-size: 11px; color: #ae9467; }
+@media (max-width: 600px) {
+  body .event-page-controls { padding-top: 25px; }
+  body .event-view-switch { width: 100%; gap: 6px; }
+  body .event-view-switch button { flex: 1; min-width: 0; padding: 12px 6px; font-size: 9px; }
+  body .clan-inner-page .active-event { padding-top: 24px; padding-bottom: 36px; }
+  body .active-event-intro { padding-bottom: 24px; }
+  body .active-event-intro h2 { margin-top: 21px; }
+  body .active-timer-units { gap: 9px; }
+  body .active-timer-units > span { min-width: 59px; padding: 10px 8px; }
+  body .active-timer-units strong { font-size: 29px; }
+  body .past-events { padding-top: 28px; }
+  body .past-events > h2 { font-size: 22px; }
+  body .past-event-list a { padding: 18px 15px; gap: 12px; }
+  body .past-event-list h3 { font-size: 13px; }
+  body .past-event-result { font-size: 10px; gap: 4px; }
+}

@@ -1,0 +1,2340 @@
+{
+  "fetchedAt": "2026-11-08T21:25:40.293Z",
+  "competitions": [
+    {
+      "id": 164767,
+      "title": "Skill of the Week Hunter",
+      "metric": "hunter",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-11-05T23:35:00.000Z",
+      "endsAt": "2026-11-15T22:59:00.000Z",
+      "participantCount": 423,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "hunter",
+          "createdAt": "2026-11-05T23:57:16.887Z"
+        }
+      ]
+    },
+    {
+      "id": 162685,
+      "title": "Boss of the week Scurrius",
+      "metric": "scurrius",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-10-26T11:00:00.000Z",
+      "endsAt": "2026-11-01T22:59:00.000Z",
+      "participantCount": 429,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "scurrius",
+          "createdAt": "2026-10-24T13:20:19.334Z"
+        }
+      ]
+    },
+    {
+      "id": 162687,
+      "title": "Boss of the week Calvarion",
+      "metric": "calvarion",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-10-26T11:00:00.000Z",
+      "endsAt": "2026-11-01T22:59:00.000Z",
+      "participantCount": 429,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "calvarion",
+          "createdAt": "2026-10-24T13:25:52.359Z"
+        }
+      ]
+    },
+    {
+      "id": 162691,
+      "title": "Boss of the week Araxxor",
+      "metric": "araxxor",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-10-26T11:00:00.000Z",
+      "endsAt": "2026-11-01T22:59:00.000Z",
+      "participantCount": 429,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "araxxor",
+          "createdAt": "2026-10-24T13:34:08.937Z"
+        }
+      ]
+    },
+    {
+      "id": 162693,
+      "title": "Boss of the week Maggot King",
+      "metric": "maggot_king",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-10-26T11:00:00.000Z",
+      "endsAt": "2026-11-01T22:59:00.000Z",
+      "participantCount": 429,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "maggot_king",
+          "createdAt": "2026-10-24T13:36:13.677Z"
+        }
+      ]
+    },
+    {
+      "id": 162692,
+      "title": "Boss of the week Cerberus",
+      "metric": "cerberus",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-10-26T11:00:00.000Z",
+      "endsAt": "2026-11-01T22:59:00.000Z",
+      "participantCount": 429,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "cerberus",
+          "createdAt": "2026-10-24T13:35:13.764Z"
+        }
+      ]
+    },
+    {
+      "id": 162694,
+      "title": "Boss of the week Theatre of Blood",
+      "metric": "theatre_of_blood",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-10-26T11:00:00.000Z",
+      "endsAt": "2026-11-01T22:59:00.000Z",
+      "participantCount": 429,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "theatre_of_blood",
+          "createdAt": "2026-10-24T13:37:22.873Z"
+        }
+      ]
+    },
+    {
+      "id": 162690,
+      "title": "Boss of the week Kalphite Queen",
+      "metric": "kalphite_queen",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-10-26T11:00:00.000Z",
+      "endsAt": "2026-11-01T22:59:00.000Z",
+      "participantCount": 429,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "kalphite_queen",
+          "createdAt": "2026-10-24T13:31:56.137Z"
+        }
+      ]
+    },
+    {
+      "id": 162688,
+      "title": "Boss of the week Venenatis",
+      "metric": "venenatis",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-10-26T11:00:00.000Z",
+      "endsAt": "2026-11-01T22:59:00.000Z",
+      "participantCount": 429,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "venenatis",
+          "createdAt": "2026-10-24T13:27:31.578Z"
+        }
+      ]
+    },
+    {
+      "id": 162686,
+      "title": "Boss of the week Spindel",
+      "metric": "spindel",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-10-26T11:00:00.000Z",
+      "endsAt": "2026-11-01T22:59:00.000Z",
+      "participantCount": 429,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "spindel",
+          "createdAt": "2026-10-24T13:23:29.722Z"
+        }
+      ]
+    },
+    {
+      "id": 162689,
+      "title": "Boss of the week Vetion",
+      "metric": "vetion",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-10-26T11:00:00.000Z",
+      "endsAt": "2026-11-01T22:59:00.000Z",
+      "participantCount": 429,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "vetion",
+          "createdAt": "2026-10-24T13:29:00.676Z"
+        }
+      ]
+    },
+    {
+      "id": 161755,
+      "title": "Skill of the week Fishing",
+      "metric": "fishing",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-10-18T07:00:00.000Z",
+      "endsAt": "2026-10-25T22:00:00.000Z",
+      "participantCount": 426,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "fishing",
+          "createdAt": "2026-10-17T19:50:05.102Z"
+        }
+      ]
+    },
+    {
+      "id": 157884,
+      "title": "ehb",
+      "metric": "ehb",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-09-26T21:00:00.000Z",
+      "endsAt": "2026-10-10T18:00:00.000Z",
+      "participantCount": 426,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "ehb",
+          "createdAt": "2026-09-26T20:04:10.369Z"
+        }
+      ]
+    },
+    {
+      "id": 156553,
+      "title": "SOTW/BOTW - Slayer (500k)",
+      "metric": "slayer",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-09-18T18:00:00.000Z",
+      "endsAt": "2026-09-27T18:00:00.000Z",
+      "participantCount": 426,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "slayer",
+          "createdAt": "2026-09-18T12:38:53.514Z"
+        }
+      ]
+    },
+    {
+      "id": 154158,
+      "title": "SOTW - Runecrafting (500k)",
+      "metric": "runecrafting",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-09-04T18:00:00.000Z",
+      "endsAt": "2026-09-13T18:00:00.000Z",
+      "participantCount": 426,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "runecrafting",
+          "createdAt": "2026-09-04T07:54:27.750Z"
+        }
+      ]
+    },
+    {
+      "id": 151560,
+      "title": "Botw – Hijgend Hert – Artio",
+      "metric": "artio",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-08-21T18:00:00.000Z",
+      "endsAt": "2026-08-30T21:59:00.000Z",
+      "participantCount": 422,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "artio",
+          "createdAt": "2026-08-21T09:22:33.362Z"
+        }
+      ]
+    },
+    {
+      "id": 151561,
+      "title": "Botw – Hijgend Hert – Callisto",
+      "metric": "callisto",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-08-21T18:00:00.000Z",
+      "endsAt": "2026-08-30T21:59:00.000Z",
+      "participantCount": 422,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "callisto",
+          "createdAt": "2026-08-21T09:24:37.401Z"
+        }
+      ]
+    },
+    {
+      "id": 151562,
+      "title": "Botw – Hijgend Hert - Calvar'ion",
+      "metric": "calvarion",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-08-21T18:00:00.000Z",
+      "endsAt": "2026-08-30T21:59:00.000Z",
+      "participantCount": 422,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "calvarion",
+          "createdAt": "2026-08-21T09:25:30.277Z"
+        }
+      ]
+    },
+    {
+      "id": 151564,
+      "title": "Botw – Hijgend Hert – Spindel",
+      "metric": "spindel",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-08-21T18:00:00.000Z",
+      "endsAt": "2026-08-30T21:59:00.000Z",
+      "participantCount": 422,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "spindel",
+          "createdAt": "2026-08-21T09:26:53.727Z"
+        }
+      ]
+    },
+    {
+      "id": 151565,
+      "title": "Botw – Hijgend Hert – Venenatis",
+      "metric": "venenatis",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-08-21T18:00:00.000Z",
+      "endsAt": "2026-08-30T21:59:00.000Z",
+      "participantCount": 422,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "venenatis",
+          "createdAt": "2026-08-21T09:27:28.670Z"
+        }
+      ]
+    },
+    {
+      "id": 151566,
+      "title": "Botw – Hijgend Hert – Chaos Elemental",
+      "metric": "chaos_elemental",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-08-21T18:00:00.000Z",
+      "endsAt": "2026-08-30T21:59:00.000Z",
+      "participantCount": 422,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "chaos_elemental",
+          "createdAt": "2026-08-21T09:28:13.000Z"
+        }
+      ]
+    },
+    {
+      "id": 151568,
+      "title": "Botw – Hijgend Hert – Chaos Fanatic",
+      "metric": "chaos_fanatic",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-08-21T18:00:00.000Z",
+      "endsAt": "2026-08-30T21:59:00.000Z",
+      "participantCount": 422,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "chaos_fanatic",
+          "createdAt": "2026-08-21T09:29:41.245Z"
+        }
+      ]
+    },
+    {
+      "id": 151567,
+      "title": "Botw – Hijgend Hert – Crazy Archaeologist",
+      "metric": "crazy_archaeologist",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-08-21T18:00:00.000Z",
+      "endsAt": "2026-08-30T21:59:00.000Z",
+      "participantCount": 422,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "crazy_archaeologist",
+          "createdAt": "2026-08-21T09:28:57.137Z"
+        }
+      ]
+    },
+    {
+      "id": 151563,
+      "title": "Botw – Hijgend Hert - Vet'ion",
+      "metric": "vetion",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-08-21T18:00:00.000Z",
+      "endsAt": "2026-08-30T21:59:00.000Z",
+      "participantCount": 422,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "vetion",
+          "createdAt": "2026-08-21T09:26:15.059Z"
+        }
+      ]
+    },
+    {
+      "id": 151569,
+      "title": "Botw – Hijgend Hert – Scorpia",
+      "metric": "scorpia",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-08-21T18:00:00.000Z",
+      "endsAt": "2026-08-30T21:59:00.000Z",
+      "participantCount": 422,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "scorpia",
+          "createdAt": "2026-08-21T09:30:20.101Z"
+        }
+      ]
+    },
+    {
+      "id": 149215,
+      "title": "Hijgend Hert - Skill of the week - Smithing 750K",
+      "metric": "smithing",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-08-07T18:00:00.000Z",
+      "endsAt": "2026-08-16T21:59:00.000Z",
+      "participantCount": 423,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "smithing",
+          "createdAt": "2026-08-07T13:02:52.955Z"
+        }
+      ]
+    },
+    {
+      "id": 146852,
+      "title": "DT2 BOTW - Vardorvis",
+      "metric": "vardorvis",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-07-24T18:00:00.000Z",
+      "endsAt": "2026-08-02T21:59:00.000Z",
+      "participantCount": 419,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "vardorvis",
+          "createdAt": "2026-07-24T11:39:57.846Z"
+        }
+      ]
+    },
+    {
+      "id": 146849,
+      "title": "DT2 BOTW - Whisperer",
+      "metric": "the_whisperer",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-07-24T18:00:00.000Z",
+      "endsAt": "2026-08-02T21:59:00.000Z",
+      "participantCount": 419,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "the_whisperer",
+          "createdAt": "2026-07-24T11:36:55.911Z"
+        }
+      ]
+    },
+    {
+      "id": 146851,
+      "title": "DT2 BOTW - Leviathan",
+      "metric": "the_leviathan",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-07-24T18:00:00.000Z",
+      "endsAt": "2026-08-02T21:59:00.000Z",
+      "participantCount": 419,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "the_leviathan",
+          "createdAt": "2026-07-24T11:39:17.498Z"
+        }
+      ]
+    },
+    {
+      "id": 146850,
+      "title": "DT2 BOTW - Duke",
+      "metric": "duke_sucellus",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-07-24T18:00:00.000Z",
+      "endsAt": "2026-08-02T21:59:00.000Z",
+      "participantCount": 419,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "duke_sucellus",
+          "createdAt": "2026-07-24T11:37:54.081Z"
+        }
+      ]
+    },
+    {
+      "id": 144606,
+      "title": "Hijgend Hert-Skill of the week-Crafting 1000k xp",
+      "metric": "crafting",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-07-09T18:00:00.000Z",
+      "endsAt": "2026-07-19T21:59:00.000Z",
+      "participantCount": 419,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "crafting",
+          "createdAt": "2026-07-08T19:29:25.652Z"
+        }
+      ]
+    },
+    {
+      "id": 142693,
+      "title": "Hijgend Hert-Boss of the week-Yama 75kc",
+      "metric": "yama",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-06-26T18:00:00.000Z",
+      "endsAt": "2026-07-05T21:59:00.000Z",
+      "participantCount": 419,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "yama",
+          "createdAt": "2026-06-25T18:25:39.307Z"
+        }
+      ]
+    },
+    {
+      "id": 140864,
+      "title": "Hijgend Hert-SOTW-Herblore 1000k",
+      "metric": "herblore",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-06-12T18:00:00.000Z",
+      "endsAt": "2026-06-21T21:59:00.000Z",
+      "participantCount": 417,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "herblore",
+          "createdAt": "2026-06-12T08:06:58.384Z"
+        }
+      ]
+    },
+    {
+      "id": 138730,
+      "title": "Hijgend Hert - BOTW Zulrah (150kc)",
+      "metric": "zulrah",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-05-29T18:00:00.000Z",
+      "endsAt": "2026-06-07T21:59:00.000Z",
+      "participantCount": 409,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "zulrah",
+          "createdAt": "2026-05-28T17:02:48.674Z"
+        }
+      ]
+    },
+    {
+      "id": 137267,
+      "title": "Hijgend Hert SOTW - Hunter (500k xp)",
+      "metric": "hunter",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-05-15T18:00:00.000Z",
+      "endsAt": "2026-05-24T18:00:00.000Z",
+      "participantCount": 410,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "hunter",
+          "createdAt": "2026-05-14T19:26:58.064Z"
+        }
+      ]
+    },
+    {
+      "id": 135961,
+      "title": "BOTW - Hijgend Hert - Godwars - Graardor",
+      "metric": "general_graardor",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-05-01T18:00:00.000Z",
+      "endsAt": "2026-05-10T18:00:00.000Z",
+      "participantCount": 409,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "general_graardor",
+          "createdAt": "2026-04-30T19:01:39.731Z"
+        }
+      ]
+    },
+    {
+      "id": 135962,
+      "title": "BOTW - Hijgend Hert - Godwars - Zilyana",
+      "metric": "commander_zilyana",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-05-01T18:00:00.000Z",
+      "endsAt": "2026-05-10T18:00:00.000Z",
+      "participantCount": 409,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "commander_zilyana",
+          "createdAt": "2026-04-30T19:01:51.607Z"
+        }
+      ]
+    },
+    {
+      "id": 135963,
+      "title": "BOTW - Hijgend Hert - Godwars - Kree'Arra",
+      "metric": "kreearra",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-05-01T18:00:00.000Z",
+      "endsAt": "2026-05-10T18:00:00.000Z",
+      "participantCount": 409,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "kreearra",
+          "createdAt": "2026-04-30T19:04:16.429Z"
+        }
+      ]
+    },
+    {
+      "id": 135964,
+      "title": "BOTW - Hijgend Hert - Godwars - K'ril",
+      "metric": "kril_tsutsaroth",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-05-01T18:00:00.000Z",
+      "endsAt": "2026-05-10T18:00:00.000Z",
+      "participantCount": 409,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "kril_tsutsaroth",
+          "createdAt": "2026-04-30T19:04:28.088Z"
+        }
+      ]
+    },
+    {
+      "id": 135965,
+      "title": "BOTW - Hijgend Hert - Godwars - Nex",
+      "metric": "nex",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-05-01T18:00:00.000Z",
+      "endsAt": "2026-05-10T18:00:00.000Z",
+      "participantCount": 409,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "nex",
+          "createdAt": "2026-04-30T19:04:38.700Z"
+        }
+      ]
+    },
+    {
+      "id": 133538,
+      "title": "BOTW - Hijgend Hert - Agility (500K)",
+      "metric": "agility",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-04-05T06:00:00.000Z",
+      "endsAt": "2026-04-12T18:00:00.000Z",
+      "participantCount": 409,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "agility",
+          "createdAt": "2026-04-04T06:35:19.050Z"
+        }
+      ]
+    },
+    {
+      "id": 131310,
+      "title": "Boss of the Week - Phantom Muspah - 100kc",
+      "metric": "phantom_muspah",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-03-22T07:00:00.000Z",
+      "endsAt": "2026-03-29T18:00:00.000Z",
+      "participantCount": 401,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "phantom_muspah",
+          "createdAt": "2026-03-22T08:50:10.094Z"
+        }
+      ]
+    },
+    {
+      "id": 129294,
+      "title": "Tegelrace - EHP teams",
+      "metric": "ehp",
+      "type": "team",
+      "groupId": 7059,
+      "startsAt": "2026-03-06T19:00:00.000Z",
+      "endsAt": "2026-03-28T19:00:00.000Z",
+      "participantCount": 19,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "ehp",
+          "createdAt": "2026-03-06T17:22:33.678Z"
+        }
+      ]
+    },
+    {
+      "id": 129462,
+      "title": "Skill of the week - 500k Mining xp",
+      "metric": "mining",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-03-08T07:00:00.000Z",
+      "endsAt": "2026-03-15T19:00:00.000Z",
+      "participantCount": 402,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "mining",
+          "createdAt": "2026-03-07T17:29:50.114Z"
+        }
+      ]
+    },
+    {
+      "id": 127161,
+      "title": "BOTW - Hijgend Hert - Grotesque Guardians",
+      "metric": "grotesque_guardians",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-02-22T07:00:00.000Z",
+      "endsAt": "2026-03-01T19:00:00.000Z",
+      "participantCount": 401,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "grotesque_guardians",
+          "createdAt": "2026-02-21T17:59:25.582Z"
+        }
+      ]
+    },
+    {
+      "id": 125332,
+      "title": "Hijgend Hert Runecrafting",
+      "metric": "runecrafting",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-02-08T07:00:00.000Z",
+      "endsAt": "2026-02-15T19:00:00.000Z",
+      "participantCount": 397,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "runecrafting",
+          "createdAt": "2026-02-07T21:45:06.942Z"
+        }
+      ]
+    },
+    {
+      "id": 123326,
+      "title": "BOTW - Dagannoth Kings - Prime",
+      "metric": "dagannoth_prime",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-01-24T17:00:00.000Z",
+      "endsAt": "2026-02-01T19:00:00.000Z",
+      "participantCount": 397,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "dagannoth_prime",
+          "createdAt": "2026-01-23T21:50:51.475Z"
+        }
+      ]
+    },
+    {
+      "id": 123325,
+      "title": "BOTW - Dagannoth Kings - Rex",
+      "metric": "dagannoth_rex",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-01-24T17:00:00.000Z",
+      "endsAt": "2026-02-01T19:00:00.000Z",
+      "participantCount": 397,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "dagannoth_rex",
+          "createdAt": "2026-01-23T21:49:15.193Z"
+        }
+      ]
+    },
+    {
+      "id": 123328,
+      "title": "BOTW - Dagannoth Kings - Supreme",
+      "metric": "dagannoth_supreme",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-01-24T17:00:00.000Z",
+      "endsAt": "2026-02-01T19:00:00.000Z",
+      "participantCount": 397,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "dagannoth_supreme",
+          "createdAt": "2026-01-23T21:52:13.230Z"
+        }
+      ]
+    },
+    {
+      "id": 121540,
+      "title": "SOTW - Fishing",
+      "metric": "fishing",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2026-01-11T07:00:00.000Z",
+      "endsAt": "2026-01-18T19:00:00.000Z",
+      "participantCount": 388,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "fishing",
+          "createdAt": "2026-01-09T13:09:47.897Z"
+        }
+      ]
+    },
+    {
+      "id": 119790,
+      "title": "BOTW - Raids - Tomb of Amascut",
+      "metric": "tombs_of_amascut",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-12-28T19:00:00.000Z",
+      "endsAt": "2026-01-04T19:00:00.000Z",
+      "participantCount": 377,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "tombs_of_amascut",
+          "createdAt": "2025-12-27T15:47:59.737Z"
+        }
+      ]
+    },
+    {
+      "id": 119788,
+      "title": "BOTW - Raids - Chambers Of Xeric",
+      "metric": "chambers_of_xeric",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-12-28T19:00:00.000Z",
+      "endsAt": "2026-01-04T19:00:00.000Z",
+      "participantCount": 377,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "chambers_of_xeric",
+          "createdAt": "2025-12-27T15:44:34.273Z"
+        }
+      ]
+    },
+    {
+      "id": 119789,
+      "title": "BOTW - Raids - Chambers Of Xeric Challenge mode",
+      "metric": "chambers_of_xeric_challenge_mode",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-12-28T19:00:00.000Z",
+      "endsAt": "2026-01-04T19:00:00.000Z",
+      "participantCount": 377,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "chambers_of_xeric_challenge_mode",
+          "createdAt": "2025-12-27T15:46:36.987Z"
+        }
+      ]
+    },
+    {
+      "id": 119791,
+      "title": "BOTW - Raids - Tomb of Amascut Expert",
+      "metric": "tombs_of_amascut_expert",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-12-28T19:00:00.000Z",
+      "endsAt": "2026-01-04T19:00:00.000Z",
+      "participantCount": 377,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "tombs_of_amascut_expert",
+          "createdAt": "2025-12-27T15:49:04.234Z"
+        }
+      ]
+    },
+    {
+      "id": 119220,
+      "title": "Prayer Sotw",
+      "metric": "prayer",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-12-21T07:00:00.000Z",
+      "endsAt": "2025-12-28T19:00:00.000Z",
+      "participantCount": 377,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "prayer",
+          "createdAt": "2025-12-20T15:12:32.448Z"
+        }
+      ]
+    },
+    {
+      "id": 118198,
+      "title": "Sailing Week 4",
+      "metric": "sailing",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-12-10T21:18:00.000Z",
+      "endsAt": "2025-12-20T19:00:00.000Z",
+      "participantCount": 375,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "sailing",
+          "createdAt": "2025-12-10T21:17:28.510Z"
+        }
+      ]
+    },
+    {
+      "id": 117460,
+      "title": "Sailing week 3",
+      "metric": "sailing",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-12-03T19:00:00.000Z",
+      "endsAt": "2025-12-10T19:00:00.000Z",
+      "participantCount": 375,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "sailing",
+          "createdAt": "2025-12-03T14:35:47.281Z"
+        }
+      ]
+    },
+    {
+      "id": 116624,
+      "title": "Sailing Week 2",
+      "metric": "sailing",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-11-26T19:00:00.000Z",
+      "endsAt": "2025-12-03T19:00:00.000Z",
+      "participantCount": 375,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "sailing",
+          "createdAt": "2025-11-26T10:16:00.542Z"
+        }
+      ]
+    },
+    {
+      "id": 115871,
+      "title": "Sailing Week 1",
+      "metric": "sailing",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-11-19T09:00:00.000Z",
+      "endsAt": "2025-11-26T19:00:00.000Z",
+      "participantCount": 375,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "sailing",
+          "createdAt": "2025-11-18T19:43:33.818Z"
+        }
+      ]
+    },
+    {
+      "id": 114498,
+      "title": "Skill of the week (SOTW) - Thieving – 1m xp",
+      "metric": "thieving",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-11-09T07:00:00.000Z",
+      "endsAt": "2025-11-16T19:00:00.000Z",
+      "participantCount": 372,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "thieving",
+          "createdAt": "2025-11-08T20:04:52.484Z"
+        }
+      ]
+    },
+    {
+      "id": 112684,
+      "title": "Boss of the week - Barrows",
+      "metric": "barrows_chests",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-10-26T07:00:00.000Z",
+      "endsAt": "2025-11-02T19:00:00.000Z",
+      "participantCount": 371,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "barrows_chests",
+          "createdAt": "2025-10-24T20:19:51.826Z"
+        }
+      ]
+    },
+    {
+      "id": 111232,
+      "title": "Skill of the week Firemaking",
+      "metric": "firemaking",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-10-12T06:00:00.000Z",
+      "endsAt": "2025-10-19T18:00:00.000Z",
+      "participantCount": 369,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "firemaking",
+          "createdAt": "2025-10-11T14:02:29.279Z"
+        }
+      ]
+    },
+    {
+      "id": 109066,
+      "title": "The Gauntlet",
+      "metric": "the_gauntlet",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-09-28T18:00:00.000Z",
+      "endsAt": "2025-10-05T18:00:00.000Z",
+      "participantCount": 369,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "the_gauntlet",
+          "createdAt": "2025-09-28T10:34:23.380Z"
+        }
+      ]
+    },
+    {
+      "id": 109068,
+      "title": "The Corrupted Gauntlet",
+      "metric": "the_corrupted_gauntlet",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-09-28T18:00:00.000Z",
+      "endsAt": "2025-10-05T18:00:00.000Z",
+      "participantCount": 369,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "the_corrupted_gauntlet",
+          "createdAt": "2025-09-28T10:35:31.387Z"
+        }
+      ]
+    },
+    {
+      "id": 106093,
+      "title": "BINGO Mining",
+      "metric": "mining",
+      "type": "team",
+      "groupId": 7059,
+      "startsAt": "2025-09-07T18:00:00.000Z",
+      "endsAt": "2025-09-21T18:00:00.000Z",
+      "participantCount": 30,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "mining",
+          "createdAt": "2025-09-07T11:37:13.776Z"
+        }
+      ]
+    },
+    {
+      "id": 106178,
+      "title": "BINGO Woodcutting",
+      "metric": "woodcutting",
+      "type": "team",
+      "groupId": 7059,
+      "startsAt": "2025-09-07T18:35:00.000Z",
+      "endsAt": "2025-09-21T18:00:00.000Z",
+      "participantCount": 30,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "woodcutting",
+          "createdAt": "2025-09-07T18:30:32.554Z"
+        }
+      ]
+    },
+    {
+      "id": 106094,
+      "title": "BINGO Fishing",
+      "metric": "fishing",
+      "type": "team",
+      "groupId": 7059,
+      "startsAt": "2025-09-07T18:00:00.000Z",
+      "endsAt": "2025-09-21T18:00:00.000Z",
+      "participantCount": 30,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "fishing",
+          "createdAt": "2025-09-07T11:36:43.676Z"
+        }
+      ]
+    },
+    {
+      "id": 106095,
+      "title": "BINGO Agility",
+      "metric": "agility",
+      "type": "team",
+      "groupId": 7059,
+      "startsAt": "2025-09-07T18:00:00.000Z",
+      "endsAt": "2025-09-21T18:00:00.000Z",
+      "participantCount": 30,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "agility",
+          "createdAt": "2025-09-07T11:39:04.438Z"
+        }
+      ]
+    },
+    {
+      "id": 106098,
+      "title": "BINGO Hijgend Hert",
+      "metric": "overall",
+      "type": "team",
+      "groupId": 7059,
+      "startsAt": "2025-09-07T18:00:00.000Z",
+      "endsAt": "2025-09-21T18:00:00.000Z",
+      "participantCount": 30,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "overall",
+          "createdAt": "2025-09-07T11:43:52.608Z"
+        }
+      ]
+    },
+    {
+      "id": 105422,
+      "title": "BINGO Runecrafting",
+      "metric": "runecrafting",
+      "type": "team",
+      "groupId": 7059,
+      "startsAt": "2025-09-07T18:00:00.000Z",
+      "endsAt": "2025-09-21T18:00:00.000Z",
+      "participantCount": 30,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "runecrafting",
+          "createdAt": "2025-09-02T18:16:38.919Z"
+        }
+      ]
+    },
+    {
+      "id": 103225,
+      "title": "Skill (builder) of the week Construction",
+      "metric": "construction",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-08-24T18:00:00.000Z",
+      "endsAt": "2025-08-31T18:00:00.000Z",
+      "participantCount": 352,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "construction",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 103226,
+      "title": "Skill (builder) of the week Construction",
+      "metric": "construction",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-08-24T18:00:00.000Z",
+      "endsAt": "2025-08-31T18:00:00.000Z",
+      "participantCount": 352,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "construction",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 101591,
+      "title": "Boss Of The Week Moons of Peril",
+      "metric": "lunar_chests",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-08-10T18:00:00.000Z",
+      "endsAt": "2025-08-17T18:00:00.000Z",
+      "participantCount": 354,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "lunar_chests",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 99019,
+      "title": "Call Of The Ents Fletching",
+      "metric": "fletching",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-07-23T11:00:00.000Z",
+      "endsAt": "2025-08-05T18:00:00.000Z",
+      "participantCount": 319,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "fletching",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 97118,
+      "title": "Slayer Twee Weekse",
+      "metric": "slayer",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-07-07T16:00:00.000Z",
+      "endsAt": "2025-07-20T18:00:00.000Z",
+      "participantCount": 319,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "slayer",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 91026,
+      "title": "Smithing SOTW",
+      "metric": "smithing",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-05-25T11:00:00.000Z",
+      "endsAt": "2025-06-01T21:59:00.000Z",
+      "participantCount": 317,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "smithing",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 89084,
+      "title": "Hert skilling event",
+      "metric": "mining",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-05-09T10:00:00.000Z",
+      "endsAt": "2025-05-18T18:00:00.000Z",
+      "participantCount": 312,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "mining",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 89085,
+      "title": "Hert skilling event",
+      "metric": "fishing",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-05-09T10:00:00.000Z",
+      "endsAt": "2025-05-18T18:00:00.000Z",
+      "participantCount": 312,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "fishing",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 89086,
+      "title": "Hert skilling event",
+      "metric": "woodcutting",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-05-09T10:00:00.000Z",
+      "endsAt": "2025-05-18T18:00:00.000Z",
+      "participantCount": 312,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "woodcutting",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 87444,
+      "title": "Hijgend Hert Agility",
+      "metric": "agility",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-04-27T22:01:00.000Z",
+      "endsAt": "2025-05-03T21:59:00.000Z",
+      "participantCount": 295,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "agility",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 85786,
+      "title": "HH Duke",
+      "metric": "duke_sucellus",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-04-13T22:01:00.000Z",
+      "endsAt": "2025-04-20T21:59:00.000Z",
+      "participantCount": 296,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "duke_sucellus",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 85788,
+      "title": "HH Whisperer",
+      "metric": "the_whisperer",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-04-13T22:01:00.000Z",
+      "endsAt": "2025-04-20T21:59:00.000Z",
+      "participantCount": 296,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "the_whisperer",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 85789,
+      "title": "HH Leviathan",
+      "metric": "the_leviathan",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-04-13T22:01:00.000Z",
+      "endsAt": "2025-04-20T21:59:00.000Z",
+      "participantCount": 296,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "the_leviathan",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 85785,
+      "title": "HH Vardorvis",
+      "metric": "vardorvis",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-04-13T22:01:00.000Z",
+      "endsAt": "2025-04-20T21:59:00.000Z",
+      "participantCount": 296,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "vardorvis",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 83568,
+      "title": "Hunter SOTW",
+      "metric": "hunter",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-03-29T23:01:00.000Z",
+      "endsAt": "2025-04-06T21:59:00.000Z",
+      "participantCount": 295,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "hunter",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 82192,
+      "title": "Hijgend Hert: Wintertodt",
+      "metric": "wintertodt",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-03-14T13:00:00.000Z",
+      "endsAt": "2025-03-22T23:00:00.000Z",
+      "participantCount": 310,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "wintertodt",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 82193,
+      "title": "Hijgend Hert: Tempoross",
+      "metric": "tempoross",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-03-14T13:00:00.000Z",
+      "endsAt": "2025-03-22T23:00:00.000Z",
+      "participantCount": 310,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "tempoross",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 82194,
+      "title": "Hijgend Hert: GOTR",
+      "metric": "guardians_of_the_rift",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-03-14T13:00:00.000Z",
+      "endsAt": "2025-03-22T23:00:00.000Z",
+      "participantCount": 310,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "guardians_of_the_rift",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 82195,
+      "title": "Hijgend Hert: Zalcano",
+      "metric": "zalcano",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-03-14T13:00:00.000Z",
+      "endsAt": "2025-03-22T23:00:00.000Z",
+      "participantCount": 310,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "zalcano",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 81003,
+      "title": "Boss Of The Week: TOA",
+      "metric": "tombs_of_amascut_expert",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-03-02T23:00:00.000Z",
+      "endsAt": "2025-03-09T22:59:00.000Z",
+      "participantCount": 310,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "tombs_of_amascut_expert",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 81002,
+      "title": "Boss Of The Week: TOA",
+      "metric": "tombs_of_amascut",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-03-02T23:00:00.000Z",
+      "endsAt": "2025-03-09T22:59:00.000Z",
+      "participantCount": 310,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "tombs_of_amascut",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 78400,
+      "title": "Skill of the week Thieving",
+      "metric": "thieving",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2025-02-09T23:01:00.000Z",
+      "endsAt": "2025-02-16T22:09:00.000Z",
+      "participantCount": 310,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "thieving",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 72108,
+      "title": "Hijgend Hert Zulrah",
+      "metric": "zulrah",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-11-20T11:00:00.000Z",
+      "endsAt": "2024-11-30T23:00:00.000Z",
+      "participantCount": 264,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "zulrah",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 72110,
+      "title": "Hijgend Hert Bandos",
+      "metric": "general_graardor",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-11-20T11:00:00.000Z",
+      "endsAt": "2024-11-30T23:00:00.000Z",
+      "participantCount": 264,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "general_graardor",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 70797,
+      "title": "Hijgend Hert SOTW: Runecrafting",
+      "metric": "runecrafting",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-11-08T07:00:00.000Z",
+      "endsAt": "2024-11-17T19:00:00.000Z",
+      "participantCount": 298,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "runecrafting",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 69874,
+      "title": "Hijgend Hert BOTW: Araxxor",
+      "metric": "araxxor",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-10-30T11:00:00.000Z",
+      "endsAt": "2024-11-06T14:00:00.000Z",
+      "participantCount": 259,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "araxxor",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 69873,
+      "title": "Hijgend Hert BOTW: Sarachnis",
+      "metric": "sarachnis",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-10-30T11:00:00.000Z",
+      "endsAt": "2024-11-06T13:45:00.000Z",
+      "participantCount": 259,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "sarachnis",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 69875,
+      "title": "Hijgend Hert BOTW: Venenatis",
+      "metric": "venenatis",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-10-30T11:00:00.000Z",
+      "endsAt": "2024-11-06T11:00:00.000Z",
+      "participantCount": 259,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "venenatis",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 69872,
+      "title": "Hijgend Hert BOTW: Spindel",
+      "metric": "spindel",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-10-30T11:00:00.000Z",
+      "endsAt": "2024-11-06T11:00:00.000Z",
+      "participantCount": 259,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "spindel",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 64998,
+      "title": "Hijgend hert SOTW Prayer",
+      "metric": "prayer",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-09-15T22:00:00.000Z",
+      "endsAt": "2024-09-22T22:00:00.000Z",
+      "participantCount": 272,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "prayer",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 64232,
+      "title": "Hijgend Hert BOTW Barrows",
+      "metric": "barrows_chests",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-09-08T22:00:00.000Z",
+      "endsAt": "2024-09-15T21:59:00.000Z",
+      "participantCount": 267,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "barrows_chests",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 63648,
+      "title": "SOTW Agility 500K XP",
+      "metric": "agility",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-09-02T06:00:00.000Z",
+      "endsAt": "2024-09-08T21:59:00.000Z",
+      "participantCount": 265,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "agility",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 62486,
+      "title": "Hijgend hert BOTW TOA normal",
+      "metric": "tombs_of_amascut",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-08-26T06:00:00.000Z",
+      "endsAt": "2024-09-01T21:59:00.000Z",
+      "participantCount": 265,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "tombs_of_amascut",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 62487,
+      "title": "Hijgend hert BOTW TOA expert",
+      "metric": "tombs_of_amascut_expert",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-08-26T06:00:00.000Z",
+      "endsAt": "2024-09-01T21:59:00.000Z",
+      "participantCount": 265,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "tombs_of_amascut_expert",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 47939,
+      "title": "SOTW Hunter 22 6 2024",
+      "metric": "hunter",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-06-22T10:00:00.000Z",
+      "endsAt": "2024-06-30T21:59:00.000Z",
+      "participantCount": 49,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "hunter",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 46052,
+      "title": "BOTW Wintertodt",
+      "metric": "wintertodt",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-05-31T10:00:00.000Z",
+      "endsAt": "2024-06-08T22:00:00.000Z",
+      "participantCount": 47,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "wintertodt",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 46049,
+      "title": "BOTW Zulrah",
+      "metric": "zulrah",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-05-31T10:00:00.000Z",
+      "endsAt": "2024-06-08T22:00:00.000Z",
+      "participantCount": 47,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "zulrah",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 44266,
+      "title": "Sotw Overall",
+      "metric": "overall",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-05-08T11:00:00.000Z",
+      "endsAt": "2024-05-18T22:59:00.000Z",
+      "participantCount": 38,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "overall",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 42832,
+      "title": "BOTW Mole",
+      "metric": "giant_mole",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-04-17T10:00:00.000Z",
+      "endsAt": "2024-04-24T18:00:00.000Z",
+      "participantCount": 25,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "giant_mole",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 42833,
+      "title": "BOTW Vorkath",
+      "metric": "vorkath",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-04-17T10:00:00.000Z",
+      "endsAt": "2024-04-24T18:00:00.000Z",
+      "participantCount": 25,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "vorkath",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 42000,
+      "title": "Skill of the week Woodcutting",
+      "metric": "woodcutting",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-04-04T16:00:00.000Z",
+      "endsAt": "2024-04-11T22:00:00.000Z",
+      "participantCount": 18,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "woodcutting",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    },
+    {
+      "id": 40909,
+      "title": "Slayer Skill of the week",
+      "metric": "slayer",
+      "type": "classic",
+      "groupId": 7059,
+      "startsAt": "2024-03-20T17:00:00.000Z",
+      "endsAt": "2024-03-27T22:59:00.000Z",
+      "participantCount": 1,
+      "metrics": [
+        {
+          "weight": 1,
+          "metric": "slayer",
+          "createdAt": "2025-08-24T11:02:02.480Z"
+        }
+      ]
+    }
+  ],
+  "hall": {
+    "2026-11": {
+      "month": "2026-11",
+      "months": [
+        "2026-11",
+        "2026-10",
+        "2026-09",
+        "2026-08",
+        "2026-07",
+        "2026-06",
+        "2026-05",
+        "2026-04",
+        "2026-03",
+        "2026-02",
+        "2026-01",
+        "2025-12",
+        "2025-11",
+        "2025-10",
+        "2025-08",
+        "2025-07",
+        "2025-06",
+        "2025-05",
+        "2025-04",
+        "2025-03",
+        "2025-02",
+        "2024-12",
+        "2024-11",
+        "2024-09",
+        "2024-06",
+        "2024-05",
+        "2024-04",
+        "2024-03"
+      ],
+      "awards": [
+        {
+          "id": 162694,
+          "title": "Boss of the week Theatre of Blood",
+          "metric": "theatre_of_blood",
+          "type": "classic",
+          "groupId": 7059,
+          "startsAt": "2026-10-26T11:00:00.000Z",
+          "endsAt": "2026-11-01T22:59:00.000Z",
+          "participantCount": 429,
+          "metrics": [
+            {
+              "weight": 1,
+              "metric": "theatre_of_blood",
+              "createdAt": "2026-10-24T13:37:22.873Z"
+            }
+          ],
+          "category": "boss",
+          "unit": "kills",
+          "winners": [
+            {
+              "id": 2248741,
+              "username": "smurfim",
+              "displayName": "SmurfIM",
+              "gained": 39
+            }
+          ]
+        },
+        {
+          "id": 162693,
+          "title": "Boss of the week Maggot King",
+          "metric": "maggot_king",
+          "type": "classic",
+          "groupId": 7059,
+          "startsAt": "2026-10-26T11:00:00.000Z",
+          "endsAt": "2026-11-01T22:59:00.000Z",
+          "participantCount": 429,
+          "metrics": [
+            {
+              "weight": 1,
+              "metric": "maggot_king",
+              "createdAt": "2026-10-24T13:36:13.677Z"
+            }
+          ],
+          "category": "boss",
+          "unit": "kills",
+          "winners": [
+            {
+              "id": 1831826,
+              "username": "emptspirit",
+              "displayName": "EmpTspirit",
+              "gained": 101
+            }
+          ]
+        },
+        {
+          "id": 162692,
+          "title": "Boss of the week Cerberus",
+          "metric": "cerberus",
+          "type": "classic",
+          "groupId": 7059,
+          "startsAt": "2026-10-26T11:00:00.000Z",
+          "endsAt": "2026-11-01T22:59:00.000Z",
+          "participantCount": 429,
+          "metrics": [
+            {
+              "weight": 1,
+              "metric": "cerberus",
+              "createdAt": "2026-10-24T13:35:13.764Z"
+            }
+          ],
+          "category": "boss",
+          "unit": "kills",
+          "winners": [
+            {
+              "id": 2466585,
+              "username": "black shyguy",
+              "displayName": "black shyguy",
+              "gained": 200
+            }
+          ]
+        },
+        {
+          "id": 162691,
+          "title": "Boss of the week Araxxor",
+          "metric": "araxxor",
+          "type": "classic",
+          "groupId": 7059,
+          "startsAt": "2026-10-26T11:00:00.000Z",
+          "endsAt": "2026-11-01T22:59:00.000Z",
+          "participantCount": 429,
+          "metrics": [
+            {
+              "weight": 1,
+              "metric": "araxxor",
+              "createdAt": "2026-10-24T13:34:08.937Z"
+            }
+          ],
+          "category": "boss",
+          "unit": "kills",
+          "winners": [
+            {
+              "id": 1887569,
+              "username": "gim tippie",
+              "displayName": "GIM Tippie",
+              "gained": 201
+            }
+          ]
+        },
+        {
+          "id": 162690,
+          "title": "Boss of the week Kalphite Queen",
+          "metric": "kalphite_queen",
+          "type": "classic",
+          "groupId": 7059,
+          "startsAt": "2026-10-26T11:00:00.000Z",
+          "endsAt": "2026-11-01T22:59:00.000Z",
+          "participantCount": 429,
+          "metrics": [
+            {
+              "weight": 1,
+              "metric": "kalphite_queen",
+              "createdAt": "2026-10-24T13:31:56.137Z"
+            }
+          ],
+          "category": "boss",
+          "unit": "kills",
+          "winners": [
+            {
+              "id": 936776,
+              "username": "snoepy242",
+              "displayName": "Snoepy242",
+              "gained": 72
+            }
+          ]
+        },
+        {
+          "id": 162689,
+          "title": "Boss of the week Vetion",
+          "metric": "vetion",
+          "type": "classic",
+          "groupId": 7059,
+          "startsAt": "2026-10-26T11:00:00.000Z",
+          "endsAt": "2026-11-01T22:59:00.000Z",
+          "participantCount": 429,
+          "metrics": [
+            {
+              "weight": 1,
+              "metric": "vetion",
+              "createdAt": "2026-10-24T13:29:00.676Z"
+            }
+          ],
+          "category": "boss",
+          "unit": "kills",
+          "winners": [
+            {
+              "id": 699462,
+              "username": "hijgend hert",
+              "displayName": "Hijgend Hert",
+              "gained": 16
+            }
+          ]
+        },
+        {
+          "id": 162688,
+          "title": "Boss of the week Venenatis",
+          "metric": "venenatis",
+          "type": "classic",
+          "groupId": 7059,
+          "startsAt": "2026-10-26T11:00:00.000Z",
+          "endsAt": "2026-11-01T22:59:00.000Z",
+          "participantCount": 429,
+          "metrics": [
+            {
+              "weight": 1,
+              "metric": "venenatis",
+              "createdAt": "2026-10-24T13:27:31.578Z"
+            }
+          ],
+          "category": "boss",
+          "unit": "kills",
+          "winners": [
+            {
+              "id": 699462,
+              "username": "hijgend hert",
+              "displayName": "Hijgend Hert",
+              "gained": 226
+            }
+          ]
+        },
+        {
+          "id": 162687,
+          "title": "Boss of the week Calvarion",
+          "metric": "calvarion",
+          "type": "classic",
+          "groupId": 7059,
+          "startsAt": "2026-10-26T11:00:00.000Z",
+          "endsAt": "2026-11-01T22:59:00.000Z",
+          "participantCount": 429,
+          "metrics": [
+            {
+              "weight": 1,
+              "metric": "calvarion",
+              "createdAt": "2026-10-24T13:25:52.359Z"
+            }
+          ],
+          "category": "boss",
+          "unit": "kills",
+          "winners": [
+            {
+              "id": 1300820,
+              "username": "khurani",
+              "displayName": "Khurani",
+              "gained": 112
+            }
+          ]
+        },
+        {
+          "id": 162686,
+          "title": "Boss of the week Spindel",
+          "metric": "spindel",
+          "type": "classic",
+          "groupId": 7059,
+          "startsAt": "2026-10-26T11:00:00.000Z",
+          "endsAt": "2026-11-01T22:59:00.000Z",
+          "participantCount": 429,
+          "metrics": [
+            {
+              "weight": 1,
+              "metric": "spindel",
+              "createdAt": "2026-10-24T13:23:29.722Z"
+            }
+          ],
+          "category": "boss",
+          "unit": "kills",
+          "winners": [
+            {
+              "id": 2162129,
+              "username": "donerzaak",
+              "displayName": "Donerzaak",
+              "gained": 111
+            }
+          ]
+        },
+        {
+          "id": 162685,
+          "title": "Boss of the week Scurrius",
+          "metric": "scurrius",
+          "type": "classic",
+          "groupId": 7059,
+          "startsAt": "2026-10-26T11:00:00.000Z",
+          "endsAt": "2026-11-01T22:59:00.000Z",
+          "participantCount": 429,
+          "metrics": [
+            {
+              "weight": 1,
+              "metric": "scurrius",
+              "createdAt": "2026-10-24T13:20:19.334Z"
+            }
+          ],
+          "category": "boss",
+          "unit": "kills",
+          "winners": [
+            {
+              "id": 2052908,
+              "username": "poblimo",
+              "displayName": "poblimo",
+              "gained": 100
+            },
+            {
+              "id": 839604,
+              "username": "beukkip nl",
+              "displayName": "beukkip nl",
+              "gained": 100
+            }
+          ]
+        }
+      ],
+      "leaders": [
+        {
+          "id": 699462,
+          "username": "hijgend hert",
+          "displayName": "Hijgend Hert",
+          "gained": 226,
+          "wins": 2
+        }
+      ],
+      "partial": false,
+      "ongoingMonth": true
+    },
+    "2026-10": {
+      "month": "2026-10",
+      "months": [
+        "2026-11",
+        "2026-10",
+        "2026-09",
+        "2026-08",
+        "2026-07",
+        "2026-06",
+        "2026-05",
+        "2026-04",
+        "2026-03",
+        "2026-02",
+        "2026-01",
+        "2025-12",
+        "2025-11",
+        "2025-10",
+        "2025-08",
+        "2025-07",
+        "2025-06",
+        "2025-05",
+        "2025-04",
+        "2025-03",
+        "2025-02",
+        "2024-12",
+        "2024-11",
+        "2024-09",
+        "2024-06",
+        "2024-05",
+        "2024-04",
+        "2024-03"
+      ],
+      "awards": [
+        {
+          "id": 161755,
+          "title": "Skill of the week Fishing",
+          "metric": "fishing",
+          "type": "classic",
+          "groupId": 7059,
+          "startsAt": "2026-10-18T07:00:00.000Z",
+          "endsAt": "2026-10-25T22:00:00.000Z",
+          "participantCount": 426,
+          "metrics": [
+            {
+              "weight": 1,
+              "metric": "fishing",
+              "createdAt": "2026-10-17T19:50:05.102Z"
+            }
+          ],
+          "category": "skill",
+          "unit": "XP",
+          "winners": [
+            {
+              "id": 2408881,
+              "username": "bobletto",
+              "displayName": "Bobletto",
+              "gained": 2625915
+            }
+          ]
+        },
+        {
+          "id": 157884,
+          "title": "ehb",
+          "metric": "ehb",
+          "type": "classic",
+          "groupId": 7059,
+          "startsAt": "2026-09-26T21:00:00.000Z",
+          "endsAt": "2026-10-10T18:00:00.000Z",
+          "participantCount": 426,
+          "metrics": [
+            {
+              "weight": 1,
+              "metric": "ehb",
+              "createdAt": "2026-09-26T20:04:10.369Z"
+            }
+          ],
+          "category": "other",
+          "unit": "uur",
+          "winners": [
+            {
+              "id": 2248741,
+              "username": "smurfim",
+              "displayName": "SmurfIM",
+              "gained": 57.56929
+            }
+          ]
+        }
+      ],
+      "leaders": [
+        {
+          "id": 2408881,
+          "username": "bobletto",
+          "displayName": "Bobletto",
+          "gained": 2625915,
+          "wins": 1
+        },
+        {
+          "id": 2248741,
+          "username": "smurfim",
+          "displayName": "SmurfIM",
+          "gained": 57.56929,
+          "wins": 1
+        }
+      ],
+      "partial": false,
+      "ongoingMonth": false
+    }
+  }
+}

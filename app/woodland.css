@@ -1,0 +1,67 @@
+/* Original woodland artwork sits behind the existing identity and copy. */
+.hero-landscape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
+  z-index: -3;
+  pointer-events: none;
+}
+.hero .hero-pattern {
+  z-index: -2;
+  background: linear-gradient(90deg, #0e171be6 0%, #101a1ca8 35%, #101a1c30 65%, #11191912 100%);
+}
+.hero .hero-shade {
+  background: linear-gradient(0deg, #101213 0%, #101213a6 12%, #10121300 45%);
+}
+.hero .hero-copy > p { color: #c0ceca; }
+.hero .hero-meta { color: #b6c7be; }
+.hero .hero-logo { filter: drop-shadow(0 18px 30px #000a); }
+.hero .identity-caption { color: #c9c7b2; text-shadow: 0 1px 7px #000; }
+.hero .emblem-ring { border-color: #cab57d21; }
+.hero .hero-crest { position: relative; width: 365px; max-width: 95%; aspect-ratio: 1; transform-origin: 50% 95%; animation: crest-breathe 4.8s ease-in-out infinite; will-change: transform; }
+.hero .hero-crest > .hero-logo { display: block; width: 100%; max-width: none; height: 100%; object-fit: contain; }
+@keyframes crest-breathe {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1, 1); }
+  48% { transform: translate3d(0, -1.5px, 0) scale(1.006, 1.018); }
+}
+/* The origin follows the mouth in the square logo at every screen size. */
+.stag-breath { position: absolute; top: 29.6%; left: 64%; z-index: 2; font-size: 15px; pointer-events: none; }
+.stag-breath > i { position: absolute; display: block; width: 1.8em; height: .7em; border-radius: 45% 70% 50% 65%; background: radial-gradient(ellipse, #eee7d4a6 0%, #d7ded07a 30%, #c6d6cb38 55%, transparent 75%); opacity: 0; transform-origin: left center; animation: stag-exhale 4.8s linear infinite; will-change: transform, opacity; }
+.stag-breath > i:nth-child(2) { animation-delay: -.8s; }
+.stag-breath > i:nth-child(3) { animation-delay: -1.6s; height: .95em; }
+.stag-breath > i:nth-child(4) { animation-delay: -2.4s; }
+.stag-breath > i:nth-child(5) { animation-delay: -3.2s; height: .85em; }
+.stag-breath > i:nth-child(6) { animation-delay: -4s; }
+@keyframes stag-exhale {
+  0% { opacity: 0; transform: translate3d(-.15em, -.35em, 0) scale(.25); filter: blur(1px); }
+  12% { opacity: .62; transform: translate3d(.35em, -.3em, 0) scale(.7, .8); filter: blur(1.4px); }
+  38% { opacity: .5; transform: translate3d(2em, -.9em, 0) scale(1.5, 1.1) rotate(-12deg); filter: blur(2px); }
+  70% { opacity: .24; transform: translate3d(4.8em, -2em, 0) scale(2.4, 1.8) rotate(-22deg); filter: blur(3.3px); }
+  100% { opacity: 0; transform: translate3d(7em, -3.6em, 0) scale(3.3, 2.5) rotate(-30deg); filter: blur(5px); }
+}
+@media (max-width: 1100px) { .hero .hero-crest { width: 320px; } .stag-breath { font-size: 14px; } }
+@media (max-width: 900px) { .hero .hero-crest { width: 290px; } }
+@media (prefers-reduced-motion: reduce) { .hero .hero-crest { animation: none; transform: none; will-change: auto; } .stag-breath { display: none; } .stag-breath > i { animation: none; } }
+.hero .hero-poem h1 { font-size: clamp(35px, 4.1vw, 58px); line-height: 1.16; letter-spacing: -1.6px; margin: 0; }
+.poem-rule { display: flex; align-items: center; gap: 9px; color: #b7a06c; font-size: 8px; margin: 23px 0; width: 115px; }
+.poem-rule > span { flex: 1; height: 1px; background: #b9a47160; }
+.hero .hero-poem > .clan-rhyme { margin: 0; max-width: none; font: 400 18px/2 Georgia, serif; color: #d1d3c5; }
+.clan-rhyme > span { display: block; }
+.hero .poem-discord { display: inline-flex; align-items: center; justify-content: center; gap: 19px; min-height: 42px; padding: 10px 16px; margin-top: 26px; border: 1px solid #b8a67c52; border-radius: 5px; background: #111c1b70; color: #d3c4a4; font-size: 11px; font-weight: 500; text-decoration: none; transition: background .2s, border-color .2s, color .2s; }
+.hero .poem-discord:hover { background: #c4a26115; border-color: #d3b06c8c; color: #f1d698; }
+@media (max-width: 1000px) { .hero .hero-poem > .clan-rhyme { font-size: 16px; } }
+@media (max-width: 700px) {
+  .hero .hero-crest { width: 230px; max-width: 80%; }
+  .stag-breath { font-size: 12px; }
+  .hero .hero-poem h1 { font-size: clamp(31px, 8.5vw, 48px); line-height: 1.22; letter-spacing: -1px; }
+  .hero .hero-poem > .clan-rhyme { font-size: 16px; line-height: 1.85; }
+  .clan-rhyme > span + span { margin-top: 6px; }
+  .hero .poem-discord { margin-top: 24px; min-height: 44px; }
+  .hero-landscape { object-position: 75% center; }
+  .hero .hero-pattern {
+    background: linear-gradient(180deg, #0c161be6 0%, #0c161bbf 42%, #0c161b33 73%, #0c161b66 100%);
+  }
+}

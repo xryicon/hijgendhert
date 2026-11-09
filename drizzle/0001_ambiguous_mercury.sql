@@ -1,0 +1,1 @@
+ALTER TABLE `bingo_events` ADD `visibility` text DEFAULT 'private' NOT NULL;

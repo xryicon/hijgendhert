@@ -1,0 +1,60 @@
+.header .nav-wrap { gap: 20px; }
+/* Share the hero's actual landscape, so the navigation has no image seam. */
+.header.header-home { margin-bottom: -82px; background: linear-gradient(180deg, #0d171ab3, #0d171a24); backdrop-filter: none; border-bottom-color: transparent; transition: background .2s, border-color .2s; }
+.header-home + main .hero { padding-top: 82px; }
+.header.header-home.is-scrolled { background: #101c1bde; backdrop-filter: blur(16px); border-bottom-color: #b49b5926; }
+.header .navigation { gap: 7px; align-self: center; align-items: center; }
+.header .navigation a,
+.header .nav-join.button.gold,
+.header .menu-button {
+  position: relative;
+  min-height: 38px;
+  border: 1px solid #9c7d3a55;
+  border-radius: 6px;
+  background: linear-gradient(120deg, #70572d26, #a681341c, #392f1a26);
+  box-shadow: inset 0 1px 0 #f2d59d12, 0 3px 8px #0002;
+  color: #d9c18e;
+  transition: background .2s, border-color .2s, color .2s, box-shadow .2s;
+}
+.header .navigation a { display: inline-flex; align-items: center; justify-content: center; padding: 10px 12px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+.header .navigation a::after { display: none; }
+.header .navigation a.active { border-color: #d6b46b99; color: #ffebbc; background: linear-gradient(120deg, #99783c4d, #b8934036, #66512a40); box-shadow: inset 0 1px 0 #f2d59d26, 0 0 14px #c49c3310; }
+.header .nav-join.button.gold { padding: 10px 14px; min-height: 38px; font-size: 11px; gap: 13px; border-color: #c3a3628c; }
+.header .menu-button { padding: 7px; align-items: center; justify-content: center; width: 38px; flex-shrink: 0; }
+.header .navigation a:focus-visible,
+.header .nav-join.button.gold:focus-visible,
+.header .menu-button:focus-visible { outline: 2px solid #e0bd73; outline-offset: 4px; }
+@media (hover: hover) {
+  .header .navigation a:hover,
+  .header .nav-join.button.gold:hover,
+  .header .menu-button:hover { border-color: #d6b46bb3; color: #ffedc0; background: linear-gradient(120deg, #99783c55, #b893403d, #66512a44); box-shadow: inset 0 1px 0 #f2d59d26, 0 3px 14px #c49c3314; }
+}
+@media (min-width: 951px) and (max-width: 1100px) {
+  .header .nav-wrap { gap: 13px; }
+  .header .navigation { gap: 5px; }
+  .header .navigation a { padding-inline: 9px; font-size: 10px; }
+  .header .nav-join.button.gold { padding-inline: 11px; font-size: 10px; }
+}
+@media (max-width: 950px) {
+  .header .navigation { position: absolute; top: 82px; left: 0; right: 0; display: none; flex-direction: column; align-items: stretch; gap: 8px; padding: 16px 32px 20px; background: #111b1bfa; border-bottom: 1px solid #9c7d3a55; box-shadow: 0 16px 25px #0005; }
+  .header .navigation.open { display: flex; }
+  .header .navigation a { padding: 13px 16px; min-height: 44px; justify-content: space-between; font-size: 12px; }
+  .header .menu-button { display: flex; }
+  .header .nav-join.button.gold { margin-left: auto; }
+}
+@media (max-width: 700px) {
+  .header.header-home { margin-bottom: -70px; }
+  .header-home + main .hero { padding-top: 70px; }
+  .header .nav-wrap { gap: 10px; }
+  .header .navigation { top: 70px; padding-inline: 20px; }
+  .header .nav-join.button.gold { min-height: 36px; padding: 9px 11px; font-size: 9px; gap: 8px; }
+  .header .menu-button { min-height: 36px; width: 36px; }
+}
+@media (max-width: 380px) {
+  .header .nav-wrap { gap: 7px; }
+  .header .nav-join.button.gold { padding-inline: 8px; font-size: 8px; gap: 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .header.header-home { transition: none; }
+  .header .navigation a, .header .nav-join.button.gold, .header .menu-button { transition: none; }
+}
