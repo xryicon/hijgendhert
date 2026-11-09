@@ -1,5 +1,6 @@
 import communitySnapshot from '@/content/community-snapshot.json';
-import { readWiseOldMan } from '@/lib/wise-old-man';
+import { env } from 'cloudflare:workers';
+import { readWiseOldMan, womRetryAfter } from '@/lib/wise-old-man';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   if (!['group', 'competitions', 'gained'].includes(resource) || !['overall', 'ehb'].includes(metric) || !['week', 'month'].includes(period)) return Response.json({ error: 'Ongeldige selectie.' }, { status: 400 });
   const path = '/groups/7059' + (resource === 'group' ? '' : resource === 'competitions' ? '/competitions' : `/gained?metric=${metric}&period=${period}&limit=10`);
   try {
-    const value = await readWiseOldMan<unknown>(path, url.origin);
+    const value = await readWiseOldMan<unknown>(path, url.origin, { apiKey: env.WOM_API_KEY });
     let data = value.data;
     if (resource === 'group' && (!data || typeof data !== 'object' || !('id' in data) || data.id !== 7059 || !('memberships' in data) || !Array.isArray(data.memberships))) throw new Error('De clangegevens zijn tijdelijk niet beschikbaar.');
     if (resource !== 'group') {
@@ -19,6 +20,6 @@ export async function GET(request: Request) {
     return Response.json({ ...value, data }, { headers: { 'Cache-Control': value.stale ? 'no-store' : 'public, max-age=60, s-maxage=300', 'X-Content-Type-Options': 'nosniff' } });
   } catch (error) {
     if (resource === 'competitions' && Date.now() - Date.parse(communitySnapshot.fetchedAt) < 48 * 60 * 60 * 1000) return Response.json({ data: [...communitySnapshot.competitions].sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt)), fetchedAt: communitySnapshot.fetchedAt, stale: true }, { headers: { 'Cache-Control': 'no-store' } });
-    return Response.json({ error: error instanceof Error ? error.message : 'De gegevens zijn tijdelijk niet beschikbaar.' }, { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '60' } });
+    return Response.json({ error: error instanceof Error ? error.message : 'De gegevens zijn tijdelijk niet beschikbaar.' }, { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': womRetryAfter(error) } });
   }
 }

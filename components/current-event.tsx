@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, Clock3, RefreshCw } from "lucide-react";
 import EventPodium from "@/components/event-podium";
 
@@ -14,22 +14,37 @@ export default function CurrentEvent({ competitionId, category = 'all' }: { comp
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
   const [now, setNow] = useState(0);
+  const loadedSelection = useRef('');
   useEffect(() => { setNow(Date.now()); const interval = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(interval); }, []);
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError("");
+    const selection = `${category}:${competitionId || 'current'}`;
+    if (loadedSelection.current !== selection) {
+      loadedSelection.current = selection; setData(null); setFetchedAt(''); setStale(false);
+    }
+    let fetching = false;
+    let retryAt = 0;
     async function fetchEvent() {
+      if (fetching || controller.signal.aborted || document.hidden || Date.now() < retryAt) return;
+      fetching = true;
       try {
         const response = await fetch(`/api/event?category=${category}${competitionId ? `&id=${competitionId}` : ''}`, { signal: controller.signal });
         const body = await response.json() as { data: EventData; error?: string; stale?: boolean; fetchedAt?: string };
-        if (!response.ok) throw new Error(body.error || "De tussenstand kon niet worden geladen.");
-        setData(body.data); setNow(Date.now()); setStale(!!body.stale); setFetchedAt(body.fetchedAt || '');
-      } catch (e) { if (!controller.signal.aborted) { setError(e instanceof Error ? e.message : "Laden mislukt."); setData(null); } }
-      finally { if (!controller.signal.aborted) setLoading(false); }
+        if (!response.ok) {
+          const delay = Number(response.headers.get('Retry-After'));
+          if (Number.isFinite(delay) && delay > 0) retryAt = Date.now() + delay * 1000;
+          throw new Error(body.error || "De tussenstand kon niet worden geladen.");
+        }
+        if (!controller.signal.aborted) { setData(body.data); setNow(Date.now()); setStale(!!body.stale); setFetchedAt(body.fetchedAt || ''); setError(''); }
+      } catch (e) { if (!controller.signal.aborted) { setError(e instanceof Error ? e.message : "Laden mislukt."); setStale(true); } }
+      finally { fetching = false; if (!controller.signal.aborted) setLoading(false); }
     }
     void fetchEvent();
     const timer = setInterval(fetchEvent, 300_000);
-    return () => { controller.abort(); clearInterval(timer); };
+    const visible = () => { if (!document.hidden) void fetchEvent(); };
+    document.addEventListener('visibilitychange', visible);
+    return () => { controller.abort(); clearInterval(timer); document.removeEventListener('visibilitychange', visible); };
   }, [refresh, competitionId, category]);
   const event = data?.competition;
   const upcoming = !!event && Date.parse(event.startsAt) > now;
@@ -40,7 +55,7 @@ export default function CurrentEvent({ competitionId, category = 'all' }: { comp
   const mins = Math.floor(remaining / 60000) % 60;
 
   return <section className="current-event-section container active-event" id="actueel-event" aria-label="Clancompetitie en stand" aria-busy={loading}>
-    {loading ? <div className="panel"><div className="skeletons" role="status" aria-label="Eventranglijst laden"><div className="skeleton"/><div className="skeleton"/><div className="skeleton"/></div></div> : error ? <div className="panel load-error" role="status"><p>{error}</p><button className="text-link" onClick={() => setRefresh(r => r + 1)}><RefreshCw size={14}/> Opnieuw proberen</button></div> : event ? <>
+    {loading ? <div className="panel"><div className="skeletons" role="status" aria-label="Eventranglijst laden"><div className="skeleton"/><div className="skeleton"/><div className="skeleton"/></div></div> : error && !data ? <div className="panel load-error" role="status"><p>{error}</p><button className="text-link" onClick={() => setRefresh(r => r + 1)}><RefreshCw size={14}/> Opnieuw proberen</button></div> : event ? <>
       <div className="active-event-intro">
         {finished ? <p className="event-finished-stamp"><Clock3 size={14}/> Eindstand · Afgelopen op {new Date(event.endsAt).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Amsterdam' })}</p> : <div className="active-event-timer" role="timer" aria-label={`${upcoming ? 'Start over' : 'Nog'} ${days} dagen, ${hours} uren en ${mins} minuten`}>
           <span className="timer-label">{upcoming ? "Start over" : "Nog te gaan"}</span>

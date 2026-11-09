@@ -15,11 +15,17 @@ const bundle = await build({
     contents: `import { discordAuthRoute } from './lib/discord-auth.ts';
       import { memberProfileRoute } from './lib/member-profile.ts';
       import { readWiseOldMan } from './lib/wise-old-man.ts';
+      import { GET as clanData } from './app/api/clan/route.ts';
+      import { GET as eventData } from './app/api/event/route.ts';
+      import { GET as hallData } from './app/api/hall-of-fame/route.ts';
       export default { async fetch(request, env) {
         const url = new URL(request.url);
+        if (url.pathname === '/api/clan') return clanData(request);
+        if (url.pathname === '/api/event') return eventData(request);
+        if (url.pathname === '/api/hall-of-fame') return hallData(request);
         if (url.pathname === '/__test/public-wom') {
-          try { return Response.json(await readWiseOldMan('/groups/7059', url.origin, fetch, 300000, Date.now() + Number(url.searchParams.get('age') || 0))); }
-          catch { return Response.json({ unavailable: true }, { status: 503 }); }
+          try { return Response.json(await readWiseOldMan('/groups/7059', url.origin, { apiKey: url.searchParams.has('anonymous') ? undefined : env.WOM_API_KEY, freshFor: 300000, now: Date.now() + Number(url.searchParams.get('age') || 0) })); }
+          catch (error) { return Response.json({ unavailable: true, retryAfter: error.retryAfter }, { status: 503 }); }
         }
         return await discordAuthRoute(request, env) || await memberProfileRoute(request, env) || new Response('Public page');
       } };`,
@@ -28,7 +34,7 @@ const bundle = await build({
     loader: 'ts',
   },
   bundle: true, write: false, format: 'esm', platform: 'neutral',
-  target: 'es2022', external: ['node:crypto'],
+  target: 'es2022', external: ['node:crypto', 'cloudflare:workers'],
 });
 const env = {
   APP_ORIGIN: 'https://clan.example',
@@ -37,12 +43,13 @@ const env = {
   DISCORD_GUILD_ID: '1073630238115897455',
   DISCORD_MEMBER_ROLE_IDS: '1326459850837987430',
   DISCORD_SESSION_SECRET: randomBytes(32).toString('base64url'),
+  WOM_API_KEY: 'worker-test-wom-api-key-only',
 };
 const user = { id: '234567890123456789', username: 'Clanmaat', global_name: 'Hert' };
 const token = 'worker-test-access-token-only';
 const testPlayer = { id: 701, username: 'hert', displayName: 'Hert', type: 'regular', exp: 200000000, ehp: 100, ehb: 200 };
 const secondPlayer = { ...testPlayer, id: 702, username: 'ander hert', displayName: 'Ander Hert' };
-const competition = { id: 123, groupId: 7059, title: 'Skill of the Week Hunter', metric: 'hunter', startsAt: '2026-01-01T00:00:00Z', endsAt: '2026-01-08T00:00:00Z', participantCount: 2 };
+const competition = { id: 123, groupId: 7059, title: 'Skill of the Week Hunter', metric: 'hunter', type: 'classic', startsAt: '2026-01-01T00:00:00Z', endsAt: '2026-01-08T00:00:00Z', participantCount: 2 };
 const cookie = (response, name) => response.headers.getSetCookie()
   .find(value => value.startsWith(`${name}=`))?.split(';')[0];
 
@@ -55,11 +62,16 @@ function runtime(options = {}) {
     // Every outbound request is intercepted; no real accounts or network access.
     outboundService: async request => {
       const url = new URL(request.url);
-      calls.push({ url: request.url, body: await request.text() });
+      calls.push({ url: request.url, body: await request.text(), hasWomKey: request.headers.has('x-api-key') });
       if (url.origin === 'https://api.wiseoldman.net') {
         assert.equal(request.headers.has('Authorization'), false, 'Never send Discord tokens to WOM');
-        if (options.womOffline) return Response.json({}, { status: options.womStatus || 503, headers: { 'Retry-After': '60' } });
-        if (url.pathname === '/v2/groups/7059') return Response.json({ id: 7059, memberships: [testPlayer, secondPlayer].map(player => ({ player })) });
+        if (request.headers.has('x-api-key')) assert.equal(request.headers.get('x-api-key'), env.WOM_API_KEY);
+        if (options.requireWomKey && !request.headers.has('x-api-key')) return Response.json({}, { status: 403 });
+        if (options.womRedirect) return new Response(null, { status: 302, headers: { Location: 'https://untrusted.invalid/capture' } });
+        if (options.womOffline) return Response.json({}, { status: options.womStatus || 503, headers: { 'Retry-After': options.womRetryAfter || '60' } });
+        if (url.pathname === '/v2/groups/7059') return Response.json({ id: 7059, memberCount: 2, homeworld: 489, memberships: [testPlayer, secondPlayer].map(player => ({ player })) });
+        if (url.pathname === '/v2/groups/7059/competitions') return Response.json([competition]);
+        if (url.pathname === '/v2/groups/7059/gained') return Response.json([{ player: testPlayer, data: { gained: 12345 } }]);
         if (url.pathname.endsWith('/competitions')) {
           const playerId = decodeURIComponent(url.pathname).includes('ander hert') ? 702 : 701;
           return Response.json([
@@ -69,12 +81,14 @@ function runtime(options = {}) {
           ]);
         }
         if (url.pathname === '/v2/competitions/123') return Response.json({ ...competition, participations: [
-          { playerId: 702, progress: { gained: 2000 } }, { playerId: 701, progress: { gained: 1000 } },
+          { playerId: 702, player: secondPlayer, progress: { gained: 2000 }, deltas: [{ metric: 'hunter', values: { gained: 2000 } }] },
+          { playerId: 701, player: testPlayer, progress: { gained: 1000 }, deltas: [{ metric: 'hunter', values: { gained: 1000 } }] },
         ] });
         if (url.pathname === '/v2/competitions/124') return Response.json({ ...competition, id: 124, groupId: 9999, participations: [] });
         throw new Error('Unexpected WOM test request');
       }
       assert.equal(url.origin, 'https://discord.com', 'Never follow a provider redirect');
+      assert.equal(request.headers.has('x-api-key'), false, 'Never send the WOM key to Discord');
       if (options.redirectAt && url.pathname.endsWith(options.redirectAt)) {
         return new Response(null, { status: options.redirectStatus, headers: { Location: 'https://untrusted.invalid/capture' } });
       }
@@ -157,6 +171,57 @@ test('public WOM data is reused across pages and remains available during rate l
     await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=600000`);
     assert.equal(calls.filter(c => c.url.includes('api.wiseoldman.net')).length, 2, 'Cooldown prevents repeated rate-limited calls');
     assert.equal((await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=90000000`)).status, 503, 'Old data expires after one day');
+  } finally { await mf.dispose(); }
+});
+
+test('all website statistics routes use the WOM secret without exposing it', async () => {
+  const { mf, calls } = runtime({ requireWomKey: true });
+  try {
+    for (const path of ['/api/clan?resource=group', '/api/clan?resource=gained', '/api/clan?resource=competitions', '/api/event?id=123&category=skill', '/api/hall-of-fame?month=2026-01']) {
+      const result = await mf.dispatchFetch(env.APP_ORIGIN + path);
+      const body = await result.json();
+      assert.equal(result.status, 200, path);
+      assert.equal(body.stale, false, path);
+      assert.ok(!JSON.stringify(body).includes(env.WOM_API_KEY));
+      assert.ok(!JSON.stringify([...result.headers]).includes(env.WOM_API_KEY));
+      if (path.startsWith('/api/event')) assert.equal(body.data.competition.participants[0].gained, 2000);
+      if (path.startsWith('/api/hall-of-fame')) assert.equal(body.data.awards[0].winners[0].gained, 2000);
+    }
+    const { finish } = await login(mf);
+    const profile = await mf.dispatchFetch(`${env.APP_ORIGIN}/api/members/profile`, { headers: { Cookie: cookie(finish, '__Host-hh-member') } });
+    assert.equal(profile.status, 200);
+    assert.ok(!JSON.stringify(await profile.json()).includes(env.WOM_API_KEY));
+    assert.ok(calls.filter(c => c.url.includes('api.wiseoldman.net')).every(c => c.hasWomKey));
+    assert.equal(calls.filter(c => c.url.includes('/v2/groups/7059/competitions')).length, 1, 'Events, calendar and hall share the same upstream listing');
+  } finally { await mf.dispose(); }
+});
+
+test('WOM hourly cooldown is respected and a new API key has an independent quota', async () => {
+  const options = { womOffline: true, womStatus: 429, womRetryAfter: '3600' };
+  const { mf, calls } = runtime(options);
+  try {
+    const first = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?anonymous=1`);
+    assert.equal(first.status, 503);
+    assert.equal((await first.json()).retryAfter, 3600);
+    const later = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?anonymous=1&age=600000`);
+    const cooling = await later.json();
+    assert.equal(later.status, 503);
+    assert.ok(cooling.retryAfter > 2900, 'Do not shorten an hourly rate limit to five minutes');
+    assert.equal(calls.length, 1);
+    options.womOffline = false;
+    const authenticated = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom`);
+    assert.equal(authenticated.status, 200, 'The newly added key must not inherit the anonymous quota');
+    assert.equal((await authenticated.json()).stale, false);
+    assert.equal(calls.length, 2);
+  } finally { await mf.dispose(); }
+});
+
+test('WOM redirects are refused without sending the API key elsewhere', async () => {
+  const { mf, calls } = runtime({ womRedirect: true });
+  try {
+    assert.equal((await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom`)).status, 503);
+    assert.equal(calls.length, 1);
+    assert.equal(new URL(calls[0].url).origin, 'https://api.wiseoldman.net');
   } finally { await mf.dispose(); }
 });
 

@@ -36,18 +36,25 @@ function useWom<T>(query: string, wait = 0, enabled = true, pollMs = 0) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [retry, setRetry] = useState(0);
+  const loadedQuery = useRef(query);
   useEffect(() => {
     if (!enabled) { setLoading(false); return; }
     const controller = new AbortController();
-    setLoading(true); setError(""); setResult(null);
+    setLoading(true); setError("");
+    if (loadedQuery.current !== query) { loadedQuery.current = query; setResult(null); }
     let fetching = false;
+    let retryAt = 0;
     async function load() {
-      if (fetching || controller.signal.aborted) return;
+      if (fetching || controller.signal.aborted || Date.now() < retryAt) return;
       fetching = true;
       try {
         const response = await fetch(`/api/clan?${query}`, { signal: controller.signal });
         const body = await response.json() as Result<T> & { error?: string };
-        if (!response.ok) throw new Error(body.error || "De verbinding is tijdelijk onderbroken.");
+        if (!response.ok) {
+          const delay = Number(response.headers.get('Retry-After'));
+          if (Number.isFinite(delay) && delay > 0) retryAt = Date.now() + delay * 1000;
+          throw new Error(body.error || "De verbinding is tijdelijk onderbroken.");
+        }
         if (!controller.signal.aborted) { setResult(body); setError(""); }
       } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Laden mislukt."); }
       finally { fetching = false; if (!controller.signal.aborted) setLoading(false); }
@@ -66,7 +73,7 @@ function LoadError({ message, retry }: { message: string; retry: () => void }) {
 function Skeleton({ lines = 3 }: { lines?: number }) { return <div className="skeletons" aria-label="Gegevens worden geladen" role="status">{Array.from({ length: lines }, (_, i) => <div className="skeleton" key={i}/>)}</div>; }
 
 export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | 'events' }) {
-  const group = useWom<Group>("resource=group");
+  const group = useWom<Group>("resource=group", 0, view !== 'events', 300_000);
   const competitions = useWom<Competition[]>("resource=competitions", 400, view !== 'home', 300_000);
   const [clanSection, setClanSection] = useState<ClanSection>('leden');
   const [metric, setMetric] = useState("overall");

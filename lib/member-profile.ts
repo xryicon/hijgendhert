@@ -3,7 +3,7 @@ import { authorizeMember, discordConfig, DiscordAccessError, playerPreferenceCoo
 import { unitOf } from './community';
 import type { ClanPlayer, DiscordMember, MemberEvent, MemberProfile } from './member-types';
 import { normalizePlayerName } from './player-name';
-import { readWiseOldMan } from './wise-old-man';
+import { readWiseOldMan, womRetryAfter, type WomEnv } from './wise-old-man';
 
 const groupId = 7059;
 const finite = z.number().finite();
@@ -56,7 +56,7 @@ async function boundedJson(response: Response | Request, limit: number): Promise
   return JSON.parse(Buffer.concat(parts).toString('utf8'));
 }
 
-export async function memberProfileRoute(request: Request, env: DiscordEnv, fetcher: typeof fetch = fetch): Promise<Response | null> {
+export async function memberProfileRoute(request: Request, env: DiscordEnv & WomEnv, fetcher: typeof fetch = fetch): Promise<Response | null> {
   const url = new URL(request.url);
   if (!['/api/members/profile', '/api/members/event'].includes(url.pathname)) return null;
   const isEvent = url.pathname === '/api/members/event';
@@ -72,7 +72,7 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv, fetc
     let stale = false;
     let fetchedAt = new Date().toISOString();
     const readWom = async (path: string) => {
-      const value = await readWiseOldMan<unknown>(path, config.origin, fetcher);
+      const value = await readWiseOldMan<unknown>(path, config.origin, { fetcher, apiKey: env.WOM_API_KEY });
       stale ||= value.stale;
       if (Date.parse(value.fetchedAt) < Date.parse(fetchedAt)) fetchedAt = value.fetchedAt;
       return value.data;
@@ -121,6 +121,6 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv, fetc
     return json(profile);
   } catch (error) {
     if (error instanceof DiscordAccessError) return json({ error: 'Je Discord-toegang kon niet worden bevestigd.', reason: error.code }, error.code === 'unavailable' ? 503 : 401);
-    return json({ error: 'Wise Old Man is tijdelijk niet bereikbaar. Je Discord-login blijft actief.' }, 503);
+    return json({ error: 'Wise Old Man is tijdelijk niet bereikbaar. Je Discord-login blijft actief.' }, 503, { 'Retry-After': womRetryAfter(error) });
   }
 }

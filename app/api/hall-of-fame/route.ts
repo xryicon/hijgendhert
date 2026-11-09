@@ -1,4 +1,5 @@
-import { readWiseOldMan } from '@/lib/wise-old-man';
+import { env } from 'cloudflare:workers';
+import { readWiseOldMan, womRetryAfter } from '@/lib/wise-old-man';
 import { awardFrom, categoryOf, monthKey, monthlyLeaders, unitOf, type Award, type Competition, type CompetitionDetail } from '@/lib/community';
 import communitySnapshot from '@/content/community-snapshot.json';
 
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   const requested = url.searchParams.get('month');
   let stale = false; let fetchedAt = new Date().toISOString();
   const read = async <T,>(path: string, ttl: number): Promise<T> => {
-    const value = await readWiseOldMan<T>(path, url.origin, fetch, ttl);
+    const value = await readWiseOldMan<T>(path, url.origin, { apiKey: env.WOM_API_KEY, freshFor: ttl });
     stale ||= value.stale;
     if (Date.parse(value.fetchedAt) < Date.parse(fetchedAt)) fetchedAt = value.fetchedAt;
     return value.data;
@@ -49,5 +50,5 @@ export async function GET(request: Request) {
     const response = Response.json({ data: { month, months, awards, leaders: partial ? [] : monthlyLeaders(awards), partial, ongoingMonth: month === monthKey(Date.now()) }, fetchedAt, stale }, { headers: { 'Cache-Control': partial || stale ? 'no-store' : 'public, max-age=60, s-maxage=600' } });
     if (!partial && !stale) try { await edge?.put(key, response.clone()); } catch { /* Data remains usable without cache. */ }
     return response;
-  } catch (e) { return fallback(requested) || Response.json({ error: e instanceof Error ? e.message : 'De erelijst is tijdelijk niet beschikbaar.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } }); }
+  } catch (e) { return fallback(requested) || Response.json({ error: e instanceof Error ? e.message : 'De erelijst is tijdelijk niet beschikbaar.' }, { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': womRetryAfter(e) } }); }
 }
