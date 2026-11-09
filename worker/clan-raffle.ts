@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { entriesText, hashText, seedText, winningTicket } from '../lib/raffle-proof';
-import { raffleCancellationSchema, raffleScheduleSchema } from '../lib/raffle-validation';
-import type { RaffleRound, RaffleSchedule, RaffleState, RaffleSummary } from '../lib/raffle-types';
+import { raffleCancellationSchema, raffleEntriesSchema, raffleScheduleSchema } from '../lib/raffle-validation';
+import type { RaffleEntriesUpdate, RaffleRound, RaffleSchedule, RaffleState, RaffleSummary } from '../lib/raffle-types';
 
 type StoredRound = RaffleRound & { seed: string; createdBy: string; requestId: string; inputHash: string };
 type Row = { id: string; status: string; draw_at: number; data: string };
@@ -54,21 +54,56 @@ export class ClanRaffle extends DurableObject<Cloudflare.Env> {
       return stored.inputHash === inputHash && stored.createdBy === actor ? { ok: true, round: visible(stored) } : failure(409, 'Dit verzoek is al gebruikt.');
     }
     if (this.#active()) return failure(409, 'Er staat al een trekking gepland.');
+    if (Date.now() >= round.drawAt) return failure(400, 'Kies een toekomstige datum binnen zes maanden.');
     // No await between the row write and scheduling the alarm: storage commits
     // them together before allowing the successful response to leave the object.
     this.ctx.storage.sql.exec('INSERT INTO raffle_rounds (id, request_id, status, draw_at, created_at, data) VALUES (?, ?, ?, ?, ?, ?)', round.id, value.requestId, round.status, round.drawAt, round.createdAt, JSON.stringify(round));
     await this.ctx.storage.setAlarm(round.drawAt);
     return { ok: true, round: visible(round) };
   }
+  async updateEntries(input: RaffleEntriesUpdate): Promise<RaffleOperation> {
+    const parsed = raffleEntriesSchema.safeParse(input);
+    if (!parsed.success) return failure(400, parsed.error.issues[0]?.message || 'Controleer de namen en loten.');
+    const value = parsed.data;
+    const initial = this.#active();
+    if (!initial || initial.id !== value.id || Date.now() >= initial.drawAt) return failure(409, 'De deelnemerslijst is gesloten. De trekking is begonnen of afgerond.');
+    let totalTickets = 0;
+    const entries = value.entries.map(entry => { const first = totalTickets + 1; totalTickets += entry.tickets; return { ...entry, first, last: totalTickets }; });
+    const entriesHash = await hashText(entriesText(entries));
+    // Hashing yields: re-read both the deadline and list before committing. All
+    // remaining checks and the SQL write are synchronous, so edits cannot race.
+    const current = this.#active();
+    const now = Date.now();
+    if (!current || current.id !== value.id || now >= current.drawAt) return failure(409, 'De deelnemerslijst is gesloten. De trekking is begonnen of afgerond.');
+    // A response may have been lost after saving. Accept the same contents only
+    // while the list is still open, without rewriting its update timestamp.
+    if (current.entriesHash === entriesHash) return { ok: true, round: visible(current) };
+    if (current.entriesHash !== value.expectedEntriesHash) return failure(409, 'De deelnemerslijst is ondertussen gewijzigd. Ververs de lijst voordat je opnieuw opslaat.');
+    const updated: StoredRound = { ...current, entries, totalTickets, entriesHash, entriesUpdatedAt: now };
+    this.ctx.storage.sql.exec("UPDATE raffle_rounds SET data = ? WHERE id = ? AND status = 'scheduled'", JSON.stringify(updated), current.id);
+    return { ok: true, round: visible(updated) };
+  }
   async #completeDue(): Promise<void> {
-    const round = this.#active();
-    if (!round || Date.now() < round.drawAt) return;
-    const ticket = await winningTicket(round, round.seed);
-    const winner = round.entries.find(entry => ticket >= entry.first && ticket <= entry.last);
-    if (!winner) throw new Error('Invalid raffle range');
-    const drawn: StoredRound = { ...round, status: 'drawn', winningTicket: ticket, winner: winner.name, drawnAt: Date.now() };
-    // Idempotent across alarm retries, simultaneous viewers and cancellations.
-    this.ctx.storage.sql.exec("UPDATE raffle_rounds SET status = 'drawn', data = ? WHERE id = ? AND status = 'scheduled'", JSON.stringify(drawn), round.id);
+    while (true) {
+      const round = this.#active();
+      if (!round || Date.now() < round.drawAt) return;
+      if (round.entries.length === 0) {
+        const cancelled: StoredRound = { ...round, status: 'cancelled', cancellationReason: 'Geen deelnemers bij de trekking.', cancelledAt: Date.now() };
+        this.ctx.storage.sql.exec("UPDATE raffle_rounds SET status = 'cancelled', data = ? WHERE id = ? AND status = 'scheduled'", JSON.stringify(cancelled), round.id);
+        return;
+      }
+      const ticket = await winningTicket(round, round.seed);
+      // Never publish a result computed from a stale snapshot after async hash
+      // work. A concurrent cancellation or draw must also remain final.
+      const current = this.#active();
+      if (!current || current.id !== round.id || Date.now() < current.drawAt) return;
+      if (current.entriesHash !== round.entriesHash || current.totalTickets !== round.totalTickets) continue;
+      const winner = current.entries.find(entry => ticket >= entry.first && ticket <= entry.last);
+      if (!winner) throw new Error('Invalid raffle range');
+      const drawn: StoredRound = { ...current, status: 'drawn', winningTicket: ticket, winner: winner.name, drawnAt: Date.now() };
+      this.ctx.storage.sql.exec("UPDATE raffle_rounds SET status = 'drawn', data = ? WHERE id = ? AND status = 'scheduled'", JSON.stringify(drawn), current.id);
+      return;
+    }
   }
   async alarm(): Promise<void> {
     try {

@@ -1,5 +1,5 @@
 import { authorizeMember, discordConfig, DiscordAccessError, privateHeaders, type DiscordEnv } from './discord-auth';
-import { raffleCancellationSchema, raffleScheduleSchema } from './raffle-validation';
+import { raffleCancellationSchema, raffleEntriesSchema, raffleScheduleSchema } from './raffle-validation';
 import type { ClanRaffle } from '../worker/clan-raffle';
 
 type RaffleEnv = DiscordEnv & { RAFFLES?: DurableObjectNamespace<ClanRaffle> };
@@ -19,7 +19,7 @@ async function boundedBody(request: Request): Promise<unknown> {
 }
 export async function raffleRoute(request: Request, env: RaffleEnv, fetcher: typeof fetch = fetch): Promise<Response | null> {
   const url = new URL(request.url);
-  if (!['/api/raffle', '/api/raffle/schedule', '/api/raffle/cancel'].includes(url.pathname)) return null;
+  if (!['/api/raffle', '/api/raffle/schedule', '/api/raffle/entries', '/api/raffle/cancel'].includes(url.pathname)) return null;
   const publicRead = url.pathname === '/api/raffle';
   if (request.method !== (publicRead ? 'GET' : 'POST')) return json({ error: 'Ongeldig verzoek.' }, 405);
   if (!env.RAFFLES) return json({ error: 'De raffle wordt nog klaargezet. Probeer het later opnieuw.' }, 503);
@@ -44,6 +44,12 @@ export async function raffleRoute(request: Request, env: RaffleEnv, fetcher: typ
       if (!value.success) return json({ error: value.error.issues[0]?.message || 'Controleer de ingevulde gegevens.' }, 400);
       if (value.data.drawAt < Date.now() + 60_000) return json({ error: 'Plan de trekking minimaal één minuut vooruit.' }, 400);
       const result = await raffle.schedule(value.data, member.id);
+      return result.ok ? json(result) : json({ error: result.error }, result.status);
+    }
+    if (url.pathname.endsWith('/entries')) {
+      const value = raffleEntriesSchema.safeParse(body);
+      if (!value.success) return json({ error: value.error.issues[0]?.message || 'Controleer de namen en loten.' }, 400);
+      const result = await raffle.updateEntries(value.data);
       return result.ok ? json(result) : json({ error: result.error }, result.status);
     }
     const value = raffleCancellationSchema.safeParse(body);

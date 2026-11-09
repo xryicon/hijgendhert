@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Download, Gift, LockKeyhole, Plus, RefreshCw, Search, ShieldCheck, Ticket, Trash2, Trophy, Users, X } from 'lucide-react';
 import { useMemberSession } from './session-provider';
 import { RafflePlayerPicker, useRaffleRoster } from './raffle-player-picker';
+import { RaffleEntryEditor } from './raffle-entry-editor';
 import { raffleScheduleSchema } from '@/lib/raffle-validation';
 import { verifyRaffle } from '@/lib/raffle-proof';
 import { raffleNameKey, ticketCode, type RaffleRound, type RaffleSchedule, type RaffleState } from '@/lib/raffle-types';
@@ -17,9 +18,11 @@ function useRaffle(id = '') {
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
   const [offset, setOffset] = useState(0);
+  const previousId = useRef(id);
   useEffect(() => {
     const controller = new AbortController(); let timer: ReturnType<typeof setTimeout>; let running = false;
-    setLoading(true); setError(''); setData(null);
+    setLoading(true); setError('');
+    if (previousId.current !== id) { setData(null); previousId.current = id; }
     async function load() {
       if (running || controller.signal.aborted) return;
       if (document.hidden) { timer = setTimeout(load, 30_000); return; }
@@ -71,18 +74,18 @@ function Countdown({ at, offset }: { at: number; offset: number }) {
 function RaffleProof({ round }: { round: RaffleRound }) {
   const [checking, setChecking] = useState(false);
   const [verified, setVerified] = useState<boolean | null>(null);
-  useEffect(() => setVerified(null), [round.id, round.status]);
+  useEffect(() => setVerified(null), [round.id, round.status, round.entriesHash]);
   async function verify() { setChecking(true); try { setVerified(await verifyRaffle(round)); } catch { setVerified(false); } finally { setChecking(false); } }
   function download() {
     const objectUrl = URL.createObjectURL(new Blob([JSON.stringify({ algorithm: 'hh-raffle-v1 / SHA-256 / rejection sampling', ...round }, null, 2)], { type: 'application/json' }));
     const link = document.createElement('a'); link.href = objectUrl; link.download = `hijgend-hert-raffle-${round.id}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   }
-  return <details className="raffle-proof"><summary><ShieldCheck size={18}/><span>Controleer de trekking<small>De lotenlijst en trekkingscode zijn vooraf vastgelegd.</small></span><Plus size={16}/></summary>
-    <div className="raffle-proof-body"><p>Elk lot heeft evenveel kans. Bij het plannen zet de server de lijst vast en maakt hij een geheime willekeurige code. De vingerafdruk daarvan staat hieronder. Na de trekking wordt de code openbaar, zodat je browser de uitslag opnieuw kan berekenen.</p>
+  return <details className="raffle-proof"><summary><ShieldCheck size={18}/><span>Controleer de trekking<small>De trekkingscode ligt vast. De lijst sluit bij de trekking.</small></span><Plus size={16}/></summary>
+    <div className="raffle-proof-body"><p>Elk lot heeft evenveel kans. Bij het plannen maakt de server een geheime willekeurige code. Die code blijft hetzelfde. De clanleiding kan namen en loten tot de trekking aanpassen; de vingerafdruk van de lijst verandert dan mee. Na de trekking worden de definitieve lijst en de code openbaar, zodat je browser de uitslag opnieuw kan berekenen.</p>
       <dl><div><dt>Vingerafdruk trekkingscode</dt><dd>{round.commitment}</dd></div><div><dt>Vingerafdruk lotenlijst</dt><dd>{round.entriesHash}</dd></div>{round.seed && <div><dt>Openbaar gemaakte trekkingscode</dt><dd>{round.seed}</dd></div>}</dl>
       <div className="raffle-proof-actions"><button className="button outline" onClick={download}><Download size={15}/> Bewijs downloaden</button>{round.status === 'drawn' && <button className="button gold" onClick={() => void verify()} disabled={checking}><ShieldCheck size={15}/>{checking ? 'Controleren…' : 'Controleer uitslag'}</button>}</div>
       {verified !== null && <p className={verified ? 'raffle-verified' : 'raffle-error'} role="status">{verified ? 'De code, lotenlijst en winnaar komen overeen. Deze trekking is gecontroleerd.' : 'Het bewijs komt niet overeen. Neem contact op met de clanleiding.'}</p>}
-      <p className="raffle-proof-note">Je kunt het bewijs vooraf bewaren en na de trekking vergelijken. Deze controle bevestigt de vastgelegde uitslag; de server genereert de willekeurige code.</p>
+      <p className="raffle-proof-note">Je kunt de vingerafdruk van de trekkingscode vooraf bewaren en later vergelijken. De lotenlijst en lotnummers kunnen tot de trekking wijzigen. Controleer de uitslag met de definitieve lijst.</p>
     </div>
   </details>;
 }
@@ -92,16 +95,17 @@ function Entrants({ round }: { round: RaffleRound }) {
   useEffect(() => { setPage(0); setQuery(''); }, [round.id]);
   const entries = round.entries.filter(entry => raffleNameKey(entry.name).includes(raffleNameKey(query)));
   const pages = Math.max(1, Math.ceil(entries.length / 25));
-  return <section className="raffle-entrants" aria-labelledby="raffle-entrants-title"><div className="raffle-section-heading"><div><p className="eyebrow">DE LOTENLĲST</p><h3 id="raffle-entrants-title">Wie doet er mee?</h3></div><span className="raffle-locked"><LockKeyhole size={13}/> Vastgelegd</span></div>
+  const currentPage = Math.min(page, pages - 1);
+  return <section className="raffle-entrants" aria-labelledby="raffle-entrants-title"><div className="raffle-section-heading"><div><p className="eyebrow">DE LOTENLĲST</p><h3 id="raffle-entrants-title">Wie doet er mee?</h3></div><span className="raffle-locked">{round.status === 'scheduled' ? <><Users size={13}/> Open tot de trekking</> : <><LockKeyhole size={13}/> Definitieve lijst</>}</span></div>
     <label className="raffle-search"><Search size={17}/><input value={query} onChange={e => { setQuery(e.target.value); setPage(0); }} placeholder="Zoek een naam…" aria-label="Zoek een deelnemer"/></label>
-    <div className="raffle-table-scroll"><table><thead><tr><th>NAAM</th><th>LOTEN</th><th>LOTNUMMERS</th><th>KANS</th></tr></thead><tbody>{entries.slice(page * 25, page * 25 + 25).map(entry => <tr key={entry.first} className={round.status === 'drawn' && round.winner === entry.name ? 'raffle-winning-row' : ''}><td>{round.status === 'drawn' && round.winner === entry.name && <Trophy size={15}/>} {entry.name}</td><td>{number(entry.tickets)}</td><td>{number(entry.first)}{entry.last !== entry.first ? ` – ${number(entry.last)}` : ''}</td><td>{(entry.tickets / round.totalTickets * 100).toLocaleString('nl-NL', { maximumFractionDigits: 2, minimumFractionDigits: 0 })}%</td></tr>)}</tbody></table></div>
+    <div className="raffle-table-scroll"><table><thead><tr><th>NAAM</th><th>LOTEN</th><th>LOTNUMMERS</th><th>KANS</th></tr></thead><tbody>{entries.slice(currentPage * 25, currentPage * 25 + 25).map(entry => <tr key={raffleNameKey(entry.name)} className={round.status === 'drawn' && round.winner === entry.name ? 'raffle-winning-row' : ''}><td>{round.status === 'drawn' && round.winner === entry.name && <Trophy size={15}/>} {entry.name}</td><td>{number(entry.tickets)}</td><td>{number(entry.first)}{entry.last !== entry.first ? ` – ${number(entry.last)}` : ''}</td><td>{(entry.tickets / round.totalTickets * 100).toLocaleString('nl-NL', { maximumFractionDigits: 2, minimumFractionDigits: 0 })}%</td></tr>)}</tbody></table></div>
     {!entries.length && <p className="raffle-muted">Geen deelnemers gevonden.</p>}
-    <div className="raffle-table-footer"><span>{number(entries.length)} {entries.length === 1 ? 'deelnemer' : 'deelnemers'} · {number(round.totalTickets)} loten</span>{pages > 1 && <div><button disabled={page === 0} onClick={() => setPage(value => value - 1)} aria-label="Vorige deelnemers"><ChevronLeft size={16}/></button><span>{page + 1} / {pages}</span><button disabled={page + 1 >= pages} onClick={() => setPage(value => value + 1)} aria-label="Volgende deelnemers"><ChevronRight size={16}/></button></div>}</div>
+    <div className="raffle-table-footer"><span>{number(entries.length)} {entries.length === 1 ? 'deelnemer' : 'deelnemers'} · {number(round.totalTickets)} loten</span>{pages > 1 && <div><button disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} aria-label="Vorige deelnemers"><ChevronLeft size={16}/></button><span>{currentPage + 1} / {pages}</span><button disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)} aria-label="Volgende deelnemers"><ChevronRight size={16}/></button></div>}</div>
   </section>;
 }
 
 type DraftEntry = { id: number; name: string; tickets: string };
-function RaffleManager({ active, onSaved }: { active: RaffleRound | null; onSaved: () => void }) {
+function RaffleManager({ active, offset, canManage, onSaved }: { active: RaffleRound | null; offset: number; canManage: boolean; onSaved: () => void }) {
   const [title, setTitle] = useState('Hijgend Hert Loterij'); const [prize, setPrize] = useState(''); const [drawAt, setDrawAt] = useState('');
   const roster = useRaffleRoster(active?.status !== 'scheduled');
   const [zone, setZone] = useState('jouw tijdzone');
@@ -112,6 +116,7 @@ function RaffleManager({ active, onSaved }: { active: RaffleRound | null; onSave
   const changed = () => { setReview(null); setError(''); requestId.current = ''; };
   function prepare(e: FormEvent) {
     e.preventDefault(); setError('');
+    if (!canManage) return;
     if (!requestId.current) requestId.current = crypto.randomUUID();
     const parsed = raffleScheduleSchema.safeParse({ requestId: requestId.current, title, prize, drawAt: new Date(drawAt).getTime(), freeEntry: true, entries: rows.map(row => ({ name: row.name, tickets: Number(row.tickets) })) });
     if (!parsed.success) { setError(parsed.error.issues[0]?.message || 'Controleer de ingevulde gegevens.'); return; }
@@ -119,6 +124,7 @@ function RaffleManager({ active, onSaved }: { active: RaffleRound | null; onSave
     setReview(parsed.data);
   }
   async function send(path: string, body: unknown) {
+    if (!canManage) return;
     setBusy(true); setError('');
     try {
       const response = await fetch(`/api/raffle/${path}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(25_000) });
@@ -128,20 +134,20 @@ function RaffleManager({ active, onSaved }: { active: RaffleRound | null; onSave
     } catch (e) { setError(e instanceof Error ? e.message : 'Opslaan is niet gelukt. Je kunt veilig opnieuw proberen.'); }
     finally { setBusy(false); }
   }
-  return <details className="raffle-manager" open={active?.status !== 'scheduled'}><summary><ShieldCheck size={18}/><span>Loterij beheren<small>Alleen voor Admin en Staff team</small></span><Plus size={16}/></summary><div className="raffle-manager-body">
-    {active?.status === 'scheduled' ? <><p>De deelnemers en loten staan vast. De trekking gebeurt automatisch op <strong>{dateTime(active.drawAt)} (NL/BE)</strong>, ook als niemand de pagina open heeft.</p><button className="text-link" onClick={() => setCancelOpen(value => !value)}>Trekking annuleren</button>{cancelOpen && <form onSubmit={e => { e.preventDefault(); void send('cancel', { id: active.id, reason }); }}><label>Reden voor annulering<input value={reason} onChange={e => setReason(e.target.value)} minLength={5} maxLength={200} required/></label><p className="raffle-muted">De annulering en reden blijven openbaar in de geschiedenis. Een getrokken winnaar kan niet worden gewijzigd.</p><button className="button outline" disabled={busy || reason.trim().length < 5}>Bevestig annulering</button></form>}</> : <form onSubmit={prepare}>
+  return <details className="raffle-manager" open={active?.status !== 'scheduled'}><summary><ShieldCheck size={18}/><span>Loterij beheren<small>Alleen voor Admin en Staff team</small></span><Plus size={16}/></summary><div className="raffle-manager-body">{!canManage && <p role="status">Discord kan je rol even niet controleren. Je invoer blijft bewaard; opslaan kan zodra je toegang opnieuw is gecontroleerd.</p>}<fieldset disabled={!canManage}>
+    {active?.status === 'scheduled' ? <><p>Je kunt deelnemers en loten aanpassen tot de trekking op <strong>{dateTime(active.drawAt)} (NL/BE)</strong>. De trekking gebeurt automatisch.</p><RaffleEntryEditor key={active.id} round={active} offset={offset} canManage={canManage} onSaved={onSaved}/><button className="text-link raffle-cancel-toggle" onClick={() => setCancelOpen(value => !value)}>Trekking annuleren</button>{cancelOpen && <form onSubmit={e => { e.preventDefault(); void send('cancel', { id: active.id, reason }); }}><label>Reden voor annulering<input value={reason} onChange={e => setReason(e.target.value)} minLength={5} maxLength={200} required/></label><p className="raffle-muted">De annulering en reden blijven openbaar in de geschiedenis. Een getrokken winnaar kan niet worden gewijzigd.</p><button className="button outline" disabled={busy || reason.trim().length < 5}>Bevestig annulering</button></form>}</> : <form onSubmit={prepare}>
       <fieldset disabled={busy}><div className="raffle-form-grid"><label>Naam van de loterij<input value={title} onChange={e => { changed(); setTitle(e.target.value); }} required minLength={3} maxLength={80}/></label><label>Prijs <small>(optioneel)</small><input value={prize} onChange={e => { changed(); setPrize(e.target.value); }} placeholder="Wat geeft de clan weg?" maxLength={160}/></label><label className="raffle-date-field">Datum en tijd van de trekking<input type="datetime-local" value={drawAt} onChange={e => { changed(); setDrawAt(e.target.value); }} required/><small>In jouw tijdzone: {zone}</small></label></div>
         <div className="raffle-editor-heading"><h4>Deelnemers & loten</h4><span>{number(rows.reduce((sum, row) => sum + Math.max(0, Number(row.tickets) || 0), 0))} loten</span></div>
         <div className="raffle-roster-status" role="status"><Users size={15}/><span>{roster.loading && !roster.players.length ? 'Clanleden ophalen bij Wise Old Man…' : roster.message}{roster.players.length > 0 && <small>{number(roster.players.length)} namen beschikbaar</small>}</span>{!roster.loading && <button type="button" disabled={!roster.canRetry} onClick={roster.retry}>{roster.canRetry ? 'Vernieuwen' : 'Even wachten'}</button>}</div><div className="raffle-editor-labels"><span>NAAM</span><span>AANTAL LOTEN</span><span/></div>
         <div className="raffle-editor-rows">{rows.map((row, index) => <div className="raffle-editor-row" key={row.id}><RafflePlayerPicker name={row.name} index={index} players={roster.players} loading={roster.loading} usedNames={rows.filter(item => item.id !== row.id).map(item => item.name)} onChange={name => { changed(); setRows(old => old.map(item => item.id === row.id ? { ...item, name } : item)); }}/><input aria-label={`Loten deelnemer ${index + 1}`} type="number" min="1" max="10000" step="1" value={row.tickets} required onChange={e => { changed(); setRows(old => old.map(item => item.id === row.id ? { ...item, tickets: e.target.value } : item)); }}/><button type="button" aria-label={`Verwijder deelnemer ${index + 1}`} disabled={rows.length === 1} onClick={() => { changed(); setRows(old => old.filter(item => item.id !== row.id)); }}><Trash2 size={16}/></button></div>)}</div>
         <button className="raffle-add-name" type="button" disabled={rows.length >= 500} onClick={() => { changed(); setRows(old => [...old, { id: nextId.current++, name: '', tickets: '1' }]); }}><Plus size={16}/> Naam toevoegen</button>
-        <p className="raffle-muted">Kies een naam uit Wise Old Man. Loten verschijnen ook bij het ledenprofiel met dezelfde RuneScape-naam. Na het plannen worden de lijst, aantallen en tijd vastgezet.</p>
+        <p className="raffle-muted">Kies een naam uit Wise Old Man. Loten verschijnen ook bij het ledenprofiel met dezelfde RuneScape-naam. Namen en aantallen kun je tot de trekking aanpassen. De datum en trekkingscode liggen na het plannen vast.</p>
         {!review && <button className="button gold" type="submit"><CalendarDays size={16}/> Controleer & plan</button>}
-        {review && <div className="raffle-review" role="status"><p className="eyebrow">CONTROLEER JE TREKKING</p><h4>{review.title}</h4><p><strong>{dateTime(review.drawAt)} (NL/BE)</strong></p><p>{review.entries.length} deelnemers · {number(review.entries.reduce((sum, entry) => sum + entry.tickets, 0))} loten{review.prize ? ` · Prijs: ${review.prize}` : ''}</p><p>De bovenstaande namen en aantallen worden vastgelegd. De trekking loopt daarna automatisch.</p><div><button className="button gold" type="button" disabled={busy} onClick={() => void send('schedule', review)}>{busy ? <RefreshCw size={16}/> : <LockKeyhole size={16}/>} {busy ? 'Plannen…' : 'Bevestig & plan trekking'}</button><button type="button" className="text-link" disabled={busy} onClick={() => setReview(null)}>Terug</button></div></div>}
+        {review && <div className="raffle-review" role="status"><p className="eyebrow">CONTROLEER JE TREKKING</p><h4>{review.title}</h4><p><strong>{dateTime(review.drawAt)} (NL/BE)</strong></p><p>{review.entries.length} deelnemers · {number(review.entries.reduce((sum, entry) => sum + entry.tickets, 0))} loten{review.prize ? ` · Prijs: ${review.prize}` : ''}</p><p>De trekking loopt automatisch op dit tijdstip. Je kunt namen en aantallen tot die tijd blijven aanpassen.</p><div><button className="button gold" type="button" disabled={busy} onClick={() => void send('schedule', review)}>{busy ? <RefreshCw size={16}/> : <LockKeyhole size={16}/>} {busy ? 'Plannen…' : 'Bevestig & plan trekking'}</button><button type="button" className="text-link" disabled={busy} onClick={() => setReview(null)}>Terug</button></div></div>}
       </fieldset>
     </form>}
     {error && <p className="raffle-error" role="alert">{error}</p>}
-  </div></details>;
+  </fieldset></div></details>;
 }
 
 export default function ClanRaffle({ onBack }: { onBack: () => void }) {
@@ -149,6 +155,7 @@ export default function ClanRaffle({ onBack }: { onBack: () => void }) {
   const { data, loading, error, offset, refresh } = useRaffle(selected);
   const session = useMemberSession();
   const staff = session.status === 'authenticated' && ['Admin', 'Staff team'].includes(session.member?.clanRole || '');
+  const showManager = staff || (session.status === 'unavailable' && ['Admin', 'Staff team'].includes(session.member?.clanRole || ''));
   const round = data?.round;
   return <section className="container clan-raffle" aria-labelledby="raffle-title">
     <div className="raffle-top"><a href="/events" className="text-link weekly-back" onClick={e => { e.preventDefault(); onBack(); }}><ArrowLeft size={14}/> Terug naar events</a><span><ShieldCheck size={14}/> Eén trekking. Eén winnaar.</span></div>
@@ -168,8 +175,8 @@ export default function ClanRaffle({ onBack }: { onBack: () => void }) {
     </div>
     {error && <div className="raffle-error raffle-connection" role="status"><p>{error}{data ? ' Je ziet de laatst geladen gegevens.' : ''}</p><button className="text-link" onClick={refresh}><RefreshCw size={14}/> Opnieuw proberen</button></div>}
     {data && <>
-      {staff && !selected && <RaffleManager active={round || null} onSaved={refresh}/>}
-      <div className="raffle-content-grid"><div>{round && <><Entrants round={round}/><RaffleProof round={round}/></>}</div><aside className="raffle-how"><p className="eyebrow">VAN LOT TOT WINNAAR</p><h3>Zo werkt de loterij</h3><ol><li><span>01</span><div><h4>Jouw naam op de lijst</h4><p>De clanleiding voegt deelnemers en hun loten toe.</p></div></li><li><span>02</span><div><h4>Samen aftellen</h4><p>De namen en aantallen liggen vast zodra de trekking is gepland.</p></div></li><li><span>03</span><div><h4>Het winnende lot</h4><p>Op het gekozen moment wordt één lot getrokken. De uitslag blijft hier staan.</p></div></li></ol><div className="raffle-fair-note"><ShieldCheck size={19}/><p>Elk lot heeft dezelfde kans.<br/><span>Je kunt de uitslag zelf controleren.</span></p></div><details className="raffle-terms"><summary>Over deelname</summary><p>Deelname is kosteloos en zonder inleg. Loten worden door de clanleiding toegekend.</p></details></aside></div>
+      {showManager && !selected && <RaffleManager active={round || null} offset={offset} canManage={staff} onSaved={refresh}/>}
+      <div className="raffle-content-grid"><div>{round && <><Entrants round={round}/><RaffleProof round={round}/></>}</div><aside className="raffle-how"><p className="eyebrow">VAN LOT TOT WINNAAR</p><h3>Zo werkt de loterij</h3><ol><li><span>01</span><div><h4>Jouw naam op de lijst</h4><p>De clanleiding voegt deelnemers en hun loten toe.</p></div></li><li><span>02</span><div><h4>Samen aftellen</h4><p>De clanleiding kan namen en loten tot de trekking aanpassen. Daarna sluit de lijst vanzelf.</p></div></li><li><span>03</span><div><h4>Het winnende lot</h4><p>Op het gekozen moment wordt één lot getrokken. De uitslag blijft hier staan.</p></div></li></ol><div className="raffle-fair-note"><ShieldCheck size={19}/><p>Elk lot heeft dezelfde kans.<br/><span>Je kunt de uitslag zelf controleren.</span></p></div><details className="raffle-terms"><summary>Over deelname</summary><p>Deelname is kosteloos en zonder inleg. Loten worden door de clanleiding toegekend.</p></details></aside></div>
       {!!data.history.length && <div className="raffle-history"><label>Vorige trekkingen<select value={selected} onChange={e => setSelected(e.target.value)}><option value="">Laatste loterij</option>{data.history.map(item => <option key={item.id} value={item.id}>{item.title} · {dateTime(item.drawAt)}{item.status === 'cancelled' ? ' · Geannuleerd' : ` · ${item.winner}`}</option>)}</select></label>{selected && <button className="text-link" onClick={() => setSelected('')}>Terug naar de laatste loterij <ArrowRight size={15}/></button>}</div>}
     </>}
     <p className="raffle-footer-note">Hijgend Hert · Samen spelen. Samen winnen.</p>
