@@ -18,6 +18,14 @@ const managedLinux = readExecutionProfile() === "managed-linux";
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
+  // Public Discord application metadata. Credentials are encrypted runtime secrets.
+  vars: {
+    APP_ORIGIN: "https://hijgendhert.xryicon.workers.dev",
+    DISCORD_CLIENT_ID: "1569436253043167305",
+    DISCORD_GUILD_ID: "1073630238115897455",
+    DISCORD_MEMBER_ROLE_IDS: "1326459850837987430",
+    DISCORD_PUBLIC_KEY: "b29bd4fdf7b9f4460bb338dd35c746e9976b88cde52e9634e53087bebcae3641",
+  },
   d1_databases: d1
     ? [
         {

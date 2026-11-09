@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, Check, Copy, Crown, ExternalLink, Flame, Globe2, Menu, Search, Shield, Sparkles, Swords, Target, Trophy, Users, X, RefreshCw, Clock3, Sprout, CalendarDays } from "lucide-react";
+import SiteHeader from "@/components/site-header";
 import CurrentEvent from "@/components/current-event";
 import { BreathingCrest, WoodlandBackdrop } from "@/components/home-ambience";
 import EventsOverview, { WeeklyEvent, eventHash, type EventView } from "@/components/events-overview";
@@ -71,8 +72,6 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
   const [metric, setMetric] = useState("overall");
   const [period, setPeriod] = useState("week");
   const gains = useWom<Gain[]>(`resource=gained&metric=${metric}&period=${period}`, 0, view === 'clan' && clanSection === 'ranglijst');
-  const [menu, setMenu] = useState(false);
-  const [headerScrolled, setHeaderScrolled] = useState(false);
   const [join, setJoin] = useState(false);
   const [copied, setCopied] = useState(false);
   const [query, setQuery] = useState("");
@@ -120,25 +119,12 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
   const currentEvents = events.filter(e => Date.parse(e.endsAt) > now).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
   const featured = currentEvents.find(e => Date.parse(e.startsAt) <= now) || currentEvents[0];
   useEffect(() => { if (join) dialog.current?.showModal(); else dialog.current?.close(); }, [join]);
-  useEffect(() => {
-    const updateHeader = () => setHeaderScrolled(window.scrollY > 24);
-    updateHeader();
-    window.addEventListener('scroll', updateHeader, { passive: true });
-    return () => window.removeEventListener('scroll', updateHeader);
-  }, []);
-  const nav = [{ id: "clan", label: "De clan", href: '/clan' }, { id: "events", label: "Events", href: '/events' }];
   async function copyClan() {
     try { await navigator.clipboard.writeText(group.result?.data.clanChat || "Hijgend Hert"); setCopied(true); setTimeout(() => setCopied(false), 2500); }
     catch { setCopied(false); }
   }
   return <>
-    <a className="skip-link" href="#main">Ga naar inhoud</a>
-    <header className={`header${view === 'home' ? ' header-home' : ''}${view === 'clan' ? ' header-clan' : ''}${view === 'events' ? ' header-event' : ''}${headerScrolled ? ' is-scrolled' : ''}`}><div className="container nav-wrap">
-      <a className="brand" href={view === 'home' ? '#home' : '/'} aria-label="Hijgend Hert home"><img src="/clan-logo.png" alt=""/><span>Hijgend Hert<small>OLD SCHOOL RUNESCAPE CLAN</small></span></a>
-      <nav className={menu ? "navigation open" : "navigation"} aria-label="Hoofdnavigatie">{nav.map(n => <a key={n.label} className={view === n.id ? "active" : ""} href={n.href} aria-current={view === n.id ? "page" : undefined} onClick={() => setMenu(false)}>{n.id === 'clan' ? <Shield size={15} strokeWidth={1.6} aria-hidden="true"/> : <Swords size={15} strokeWidth={1.6} aria-hidden="true"/>}<span>{n.label}</span></a>)}</nav>
-      <a className="button gold nav-join" href={DISCORD} target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={16}/></a>
-      <button className="menu-button" onClick={() => setMenu(!menu)} aria-label={menu ? "Menu sluiten" : "Menu openen"} aria-expanded={menu}>{menu ? <X/> : <Menu/>}</button>
-    </div></header>
+    <SiteHeader view={view}/>
     <main id="main" className={view === 'home' ? 'homepage' : `clan-inner-page${view === 'clan' ? ' clan-page' : ''}${view === 'events' ? ' events-page live-events-page' : ''}`}>
       {view === 'events' && <LiveEventBackdrop/>}
       {view === 'events' && <h1 className="sr-only">Clancompetities — Hijgend Hert</h1>}
