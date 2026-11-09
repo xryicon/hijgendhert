@@ -148,6 +148,42 @@ test('rate limits, malformed responses and outages fail closed without cached ro
   assert.equal(result.headers.getSetCookie().length, 0); // outage does not destroy a valid cookie
 });
 
+test('Discord cooldown reaches the browser without clearing its session or exposing provider data', async () => {
+  const { sessionCookie } = await flow();
+  for (const [header, body, minimum] of [
+    ['3600.25', { message: 'sensitive upstream detail', retry_after: 2 }, 3601],
+    [null, { retry_after: 7200.5, message: 'sensitive upstream detail' }, 7201],
+    [new Date(Date.now() + 3600_000).toUTCString(), {}, 3598],
+    ['invalid', { retry_after: -1 }, 60],
+  ]) {
+    let calls = 0;
+    const limited = await discordAuthRoute(req('/api/auth/session', { headers: { Cookie: sessionCookie } }), env, async () => {
+      calls += 1;
+      return Response.json(body, { status: 429, headers: header ? { 'Retry-After': header } : {} });
+    });
+    assert.equal(calls, 1);
+    assert.equal(limited.status, 503);
+    assert.ok(Number(limited.headers.get('Retry-After')) >= minimum);
+    assert.deepEqual(await limited.json(), { authenticated: false, reason: 'unavailable', reference: 'HH-SESSION-HTTP429' });
+    assert.equal(limited.headers.getSetCookie().length, 0);
+    assert.match(limited.headers.get('Cache-Control'), /no-store/);
+  }
+});
+
+test('temporary callback failure preserves an existing session cookie while withholding new access', async () => {
+  const started = await discordAuthRoute(req('/api/auth/discord'), env);
+  const nonce = new URL(started.headers.get('Location')).searchParams.get('state');
+  const { sessionCookie } = await flow();
+  const result = await discordAuthRoute(req(`/api/auth/discord/callback?code=retry-code&state=${nonce}`, { headers: { Cookie: `${getCookie(started, '__Host-hh-discord-state')}; ${sessionCookie}` } }), env, async () => Response.json({ message: 'provider detail' }, { status: 503 }));
+  assert.equal(result.headers.get('Location'), '/login?error=unavailable&ref=HH-TOKEN-HTTP503');
+  assert.ok(result.headers.getSetCookie().some(value => value.startsWith('__Host-hh-discord-state=;')));
+  assert.ok(!result.headers.getSetCookie().some(value => value.startsWith('__Host-hh-member=')));
+});
+
+test('oversized Discord JSON is bounded and reported without granting access', async () => {
+  await assert.rejects(checkMembership(config, token, async () => response({ user, roles: [env.DISCORD_MEMBER_ROLE_IDS], oversized: 'x'.repeat(70_000) })), error => error.code === 'unavailable' && error.detail === 'JSON');
+});
+
 test('expired, malformed, tampered, wrong-purpose and rotated-key cookies are refused before provider calls', async () => {
   const { sessionCookie, stateCookie } = await flow();
   const expired = await seal(config, 'session', { accessToken: token, userId: user.id, expiresAt: Date.now() - 1 });
@@ -221,7 +257,7 @@ test('rotated credentials survive a temporary membership outage without granting
     };
     const unavailable = await discordAuthRoute(req('/api/auth/session', { headers: { Cookie: `__Host-hh-member=${encrypted}` } }), env, fetcher);
     assert.equal(unavailable.status, 503);
-    assert.deepEqual(await unavailable.json(), { authenticated: false, reason: 'unavailable' });
+    assert.deepEqual(await unavailable.json(), { authenticated: false, reason: 'unavailable', reference: `HH-SESSION-${failure === 'network' ? 'NETWORK' : failure === 'invalid-data' ? 'DATA' : `HTTP${failure}`}` });
     const saved = getCookie(unavailable, '__Host-hh-member');
     assert.ok(saved && saved !== '__Host-hh-member=', 'Keep the successfully rotated credentials for the next role check');
     assert.ok(!saved.includes(rotatedAccess) && !saved.includes(rotatedRefresh));

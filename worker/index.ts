@@ -5,6 +5,7 @@ import { discordAuthRoute, privateHeaders } from "../lib/discord-auth";
 import { memberProfileRoute } from "../lib/member-profile";
 import { raffleRoute } from "../lib/raffle-route";
 export { ClanRaffle } from './clan-raffle';
+export { WomCache } from './wom-cache';
 
 const worker = {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {

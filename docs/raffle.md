@@ -1,4 +1,4 @@
-# Gratis clanraffle
+# Clanloterij
 
 De raffle staat op `/events#raffle`. Alleen leden met de actuele Discord-rol
 Admin of Staff team kunnen hem beheren. Alle bezoekers kunnen de deelnemers,
@@ -13,6 +13,18 @@ gegevens vast. Een foutieve geplande trekking kan met een openbare reden worden
 geannuleerd. Een getrokken winnaar kan niet worden gewijzigd of opnieuw getrokken.
 De loten verschijnen op het ledenprofiel wanneer de ingevoerde naam overeenkomt
 met de daar gekozen RuneScape-naam; dit is geen bewijs van accounteigendom.
+
+De beheerder kan zoeken in de clanleden van Wise Old Man. Eén gedeelde aanvraag
+laadt de lijst; typen veroorzaakt geen nieuwe API-verzoeken. Een eerder geladen
+openbare namenlijst blijft maximaal zeven dagen beschikbaar in de browser, met
+een melding wanneer dit een opgeslagen lijst is. Bij een storing kan een naam
+handmatig worden ingevoerd. Een providerwachttijd blokkeert te vroeg vernieuwen.
+De gekozen naam wordt overgenomen zoals Wise Old Man die weergeeft. Dit verandert
+geen reeds vastgelegde trekking of de controlecode daarvan.
+
+De pagina gebruikt kortere labels zoals 'loten' en 'loterij'; de kosteloze
+deelname blijft zichtbaar onder 'Over deelname'. De server vereist nog steeds
+`freeEntry: true` en accepteert geen aankoop- of betaalvelden.
 
 ## Bewaarplaats en planning
 

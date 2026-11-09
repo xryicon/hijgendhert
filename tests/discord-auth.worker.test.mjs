@@ -172,7 +172,7 @@ test('public WOM data is reused across pages and remains available during rate l
     assert.equal(data.data.id, 7059);
     await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=600000&short-cache=1`);
     assert.equal(calls.filter(c => c.url.includes('api.wiseoldman.net')).length, 2, 'Cooldown prevents repeated rate-limited calls');
-    assert.equal((await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=90000000`)).status, 503, 'Old data expires after one day');
+    assert.equal((await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=700000000`)).status, 503, 'Old data expires after seven days');
   } finally { await mf.dispose(); }
 });
 
@@ -220,7 +220,7 @@ test('WOM hourly cooldown is respected and a new API key has an independent quot
   } finally { await mf.dispose(); }
 });
 
-test('WOM data refreshes after fifteen minutes and failures pause upstream retries', async () => {
+test('WOM data refreshes after one hour and failures pause upstream retries', async () => {
   const options = {};
   const { mf, calls } = runtime(options);
   try {
@@ -230,15 +230,15 @@ test('WOM data refreshes after fifteen minutes and failures pause upstream retri
     const stillFresh = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=600000`);
     assert.equal((await stillFresh.json()).stale, false);
     assert.equal(calls.length, 1, 'No upstream refresh at the former five-minute interval');
-    const failedRefresh = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=960000`);
+    const failedRefresh = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=3660000`);
     const saved = await failedRefresh.json();
     assert.equal(saved.stale, true);
     assert.equal(saved.fetchedAt, initial.fetchedAt);
     assert.equal(calls.length, 2);
-    await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=1020000`);
+    await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=3720000`);
     assert.equal(calls.length, 2, 'A timeout or outage must not trigger a burst of retries');
     options.womOffline = false;
-    const recovered = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=1320000`);
+    const recovered = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=4620000`);
     assert.equal((await recovered.json()).stale, false);
     assert.equal(calls.length, 3);
   } finally { await mf.dispose(); }
@@ -282,9 +282,9 @@ test('manual retry recovers an activated key without bypassing provider rate lim
     assert.equal((await recovered.json()).stale, false);
     assert.equal((await mf.dispatchFetch(`${env.APP_ORIGIN}/api/clan?resource=competitions`)).status, 200, 'Success unlocks the other statistics routes');
     options.womOffline = true; options.womStatus = 429; options.womRetryAfter = '3600';
-    await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=1000000`);
+    await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=4000000`);
     const before = calls.length;
-    await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?retry=1&age=1100000`);
+    await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?retry=1&age=4100000`);
     assert.equal(calls.length, before, 'A manual retry must never override a WOM rate limit');
   } finally { await mf.dispose(); }
 });
@@ -321,7 +321,7 @@ test('Cloudflare retains a renewed session while membership checks recover', asy
     options.memberStatus = 503;
     const outage = await mf.dispatchFetch(`${env.APP_ORIGIN}/api/auth/session`, { headers: { Cookie: cookie(finish, '__Host-hh-member') } });
     assert.equal(outage.status, 503);
-    assert.deepEqual(await outage.json(), { authenticated: false, reason: 'unavailable' });
+    assert.deepEqual(await outage.json(), { authenticated: false, reason: 'unavailable', reference: 'HH-SESSION-HTTP503' });
     const renewed = cookie(outage, '__Host-hh-member');
     assert.ok(renewed && renewed !== '__Host-hh-member=');
     assert.match(outage.headers.getSetCookie()[0], /HttpOnly; Secure; SameSite=Lax/);
@@ -426,7 +426,8 @@ test('Cloudflare runtime refuses provider redirects without forwarding credentia
         assert.equal(errorUrl.pathname, '/login');
         assert.equal(errorUrl.searchParams.get('error'), 'unavailable');
         assert.equal(errorUrl.searchParams.get('ref'), `HH-${redirectAt === '/token' ? 'TOKEN' : 'MEMBER'}-REDIRECT${redirectStatus}`);
-        assert.equal(cookie(finish, '__Host-hh-member'), '__Host-hh-member=');
+        assert.equal(cookie(finish, '__Host-hh-member'), undefined, 'A temporary provider failure preserves any existing session');
+        assert.equal(cookie(finish, '__Host-hh-discord-state'), '__Host-hh-discord-state=');
         assert.equal(calls.length, redirectAt === '/token' ? 1 : 3);
         assert.ok(calls.every(call => new URL(call.url).origin === 'https://discord.com'));
         if (redirectAt === '/member') assert.ok(calls.at(-1).url.endsWith('/token/revoke'));

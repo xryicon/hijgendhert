@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Download, Gift, LockKeyhole, Plus, RefreshCw, Search, ShieldCheck, Ticket, Trash2, Trophy, Users, X } from 'lucide-react';
 import { useMemberSession } from './session-provider';
+import { RafflePlayerPicker, useRaffleRoster } from './raffle-player-picker';
 import { raffleScheduleSchema } from '@/lib/raffle-validation';
 import { verifyRaffle } from '@/lib/raffle-proof';
 import { raffleNameKey, ticketCode, type RaffleRound, type RaffleSchedule, type RaffleState } from '@/lib/raffle-types';
@@ -27,11 +28,11 @@ function useRaffle(id = '') {
         const started = Date.now();
         const response = await fetch(`/api/raffle${id ? `?id=${encodeURIComponent(id)}` : ''}`, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]) });
         const body = await response.json() as RaffleState & { error?: string };
-        if (!response.ok) throw new Error(body.error || 'De raffle kon niet worden geladen.');
+        if (!response.ok) throw new Error(body.error || 'De loterij kon niet worden geladen.');
         if (controller.signal.aborted) return;
         setOffset(body.serverNow - (started + Date.now()) / 2); setData(body); setError('');
         if (body.round?.status === 'scheduled' && body.round.drawAt - body.serverNow < 35_000) delay = 2000;
-      } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'De raffle is even niet bereikbaar.'); }
+      } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'De loterij is even niet bereikbaar.'); }
       finally { running = false; if (!controller.signal.aborted) { setLoading(false); timer = setTimeout(load, delay); } }
     }
     void load();
@@ -43,17 +44,17 @@ function useRaffle(id = '') {
 }
 
 export function RaffleArt() {
-  return <div className="raffle-art" aria-hidden="true"><div className="raffle-art-halo"/><span className="raffle-art-ticket raffle-ticket-back"/><span className="raffle-art-ticket"><span className="raffle-ticket-word">HIJGEND HERT</span><img src="/clan-logo.png" alt=""/><span className="raffle-ticket-caption">DE CLANRAFFLE</span><span className="raffle-ticket-perf"/></span><span className="raffle-art-spark raffle-spark-one">✦</span><span className="raffle-art-spark raffle-spark-two">✧</span></div>;
+  return <div className="raffle-art" aria-hidden="true"><div className="raffle-art-halo"/><span className="raffle-art-ticket raffle-ticket-back"/><span className="raffle-art-ticket"><span className="raffle-ticket-word">HIJGEND HERT</span><img src="/clan-logo.png" alt=""/><span className="raffle-ticket-caption">DE CLANLOTERIJ</span><span className="raffle-ticket-perf"/></span><span className="raffle-art-spark raffle-spark-one">✦</span><span className="raffle-art-spark raffle-spark-two">✧</span></div>;
 }
 
 export function RaffleCard({ onOpen }: { onOpen: () => void }) {
-  const { data, loading } = useRaffle();
+  const { data, loading, error } = useRaffle();
   const round = data?.round;
   return <article className="weekly-event-card weekly-raffle">
-    <a className="weekly-art-link" href="#raffle" onClick={e => { e.preventDefault(); onOpen(); }} aria-label="Bekijk de clanraffle"><RaffleArt/><span className="weekly-state">Gratis deelname</span></a>
-    <div className="weekly-card-body"><p className="eyebrow">VOOR DE CLAN · RAFFLE</p><h2>De clanraffle</h2><p className="weekly-card-description">Jouw naam, jouw loten. Tel samen af en kijk live wie er met de prijs vandoor gaat.</p>
-      <div className="weekly-card-current"><span>{loading ? 'Raffle ophalen…' : round?.status === 'scheduled' ? round.title : round?.status === 'drawn' ? `Gefeliciteerd, ${round.winner}!` : 'Nog geen trekking gepland'}</span>{round?.status === 'scheduled' && <small><Clock3 size={12}/>{dateTime(round.drawAt)} · NL/BE</small>}</div>
-      <a className="weekly-card-link" href="#raffle" onClick={e => { e.preventDefault(); onOpen(); }}>Naar de raffle <ArrowRight size={18}/></a>
+    <a className="weekly-art-link" href="#raffle" onClick={e => { e.preventDefault(); onOpen(); }} aria-label="Bekijk de clanloterij"><RaffleArt/><span className="weekly-state">{round?.status === 'scheduled' ? 'Trekking gepland' : round?.status === 'drawn' ? 'Uitslag bekend' : 'Clanloterij'}</span></a>
+    <div className="weekly-card-body"><p className="eyebrow">HIJGEND HERT · LOTERIJ</p><h2>De clanloterij</h2><p className="weekly-card-description">Jouw naam, jouw loten. Tel samen af en kijk live wie er met de prijs vandoor gaat.</p>
+      <div className="weekly-card-current"><span>{loading ? 'Loterij ophalen…' : error && !data ? 'Loterij tijdelijk niet bereikbaar' : round?.status === 'scheduled' ? round.title : round?.status === 'drawn' ? `Gefeliciteerd, ${round.winner}!` : 'Nog geen trekking gepland'}</span>{round?.status === 'scheduled' && <small><Clock3 size={12}/>{dateTime(round.drawAt)} · NL/BE</small>}</div>
+      <a className="weekly-card-link" href="#raffle" onClick={e => { e.preventDefault(); onOpen(); }}>Naar de loterij <ArrowRight size={18}/></a>
     </div>
   </article>;
 }
@@ -77,7 +78,7 @@ function RaffleProof({ round }: { round: RaffleRound }) {
     const link = document.createElement('a'); link.href = objectUrl; link.download = `hijgend-hert-raffle-${round.id}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   }
   return <details className="raffle-proof"><summary><ShieldCheck size={18}/><span>Controleer de trekking<small>De lotenlijst en trekkingscode zijn vooraf vastgelegd.</small></span><Plus size={16}/></summary>
-    <div className="raffle-proof-body"><p>Elk gratis lot heeft evenveel kans. Bij het plannen zet de server de lijst vast en maakt hij een geheime willekeurige code. De vingerafdruk daarvan staat hieronder. Na de trekking wordt de code openbaar, zodat je browser de uitslag opnieuw kan berekenen.</p>
+    <div className="raffle-proof-body"><p>Elk lot heeft evenveel kans. Bij het plannen zet de server de lijst vast en maakt hij een geheime willekeurige code. De vingerafdruk daarvan staat hieronder. Na de trekking wordt de code openbaar, zodat je browser de uitslag opnieuw kan berekenen.</p>
       <dl><div><dt>Vingerafdruk trekkingscode</dt><dd>{round.commitment}</dd></div><div><dt>Vingerafdruk lotenlijst</dt><dd>{round.entriesHash}</dd></div>{round.seed && <div><dt>Openbaar gemaakte trekkingscode</dt><dd>{round.seed}</dd></div>}</dl>
       <div className="raffle-proof-actions"><button className="button outline" onClick={download}><Download size={15}/> Bewijs downloaden</button>{round.status === 'drawn' && <button className="button gold" onClick={() => void verify()} disabled={checking}><ShieldCheck size={15}/>{checking ? 'Controleren…' : 'Controleer uitslag'}</button>}</div>
       {verified !== null && <p className={verified ? 'raffle-verified' : 'raffle-error'} role="status">{verified ? 'De code, lotenlijst en winnaar komen overeen. Deze trekking is gecontroleerd.' : 'Het bewijs komt niet overeen. Neem contact op met de clanleiding.'}</p>}
@@ -93,15 +94,16 @@ function Entrants({ round }: { round: RaffleRound }) {
   const pages = Math.max(1, Math.ceil(entries.length / 25));
   return <section className="raffle-entrants" aria-labelledby="raffle-entrants-title"><div className="raffle-section-heading"><div><p className="eyebrow">DE LOTENLĲST</p><h3 id="raffle-entrants-title">Wie doet er mee?</h3></div><span className="raffle-locked"><LockKeyhole size={13}/> Vastgelegd</span></div>
     <label className="raffle-search"><Search size={17}/><input value={query} onChange={e => { setQuery(e.target.value); setPage(0); }} placeholder="Zoek een naam…" aria-label="Zoek een deelnemer"/></label>
-    <div className="raffle-table-scroll"><table><thead><tr><th>NAAM</th><th>GRATIS LOTEN</th><th>LOTNUMMERS</th><th>KANS</th></tr></thead><tbody>{entries.slice(page * 25, page * 25 + 25).map(entry => <tr key={entry.first} className={round.status === 'drawn' && round.winner === entry.name ? 'raffle-winning-row' : ''}><td>{round.status === 'drawn' && round.winner === entry.name && <Trophy size={15}/>} {entry.name}</td><td>{number(entry.tickets)}</td><td>{number(entry.first)}{entry.last !== entry.first ? ` – ${number(entry.last)}` : ''}</td><td>{(entry.tickets / round.totalTickets * 100).toLocaleString('nl-NL', { maximumFractionDigits: 2, minimumFractionDigits: 0 })}%</td></tr>)}</tbody></table></div>
+    <div className="raffle-table-scroll"><table><thead><tr><th>NAAM</th><th>LOTEN</th><th>LOTNUMMERS</th><th>KANS</th></tr></thead><tbody>{entries.slice(page * 25, page * 25 + 25).map(entry => <tr key={entry.first} className={round.status === 'drawn' && round.winner === entry.name ? 'raffle-winning-row' : ''}><td>{round.status === 'drawn' && round.winner === entry.name && <Trophy size={15}/>} {entry.name}</td><td>{number(entry.tickets)}</td><td>{number(entry.first)}{entry.last !== entry.first ? ` – ${number(entry.last)}` : ''}</td><td>{(entry.tickets / round.totalTickets * 100).toLocaleString('nl-NL', { maximumFractionDigits: 2, minimumFractionDigits: 0 })}%</td></tr>)}</tbody></table></div>
     {!entries.length && <p className="raffle-muted">Geen deelnemers gevonden.</p>}
-    <div className="raffle-table-footer"><span>{number(entries.length)} {entries.length === 1 ? 'deelnemer' : 'deelnemers'} · {number(round.totalTickets)} gratis loten</span>{pages > 1 && <div><button disabled={page === 0} onClick={() => setPage(value => value - 1)} aria-label="Vorige deelnemers"><ChevronLeft size={16}/></button><span>{page + 1} / {pages}</span><button disabled={page + 1 >= pages} onClick={() => setPage(value => value + 1)} aria-label="Volgende deelnemers"><ChevronRight size={16}/></button></div>}</div>
+    <div className="raffle-table-footer"><span>{number(entries.length)} {entries.length === 1 ? 'deelnemer' : 'deelnemers'} · {number(round.totalTickets)} loten</span>{pages > 1 && <div><button disabled={page === 0} onClick={() => setPage(value => value - 1)} aria-label="Vorige deelnemers"><ChevronLeft size={16}/></button><span>{page + 1} / {pages}</span><button disabled={page + 1 >= pages} onClick={() => setPage(value => value + 1)} aria-label="Volgende deelnemers"><ChevronRight size={16}/></button></div>}</div>
   </section>;
 }
 
 type DraftEntry = { id: number; name: string; tickets: string };
 function RaffleManager({ active, onSaved }: { active: RaffleRound | null; onSaved: () => void }) {
-  const [title, setTitle] = useState('Clandraffle'); const [prize, setPrize] = useState(''); const [drawAt, setDrawAt] = useState('');
+  const [title, setTitle] = useState('Hijgend Hert Loterij'); const [prize, setPrize] = useState(''); const [drawAt, setDrawAt] = useState('');
+  const roster = useRaffleRoster(active?.status !== 'scheduled');
   const [zone, setZone] = useState('jouw tijdzone');
   const [rows, setRows] = useState<DraftEntry[]>([{ id: 1, name: '', tickets: '1' }]); const nextId = useRef(2);
   const [review, setReview] = useState<RaffleSchedule | null>(null); const requestId = useRef('');
@@ -126,16 +128,16 @@ function RaffleManager({ active, onSaved }: { active: RaffleRound | null; onSave
     } catch (e) { setError(e instanceof Error ? e.message : 'Opslaan is niet gelukt. Je kunt veilig opnieuw proberen.'); }
     finally { setBusy(false); }
   }
-  return <details className="raffle-manager" open={active?.status !== 'scheduled'}><summary><ShieldCheck size={18}/><span>Raffle beheren<small>Alleen voor Admin en Staff team</small></span><Plus size={16}/></summary><div className="raffle-manager-body">
+  return <details className="raffle-manager" open={active?.status !== 'scheduled'}><summary><ShieldCheck size={18}/><span>Loterij beheren<small>Alleen voor Admin en Staff team</small></span><Plus size={16}/></summary><div className="raffle-manager-body">
     {active?.status === 'scheduled' ? <><p>De deelnemers en loten staan vast. De trekking gebeurt automatisch op <strong>{dateTime(active.drawAt)} (NL/BE)</strong>, ook als niemand de pagina open heeft.</p><button className="text-link" onClick={() => setCancelOpen(value => !value)}>Trekking annuleren</button>{cancelOpen && <form onSubmit={e => { e.preventDefault(); void send('cancel', { id: active.id, reason }); }}><label>Reden voor annulering<input value={reason} onChange={e => setReason(e.target.value)} minLength={5} maxLength={200} required/></label><p className="raffle-muted">De annulering en reden blijven openbaar in de geschiedenis. Een getrokken winnaar kan niet worden gewijzigd.</p><button className="button outline" disabled={busy || reason.trim().length < 5}>Bevestig annulering</button></form>}</> : <form onSubmit={prepare}>
-      <fieldset disabled={busy}><div className="raffle-form-grid"><label>Naam van de raffle<input value={title} onChange={e => { changed(); setTitle(e.target.value); }} required minLength={3} maxLength={80}/></label><label>Prijs <small>(optioneel)</small><input value={prize} onChange={e => { changed(); setPrize(e.target.value); }} placeholder="Wat geeft de clan weg?" maxLength={160}/></label><label className="raffle-date-field">Datum en tijd van de trekking<input type="datetime-local" value={drawAt} onChange={e => { changed(); setDrawAt(e.target.value); }} required/><small>In jouw tijdzone: {zone}</small></label></div>
-        <div className="raffle-editor-heading"><h4>Namen & gratis loten</h4><span>{number(rows.reduce((sum, row) => sum + Math.max(0, Number(row.tickets) || 0), 0))} loten</span></div>
-        <div className="raffle-editor-labels"><span>NAAM</span><span>AANTAL LOTEN</span><span/></div>
-        <div className="raffle-editor-rows">{rows.map((row, index) => <div className="raffle-editor-row" key={row.id}><input aria-label={`Naam deelnemer ${index + 1}`} value={row.name} maxLength={30} placeholder="RuneScape-naam" required onChange={e => { changed(); setRows(old => old.map(item => item.id === row.id ? { ...item, name: e.target.value } : item)); }}/><input aria-label={`Gratis loten deelnemer ${index + 1}`} type="number" min="1" max="10000" step="1" value={row.tickets} required onChange={e => { changed(); setRows(old => old.map(item => item.id === row.id ? { ...item, tickets: e.target.value } : item)); }}/><button type="button" aria-label={`Verwijder deelnemer ${index + 1}`} disabled={rows.length === 1} onClick={() => { changed(); setRows(old => old.filter(item => item.id !== row.id)); }}><Trash2 size={16}/></button></div>)}</div>
+      <fieldset disabled={busy}><div className="raffle-form-grid"><label>Naam van de loterij<input value={title} onChange={e => { changed(); setTitle(e.target.value); }} required minLength={3} maxLength={80}/></label><label>Prijs <small>(optioneel)</small><input value={prize} onChange={e => { changed(); setPrize(e.target.value); }} placeholder="Wat geeft de clan weg?" maxLength={160}/></label><label className="raffle-date-field">Datum en tijd van de trekking<input type="datetime-local" value={drawAt} onChange={e => { changed(); setDrawAt(e.target.value); }} required/><small>In jouw tijdzone: {zone}</small></label></div>
+        <div className="raffle-editor-heading"><h4>Deelnemers & loten</h4><span>{number(rows.reduce((sum, row) => sum + Math.max(0, Number(row.tickets) || 0), 0))} loten</span></div>
+        <div className="raffle-roster-status" role="status"><Users size={15}/><span>{roster.loading && !roster.players.length ? 'Clanleden ophalen bij Wise Old Man…' : roster.message}{roster.players.length > 0 && <small>{number(roster.players.length)} namen beschikbaar</small>}</span>{!roster.loading && <button type="button" disabled={!roster.canRetry} onClick={roster.retry}>{roster.canRetry ? 'Vernieuwen' : 'Even wachten'}</button>}</div><div className="raffle-editor-labels"><span>NAAM</span><span>AANTAL LOTEN</span><span/></div>
+        <div className="raffle-editor-rows">{rows.map((row, index) => <div className="raffle-editor-row" key={row.id}><RafflePlayerPicker name={row.name} index={index} players={roster.players} loading={roster.loading} usedNames={rows.filter(item => item.id !== row.id).map(item => item.name)} onChange={name => { changed(); setRows(old => old.map(item => item.id === row.id ? { ...item, name } : item)); }}/><input aria-label={`Loten deelnemer ${index + 1}`} type="number" min="1" max="10000" step="1" value={row.tickets} required onChange={e => { changed(); setRows(old => old.map(item => item.id === row.id ? { ...item, tickets: e.target.value } : item)); }}/><button type="button" aria-label={`Verwijder deelnemer ${index + 1}`} disabled={rows.length === 1} onClick={() => { changed(); setRows(old => old.filter(item => item.id !== row.id)); }}><Trash2 size={16}/></button></div>)}</div>
         <button className="raffle-add-name" type="button" disabled={rows.length >= 500} onClick={() => { changed(); setRows(old => [...old, { id: nextId.current++, name: '', tickets: '1' }]); }}><Plus size={16}/> Naam toevoegen</button>
-        <p className="raffle-muted">Gebruik de RuneScape-naam uit het ledenprofiel om de gratis loten daar ook te tonen. Na het plannen worden de lijst, aantallen en tijd vastgezet.</p>
+        <p className="raffle-muted">Kies een naam uit Wise Old Man. Loten verschijnen ook bij het ledenprofiel met dezelfde RuneScape-naam. Na het plannen worden de lijst, aantallen en tijd vastgezet.</p>
         {!review && <button className="button gold" type="submit"><CalendarDays size={16}/> Controleer & plan</button>}
-        {review && <div className="raffle-review" role="status"><p className="eyebrow">CONTROLEER JE TREKKING</p><h4>{review.title}</h4><p><strong>{dateTime(review.drawAt)} (NL/BE)</strong></p><p>{review.entries.length} deelnemers · {number(review.entries.reduce((sum, entry) => sum + entry.tickets, 0))} gratis loten{review.prize ? ` · Prijs: ${review.prize}` : ''}</p><p>De bovenstaande namen en aantallen worden vastgelegd. De trekking loopt daarna automatisch.</p><div><button className="button gold" type="button" disabled={busy} onClick={() => void send('schedule', review)}>{busy ? <RefreshCw size={16}/> : <LockKeyhole size={16}/>} {busy ? 'Plannen…' : 'Bevestig & plan trekking'}</button><button type="button" className="text-link" disabled={busy} onClick={() => setReview(null)}>Terug</button></div></div>}
+        {review && <div className="raffle-review" role="status"><p className="eyebrow">CONTROLEER JE TREKKING</p><h4>{review.title}</h4><p><strong>{dateTime(review.drawAt)} (NL/BE)</strong></p><p>{review.entries.length} deelnemers · {number(review.entries.reduce((sum, entry) => sum + entry.tickets, 0))} loten{review.prize ? ` · Prijs: ${review.prize}` : ''}</p><p>De bovenstaande namen en aantallen worden vastgelegd. De trekking loopt daarna automatisch.</p><div><button className="button gold" type="button" disabled={busy} onClick={() => void send('schedule', review)}>{busy ? <RefreshCw size={16}/> : <LockKeyhole size={16}/>} {busy ? 'Plannen…' : 'Bevestig & plan trekking'}</button><button type="button" className="text-link" disabled={busy} onClick={() => setReview(null)}>Terug</button></div></div>}
       </fieldset>
     </form>}
     {error && <p className="raffle-error" role="alert">{error}</p>}
@@ -149,23 +151,28 @@ export default function ClanRaffle({ onBack }: { onBack: () => void }) {
   const staff = session.status === 'authenticated' && ['Admin', 'Staff team'].includes(session.member?.clanRole || '');
   const round = data?.round;
   return <section className="container clan-raffle" aria-labelledby="raffle-title">
-    <div className="raffle-top"><a href="/events" className="text-link weekly-back" onClick={e => { e.preventDefault(); onBack(); }}><ArrowLeft size={14}/> Alle events</a><span><Ticket size={14}/> Gratis deelname</span></div>
+    <div className="raffle-top"><a href="/events" className="text-link weekly-back" onClick={e => { e.preventDefault(); onBack(); }}><ArrowLeft size={14}/> Terug naar events</a><span><ShieldCheck size={14}/> Eén trekking. Eén winnaar.</span></div>
     <div className={`raffle-stage${round?.status === 'drawn' ? ' raffle-is-drawn' : ''}`}>
-      <div className="raffle-stage-crest" aria-hidden="true"><img src="/clan-logo.png" alt=""/></div>
-      <p className="eyebrow">HIJGEND HERT · DE CLANRAFFLE</p><h2 id="raffle-title">{round?.title || 'Een lot voor de clan'}</h2>
-      {loading && !data ? <p className="raffle-muted" role="status">De raffle wordt opgehaald…</p> : round ? <>
-        {round.prize && <p className="raffle-prize"><Gift size={17}/>{round.prize}</p>}
-        {round.status === 'scheduled' ? <><p className="raffle-countdown-label">DE TREKKING BEGINT OVER</p><Countdown at={round.drawAt} offset={offset}/><p className="raffle-draw-date"><CalendarDays size={14}/>{dateTime(round.drawAt)} · NL/BE</p></> : round.status === 'drawn' ? <div className="raffle-winner" role="status"><Trophy size={33}/><p>HET WINNENDE LOT IS VAN</p><h3>{round.winner}</h3><strong>{ticketCode(round.id, round.winningTicket!)}</strong><span>Getrokken op {dateTime(round.drawnAt!)} · NL/BE</span></div> : <div className="raffle-cancelled"><p>Deze trekking is geannuleerd.</p><span>{round.cancellationReason}</span></div>}
-        <div className="raffle-totals"><span><Users size={17}/><strong>{number(round.entries.length)}</strong> deelnemers</span><span><Ticket size={17}/><strong>{number(round.totalTickets)}</strong> gratis loten</span><span><ShieldCheck size={17}/> Controleerbare trekking</span></div>
-      </> : !error && <div className="raffle-empty"><p>Nog geen raffle gepland.</p><span>Zodra de clanleiding een trekking plant, vind je hier de deelnemers, de gratis loten en de countdown.</span></div>}
+      <div className="raffle-stage-heading"><p className="eyebrow"><span/> HIJGEND HERT · CLANLOTERIJ <span/></p><h2 id="raffle-title">{round?.title || 'Het winnende lot'}</h2><p className="raffle-stage-intro">{round?.status === 'drawn' ? 'De loten zijn getrokken. De winnaar is bekend.' : 'Een prijs van de clan. Een naam om samen voor te juichen.'}</p></div>
+      <div className="raffle-draw-layout">
+        <div className="raffle-prize-display"><RaffleArt/><div className="raffle-prize-plaque"><span><Gift size={15}/> DE PRIJS</span><strong>{round?.prize || 'Wordt aangekondigd'}</strong><small>Hijgend Hert clanloterij</small></div></div>
+        <div className="raffle-draw-panel">
+          <p className={`raffle-round-status ${round?.status || ''}`}><span/>{round?.status === 'scheduled' ? 'DE LOTEN LIGGEN KLAAR' : round?.status === 'drawn' ? 'TREKKING AFGEROND' : round?.status === 'cancelled' ? 'GEANNULEERD' : 'DE VOLGENDE RONDE'}</p>
+          {loading && !data ? <p className="raffle-muted" role="status">De loterij wordt opgehaald…</p> : round ? <>
+            {round.status === 'scheduled' ? <><h3>Wie heeft het<br/><em>winnende lot?</em></h3><p className="raffle-countdown-label">WE TREKKEN OVER</p><Countdown at={round.drawAt} offset={offset}/><p className="raffle-draw-date"><CalendarDays size={15}/>{dateTime(round.drawAt)} · NL/BE</p><p className="raffle-draw-hint">Tel mee af. De winnaar verschijnt hier vanzelf.</p></> : round.status === 'drawn' ? <div className="raffle-winner" role="status"><Trophy size={33}/><p>GEFELICITEERD</p><h3>{round.winner}</h3><strong>{ticketCode(round.id, round.winningTicket!)}</strong><span>Getrokken op {dateTime(round.drawnAt!)} · NL/BE</span></div> : <div className="raffle-cancelled"><h3>Deze ronde<br/>gaat niet door.</h3><span>{round.cancellationReason}</span></div>}
+          </> : !error && <div className="raffle-empty"><h3>Een nieuwe ronde<br/><em>komt eraan.</em></h3><p>Nog geen trekking gepland.</p><span>Hier zie je straks de prijzenpot, de loten en het moment waarop de winnaar bekend wordt.</span></div>}
+          {error && !data && <p className="raffle-muted">De trekking is even niet bereikbaar.</p>}
+        </div>
+      </div>
+      <div className="raffle-totals"><span><Users size={19}/><strong>{round ? number(round.entries.length) : '—'}</strong> {round?.entries.length === 1 ? 'deelnemer' : 'deelnemers'}</span><span><Ticket size={19}/><strong>{round ? number(round.totalTickets) : '—'}</strong> loten in de trekking</span><span><ShieldCheck size={19}/> Elk lot evenveel kans</span></div>
     </div>
     {error && <div className="raffle-error raffle-connection" role="status"><p>{error}{data ? ' Je ziet de laatst geladen gegevens.' : ''}</p><button className="text-link" onClick={refresh}><RefreshCw size={14}/> Opnieuw proberen</button></div>}
     {data && <>
       {staff && !selected && <RaffleManager active={round || null} onSaved={refresh}/>}
-      {round && <><Entrants round={round}/><RaffleProof round={round}/></>}
-      {!!data.history.length && <div className="raffle-history"><label>Vorige trekkingen<select value={selected} onChange={e => setSelected(e.target.value)}><option value="">Laatste raffle</option>{data.history.map(item => <option key={item.id} value={item.id}>{item.title} · {dateTime(item.drawAt)}{item.status === 'cancelled' ? ' · Geannuleerd' : ` · ${item.winner}`}</option>)}</select></label>{selected && <button className="text-link" onClick={() => setSelected('')}>Terug naar de laatste raffle <ArrowRight size={15}/></button>}</div>}
+      <div className="raffle-content-grid"><div>{round && <><Entrants round={round}/><RaffleProof round={round}/></>}</div><aside className="raffle-how"><p className="eyebrow">VAN LOT TOT WINNAAR</p><h3>Zo werkt de loterij</h3><ol><li><span>01</span><div><h4>Jouw naam op de lijst</h4><p>De clanleiding voegt deelnemers en hun loten toe.</p></div></li><li><span>02</span><div><h4>Samen aftellen</h4><p>De namen en aantallen liggen vast zodra de trekking is gepland.</p></div></li><li><span>03</span><div><h4>Het winnende lot</h4><p>Op het gekozen moment wordt één lot getrokken. De uitslag blijft hier staan.</p></div></li></ol><div className="raffle-fair-note"><ShieldCheck size={19}/><p>Elk lot heeft dezelfde kans.<br/><span>Je kunt de uitslag zelf controleren.</span></p></div><details className="raffle-terms"><summary>Over deelname</summary><p>Deelname is kosteloos en zonder inleg. Loten worden door de clanleiding toegekend.</p></details></aside></div>
+      {!!data.history.length && <div className="raffle-history"><label>Vorige trekkingen<select value={selected} onChange={e => setSelected(e.target.value)}><option value="">Laatste loterij</option>{data.history.map(item => <option key={item.id} value={item.id}>{item.title} · {dateTime(item.drawAt)}{item.status === 'cancelled' ? ' · Geannuleerd' : ` · ${item.winner}`}</option>)}</select></label>{selected && <button className="text-link" onClick={() => setSelected('')}>Terug naar de laatste loterij <ArrowRight size={15}/></button>}</div>}
     </>}
-    <p className="raffle-footer-note">Een gratis giveaway voor Hijgend Hert. Deelname kost niets. De clanleiding voegt namen en gratis loten toe.</p>
+    <p className="raffle-footer-note">Hijgend Hert · Samen spelen. Samen winnen.</p>
   </section>;
 }
 
@@ -174,5 +181,5 @@ export function ProfileRaffle({ playerName }: { playerName: string }) {
   const round = data?.round;
   const entry = round?.entries.find(entry => raffleNameKey(entry.name) === raffleNameKey(playerName));
   if (!round || !entry || error) return null;
-  return <section className="profile-raffle"><span className="profile-raffle-icon"><Ticket size={23}/></span><div><p className="profile-section-label">GRATIS CLANRAFFLE</p><h3>{round.title}</h3><p><strong>{number(entry.tickets)} gratis {entry.tickets === 1 ? 'lot' : 'loten'}</strong> voor {playerName}</p><small>{round.status === 'scheduled' ? `Trekking: ${dateTime(round.drawAt)} (NL/BE)` : round.status === 'drawn' ? `Winnaar: ${round.winner}` : 'Trekking geannuleerd'}</small></div><a href="/events#raffle" className="text-link">Bekijk raffle <ArrowRight size={15}/></a></section>;
+  return <section className="profile-raffle"><span className="profile-raffle-icon"><Ticket size={23}/></span><div><p className="profile-section-label">CLANLOTERIJ</p><h3>{round.title}</h3><p><strong>{number(entry.tickets)} {entry.tickets === 1 ? 'lot' : 'loten'}</strong> voor {playerName}</p><small>{round.status === 'scheduled' ? `Trekking: ${dateTime(round.drawAt)} (NL/BE)` : round.status === 'drawn' ? `Winnaar: ${round.winner}` : 'Trekking geannuleerd'}</small></div><a href="/events#raffle" className="text-link">Bekijk loterij <ArrowRight size={15}/></a></section>;
 }

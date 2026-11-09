@@ -28,7 +28,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if (current.member) redirect('/profiel');
   const error = typeof params.error === 'string' ? errors[params.error] : undefined;
   const message = !config ? errors.setup : error || (current.reason === 'unavailable' ? errors.unavailable : undefined);
-  const reference = typeof params.ref === 'string' && /^HH-[A-Z]{2,12}-[A-Z0-9]{2,20}$/.test(params.ref) ? params.ref : null;
+  const reference = current.reference || (typeof params.ref === 'string' && /^HH-[A-Z]{2,12}-[A-Z0-9]{2,20}$/.test(params.ref) ? params.ref : null);
   return <>
     <LoginSessionRedirect/>
     <SiteHeader view="member"/>

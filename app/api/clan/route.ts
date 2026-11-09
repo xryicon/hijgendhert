@@ -1,11 +1,12 @@
 import communitySnapshot from '@/content/community-snapshot.json';
 import { env } from 'cloudflare:workers';
 import { readWiseOldMan, womConnection, womErrorCode, womRetryAfter } from '@/lib/wise-old-man';
+import { WOM_REFRESH_MS } from '@/lib/wom-refresh';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const connection = womConnection(env);
-  const diagnostics = { 'X-HH-WOM-Mode': connection.apiKey ? 'api-key' : 'public', 'X-HH-WOM-Revision': 'public-v1' };
+  const diagnostics = { 'X-HH-WOM-Mode': connection.apiKey ? 'api-key' : 'public', 'X-HH-WOM-Revision': 'shared-v2', 'X-HH-WOM-Storage': connection.coordinator ? 'shared' : 'edge', 'X-HH-WOM-Refresh': String(WOM_REFRESH_MS / 1000) };
   const resource = url.searchParams.get('resource') || 'group';
   const metric = url.searchParams.get('metric') || 'overall';
   const period = url.searchParams.get('period') || 'week';

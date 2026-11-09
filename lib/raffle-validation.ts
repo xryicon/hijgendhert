@@ -18,7 +18,7 @@ export const raffleScheduleSchema = z.object({
     if (seen.has(key)) ctx.addIssue({ code: 'custom', message: `De naam ${entry.name} staat meer dan één keer in de lijst.`, path: ['entries', index, 'name'] });
     seen.add(key);
   }
-  if (value.entries.reduce((total, entry) => total + entry.tickets, 0) > 1_000_000) ctx.addIssue({ code: 'custom', message: 'Gebruik maximaal 1.000.000 gratis loten per trekking.', path: ['entries'] });
+  if (value.entries.reduce((total, entry) => total + entry.tickets, 0) > 1_000_000) ctx.addIssue({ code: 'custom', message: 'Gebruik maximaal 1.000.000 loten per trekking.', path: ['entries'] });
 });
 export const raffleCancellationSchema = z.object({
   id: z.string().uuid(), reason: z.string().trim().min(5).max(200),

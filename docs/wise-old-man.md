@@ -18,11 +18,16 @@ ingeschakelde sleuteltoegang gaat de sleutel uitsluitend als `x-api-key` naar
 `https://api.wiseoldman.net/v2`; redirects worden
 niet gevolgd. Discord-rollen blijven onafhankelijk gecontroleerd.
 
-Openbare data wordt vijftien minuten hergebruikt. Uitslagen voor de erelijst blijven
-een uur vers. Een oudere succesvolle respons blijft maximaal 24 uur beschikbaar
-als terugval, met de oorspronkelijke ophaaltijd en `stale: true`. Dit is een
-Cloudflare-edgecache, geen permanente database; een nieuwe locatie kan nog koud
-zijn. Discord-tokens, ledenrechten en de API-sleutel komen niet in deze cache.
+Openbare data wordt één uur hergebruikt. Een oudere succesvolle respons blijft
+maximaal zeven dagen beschikbaar, met de oorspronkelijke ophaaltijd en `stale: true`.
+De `WOM_CACHE`-binding verwijst naar de SQLite Durable Object `WomCache`.
+Per clan en quota is er één gedeelde gegevensopslag voor alle bezoekers en regio's.
+Gelijktijdige aanvragen voor hetzelfde pad delen één ophaalactie; andere koude
+paden worden vier seconden uit elkaar uitgevoerd, met maximaal acht in behandeling.
+Een beschikbare oude stand wordt onmiddellijk getoond terwijl de achtergrondactie
+hem vernieuwt. De opgeslagen data en wachttijden overleven een Worker-herstart.
+Discord-tokens, ledenrechten en de API-sleutel komen niet in deze opslag.
+Zonder binding blijft de bestaande edgecache als ontwikkelcompatibiliteit werken.
 
 Bij HTTP 429 wordt de volledige `Retry-After` gerespecteerd, ook bij uur- en
 daglimieten. Een datumheader wordt eveneens ondersteund. De tijdelijke blokkade
@@ -31,13 +36,13 @@ blokkade van anonieme verzoeken. De cache-identificatie bevat alleen een hash va
 de sleutel; foutlogs bevatten uitsluitend de HTTP-status en of een sleutel is
 ingesteld. Ze bevatten geen headers, tokens of spelersnamen.
 
-Clancijfers en zichtbare eventstanden vernieuwen iedere vijftien minuten. De
+Clancijfers en zichtbare eventstanden vernieuwen ieder uur. De
 eventpagina vraagt geen ongebruikte clanlijst op en bewaart de laatste stand
 bij een tijdelijke verbindingsfout. De pagina toont dan dat de stand ouder is.
 Terugkeren naar een browsertab start geen nieuwe aanvraag vóór het volgende
 verversmoment. Tijdens verversen blijven eerder opgehaalde cijfers zichtbaar.
 Een Wise Old Man-aanvraag krijgt twintig seconden om te voltooien. Na een
-verbindingsstoring wachten alle routes vijf minuten met nieuwe aanvragen; een
+verbindingsstoring wachten alle routes vijftien minuten met nieuwe aanvragen; een
 afgewezen sleutel krijgt vijftien minuten rust. Langere `Retry-After`-termijnen
 blijven leidend. Deze timers veranderen niets aan Discord-logincontroles.
 
@@ -52,7 +57,18 @@ oude afwijzing opnieuw controleren. Dit mag hoogstens eenmaal per minuut.
 Een geslaagde controle heft alleen die oude sleutelafwijzing op; een 429-limiet
 of de door Wise Old Man opgegeven wachttijd kan niet worden overgeslagen.
 
-Controle: `npm run test:discord` test ook de echte Cloudflare-runtime met een
+De migratie `wom-cache-v1` maakt alleen de nieuwe cache aan; bestaande raffles
+blijven ongewijzigd. Bij de eerste aanvraag worden bestaande openbare edgegegevens
+en de langste bijbehorende wachttijd overgenomen. `WOM_PUBLIC_PAUSE_UNTIL` bewaart
+tevens de bij uitrol bekende publieke blokkade tot 10 november 2026 10:49:08 UTC,
+zodat een koude regio de pauze niet onbedoeld overslaat. Deze datum verloopt
+vanzelf. Nieuwe providerlimieten worden in SQLite opgeslagen en nooit verkort.
+Er is geen resetroute die limieten omzeilt en er worden geen spelersupdates of
+Hiscores-scrapes uitgevoerd: de website leest uitsluitend bestaande WOM-gegevens.
+
+Controle: `node --test tests/wom-cache.worker.test.mjs` test gedeelde aanvragen,
+spreiding, pauze-overname, zeven-dagenretentie, achtergrondverversing en persistentie
+na een echte Miniflare-herstart. `npm run test:discord` test ook de echte Cloudflare-runtime met een
 testprovider: alle openbare routes, profieldata, sleutelafscherming, gedeelde
 cache, lange afkoeltijden en geweigerde redirects.
 

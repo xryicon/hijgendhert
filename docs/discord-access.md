@@ -87,7 +87,13 @@ van de Sites-preview niet om de bot bereikbaar te maken.
 - Iedere beschermde serverpagina/API leest de actuele Discord-rollen. Een
   ontbrekende rol, vertrokken lid of nog niet afgeronde toelating weigert toegang.
   Bij een Discord-storing wordt geen toegang op basis van oude rollen verleend.
-  De geopende ledenpagina controleert ook elke minuut en bij terugkeer naar de tab.
+  De geopende pagina controleert de sessie maximaal elke vijf minuten en bij
+  terugkeer zodra die periode verstreken is. Beschermde serveraanvragen blijven
+  de actuele rol iedere keer controleren. Een tijdelijke storing wist de sessie
+  niet: de browser wacht minimaal een minuut, oplopend tot vijftien minuten,
+  of langer wanneer Discord dat via Retry-After vraagt. Tabbladen delen alleen
+  deze wachttijd; geen identiteit, rollen of tokens. HH-PAGE- en HH-SESSION-codes
+  maken een storing herkenbaar zonder geheime gegevens te tonen.
 - Nieuwe besloten serverpagina's/actions moeten `requireDiscordMember()` gebruiken.
   Nieuwe API-routes moeten `authorizeMember()` gebruiken vóór zij iets lezen of
   wijzigen; de navigatie of clientcomponent is nooit een autorisatiegrens.

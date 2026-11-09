@@ -31,7 +31,13 @@ export type AccessCode = 'setup' | 'expired' | 'role' | 'server' | 'pending' | '
 export class DiscordAccessError extends Error {
   code: AccessCode;
   detail?: string;
-  constructor(code: AccessCode, detail?: string) { super(code); this.name = 'DiscordAccessError'; this.code = code; this.detail = detail; }
+  retryAfter?: number;
+  constructor(code: AccessCode, detail?: string, retryAfter?: number) { super(code); this.name = 'DiscordAccessError'; this.code = code; this.detail = detail; this.retryAfter = retryAfter; }
+}
+
+export function discordErrorReference(stage: 'PAGE' | 'SESSION', error: unknown) {
+  const detail = error instanceof DiscordAccessError ? error.detail || error.code.toUpperCase() : 'INTERNAL';
+  return `HH-${stage}-${/^[A-Z0-9_]{1,40}$/.test(detail) ? detail : 'UNAVAILABLE'}`;
 }
 
 export function discordConfig(env: DiscordEnv): DiscordConfig | null {
@@ -71,8 +77,8 @@ function redirect(path: string, cookies: string[] = []) {
   for (const value of cookies) headers.append('Set-Cookie', value);
   return new Response(null, { status: 303, headers });
 }
-function json(data: unknown, status = 200, cookies: string[] = []) {
-  const headers = new Headers(privateHeaders);
+function json(data: unknown, status = 200, cookies: string[] = [], extraHeaders: Record<string, string> = {}) {
+  const headers = new Headers({ ...privateHeaders, ...extraHeaders });
   for (const value of cookies) headers.append('Set-Cookie', value);
   return Response.json(data, { status, headers });
 }
@@ -126,12 +132,31 @@ async function discordFetch(url: string, init: RequestInit = {}, fetcher: typeof
     // manually so Discord credentials are never forwarded to another endpoint.
     const response = await fetcher(url, { ...init, redirect: 'manual', cache: 'no-store', signal: AbortSignal.timeout(8_000) });
     if (response.status >= 300 && response.status < 400) throw new DiscordAccessError('unavailable', `REDIRECT${response.status}`);
+    if (response.status === 429) {
+      const header = response.headers.get('Retry-After');
+      let seconds = header && /^\d+(\.\d+)?$/.test(header) ? Number(header) : header ? (Date.parse(header) - Date.now()) / 1000 : NaN;
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        try { const body = await readJson(response) as { retry_after?: unknown }; seconds = typeof body?.retry_after === 'number' ? body.retry_after : NaN; } catch { /* A malformed error must not create a retry loop. */ }
+      } else await response.body?.cancel();
+      throw new DiscordAccessError('unavailable', 'HTTP429', Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : 60);
+    }
     return response;
   }
   catch (error) { throw error instanceof DiscordAccessError ? error : new DiscordAccessError('unavailable', 'NETWORK'); }
 }
 async function readJson(response: Response): Promise<unknown> {
-  try { return await response.json(); } catch { throw new DiscordAccessError('unavailable', 'JSON'); }
+  try {
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('empty');
+    const parts: Uint8Array[] = []; let size = 0;
+    while (true) {
+      const { value, done } = await reader.read(); if (done) break;
+      size += value.length;
+      if (size > 65_536) { await reader.cancel(); throw new Error('large'); }
+      parts.push(value);
+    }
+    return JSON.parse(Buffer.concat(parts).toString('utf8'));
+  } catch { throw new DiscordAccessError('unavailable', 'JSON'); }
 }
 export async function checkMembership(config: DiscordConfig, token: string, fetcher: typeof fetch = fetch) {
   const response = await discordFetch(`${API}/users/@me/guilds/${config.guildId}/member`, { headers: { Authorization: `Bearer ${token}` } }, fetcher);
@@ -248,7 +273,9 @@ async function callback(request: Request, config: DiscordConfig, fetcher: typeof
     // authorization codes, tokens, cookies, secrets or account identifiers.
     const reference = `HH-${stage}-${error instanceof DiscordAccessError ? error.detail || code.toUpperCase() : 'INTERNAL'}`;
     console.warn(JSON.stringify({ event: 'discord_login_failed', reason: code, reference }));
-    return redirect(`/login?error=${code}${code === 'unavailable' ? `&ref=${reference}` : ''}`, [clearState(), clearSession()]);
+    // A temporary provider failure during a new sign-in must not erase an
+    // existing browser session. Every use of that session still checks roles.
+    return redirect(`/login?error=${code}${code === 'unavailable' ? `&ref=${reference}` : ''}`, code === 'unavailable' ? [clearState()] : [clearState(), clearSession()]);
   }
 }
 
@@ -326,6 +353,9 @@ export async function discordAuthRoute(request: Request, env: DiscordEnv, fetche
     // membership check succeeds. Definitive role or identity denials still clear it.
     const cookies = reason === 'unavailable' ? (renewedCookie ? [renewedCookie] : [])
       : error instanceof DiscordAccessError && error.detail === 'REFRESH_EXPIRED' ? [] : [clearSession()];
-    return json({ authenticated: false, reason }, reason === 'unavailable' ? 503 : 401, cookies);
+    const reference = reason === 'unavailable' ? discordErrorReference('SESSION', error) : undefined;
+    const retryAfter = reason === 'unavailable' ? error instanceof DiscordAccessError && error.retryAfter ? error.retryAfter : 60 : undefined;
+    if (reference) console.warn(JSON.stringify({ event: 'discord_session_failed', reference }));
+    return json({ authenticated: false, reason, ...(reference ? { reference } : {}) }, reason === 'unavailable' ? 503 : 401, cookies, retryAfter ? { 'Retry-After': String(retryAfter) } : {});
   }
 }

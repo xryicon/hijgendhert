@@ -39,4 +39,64 @@
 @keyframes raffle-spin { to { transform: rotate(360deg); } } @keyframes raffle-reveal { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
 @media (max-width: 1000px) { .weekly-event-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.weekly-card-body h2 { font-size: 26px; }.raffle-ticket-word { font-size: 9px; }.raffle-ticket-caption { font-size: 8px; }.raffle-totals { gap: 20px; }.weekly-raffle { max-width: 100%; } }
 @media (max-width: 700px) { .weekly-event-grid { grid-template-columns: 1fr; }.clan-raffle { padding-top: 22px; }.raffle-stage { padding: 28px 18px 0; }.raffle-stage h2 { font-size: 25px; }.raffle-stage-crest { height: 83px; }.raffle-countdown { gap: 8px; }.raffle-countdown > div { width: 65px; padding: 15px 3px 12px; }.raffle-countdown strong { font-size: 29px; }.raffle-countdown span { font-size: 8px; }.raffle-totals { margin-inline: -18px; gap: 13px; flex-wrap: wrap; padding: 17px; }.raffle-totals > span:last-child { width: 100%; justify-content: center; }.raffle-entrants { padding: 22px 15px 0; }.raffle-section-heading h3 { font-size: 20px; }.raffle-entrants th { font-size: 7px; padding-inline: 6px; }.raffle-entrants td { font-size: 11px; padding-inline: 6px; }.raffle-table-footer { flex-wrap: wrap; }.raffle-proof summary, .raffle-manager summary { padding: 20px 18px; }.raffle-proof-body, .raffle-manager-body { padding: 0 18px 22px; }.raffle-form-grid { grid-template-columns: 1fr; }.raffle-editor-row, .raffle-editor-labels { grid-template-columns: minmax(0, 1fr) 88px 30px; gap: 7px; }.raffle-manager input { padding: 12px 9px; font-size: 12px; }.raffle-editor-heading h4 { font-size: 15px; }.raffle-review { padding: 18px; }.profile-raffle { flex-wrap: wrap; padding: 18px; }.profile-raffle > a { margin-left: 65px; } }
+/* The clan lottery: brass tickets, a prize plaque, and a clear draw clock. */
+.raffle-stage { padding: 0; background: radial-gradient(ellipse at 22% 60%, #9a6a2126, transparent 55%), linear-gradient(115deg, #201a10fa, #12100dfc 70%); border-color: #a37a40aa; }
+.raffle-stage-heading { padding: 34px 28px 28px; }
+.raffle-stage-heading .eyebrow { display: flex; align-items: center; gap: 15px; font-size: 9px; }
+.raffle-stage-heading .eyebrow > span { width: 35px; height: 1px; background: linear-gradient(90deg, transparent, #b48c4c); }
+.raffle-stage-heading .eyebrow > span:last-child { transform: rotate(180deg); }
+.raffle-stage h2 { margin: 14px 0 10px; font-size: clamp(27px, 3.3vw, 43px); }
+.raffle-stage-intro { color: #b5a48a; font-size: 12px; line-height: 1.8; }
+.raffle-draw-layout { display: grid; grid-template-columns: 1fr 1.1fr; padding: 0 32px 32px; gap: 28px; align-items: stretch; }
+.raffle-prize-display { position: relative; display: flex; flex-direction: column; justify-content: end; min-width: 0; min-height: 380px; padding: 25px; border: 1px solid #a47c403b; border-radius: 3px; overflow: hidden; background: radial-gradient(ellipse at 50% 32%, #dba74921, transparent 70%), linear-gradient(0deg, #15100c 5%, #19150d22 75%); }
+.raffle-prize-display::before { content: ''; position: absolute; inset: 0; background: url('/hijgend-hert-woodland.webp') center / cover; opacity: .14; pointer-events: none; }
+.raffle-prize-display .raffle-art { height: 245px; background: transparent; overflow: visible; }
+.raffle-prize-display .raffle-art-ticket { width: 148px; height: 207px; top: 3px; box-shadow: inset 0 0 0 5px #241a10, inset 0 0 0 6px #d0a15599, 0 13px 35px #0009; }
+.raffle-prize-display .raffle-ticket-word { font-size: 8px; letter-spacing: 1.4px; }
+.raffle-prize-display .raffle-ticket-caption { font-size: 7px; letter-spacing: 1px; }
+.raffle-prize-display .raffle-spark-one { right: 18%; top: 22%; }
+.raffle-prize-display .raffle-spark-two { bottom: 20%; }
+.raffle-prize-plaque { position: relative; padding: 18px 15px 13px; border-top: 1px solid #b58b494a; background: linear-gradient(120deg, transparent, #ac7d2610, transparent); }
+.raffle-prize-plaque > span { display: flex; justify-content: center; align-items: center; gap: 8px; color: #bfa16a; font-size: 9px; letter-spacing: 2px; }
+.raffle-prize-plaque strong { display: block; margin: 9px 0; color: #f5d48b; font: 500 clamp(26px, 3.7vw, 47px)/1.15 Cinzel, Georgia, serif; text-shadow: 0 2px 25px #ac761e30; overflow-wrap: anywhere; }
+.raffle-prize-plaque small { color: #a18d6c; font-size: 10px; }
+.raffle-draw-panel { align-self: center; min-width: 0; padding: 15px 9px 18px; }
+.raffle-round-status { display: inline-flex; justify-content: center; align-items: center; gap: 8px; font-size: 8px; letter-spacing: 1.8px; color: #b99d6c; padding: 9px 12px; border: 1px solid #b48a423d; border-radius: 2px; }
+.raffle-round-status > span { width: 5px; height: 5px; border-radius: 50%; background: #d2a857; box-shadow: 0 0 9px #d2a85766; }
+.raffle-draw-panel h3 { color: #ead4b0; font: 400 clamp(25px, 3vw, 37px)/1.3 Cinzel, Georgia, serif; margin: 20px 0 26px; }
+.raffle-draw-panel h3 em { color: #cfaa66; font-style: normal; }
+.raffle-countdown-label { margin-top: 0; font-size: 8px; }
+.raffle-countdown { gap: 9px; margin: 15px 0 22px; }
+.raffle-countdown > div { width: 76px; padding-block: 17px 14px; border-color: #ad814655; background: linear-gradient(145deg, #3c2c17, #21180f 60%); }
+.raffle-countdown strong { font-size: 34px; }
+.raffle-draw-date { margin-bottom: 12px; font-size: 11px; line-height: 1.6; }
+.raffle-draw-hint { font-size: 11px; color: #a99577; }
+.raffle-totals { margin: 0; justify-content: space-evenly; gap: 15px; padding: 21px 20px; }
+.raffle-totals > span { font-size: 11px; }
+.raffle-totals strong { font-size: 17px; color: #e1c493; }
+.raffle-winner { padding: 16px 0 0; }.raffle-winner h3 { font-size: clamp(28px, 3.2vw, 41px); color: #efd196; }
+.raffle-empty { margin: 0; }.raffle-empty p { font-size: 16px; }.raffle-empty span { display: block; max-width: 320px; margin: auto; }
+.raffle-content-grid { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 24px; align-items: start; margin-top: 24px; }
+.raffle-content-grid > div { min-width: 0; }.raffle-content-grid .raffle-entrants { margin-top: 0; }
+.raffle-content-grid > div:empty { display: none; }.raffle-content-grid:has(> div:empty) { grid-template-columns: 1fr; }
+.raffle-how { border: 1px solid #9a74423b; border-radius: 3px; padding: 26px 23px; background: #17130ff5; }
+.raffle-how > .eyebrow { font-size: 8px; letter-spacing: 1.7px; color: #ac8b56; }
+.raffle-how > h3 { margin: 12px 0 25px; color: #e0c69b; font: 500 22px/1.35 Cinzel, Georgia, serif; }
+.raffle-how ol { list-style: none; padding: 0; margin: 0; }.raffle-how li { display: flex; gap: 13px; margin-bottom: 23px; }
+.raffle-how li > span { color: #b28c4d; font: 400 15px/1.7 Cinzel, Georgia, serif; }
+.raffle-how h4 { color: #cfb895; font-size: 12px; font-weight: 500; margin: 0 0 7px; }.raffle-how li p { color: #a79477; font-size: 11px; line-height: 1.8; }
+.raffle-fair-note { display: flex; gap: 10px; align-items: start; border-top: 1px solid #a0783e33; padding-top: 20px; color: #b8a071; }.raffle-fair-note svg { flex-shrink: 0; }.raffle-fair-note p { font-size: 10px; line-height: 1.9; }.raffle-fair-note span { color: #97856b; }
+.raffle-terms { font-size: 10px; line-height: 1.8; margin-top: 18px; color: #9e8a6c; }.raffle-terms summary { cursor: pointer; }.raffle-terms p { margin-top: 9px; }
+.raffle-roster-status { display: flex; align-items: center; gap: 10px; margin: -3px 0 20px; padding: 12px; background: #a17c2b0c; border: 1px solid #a17c2b25; border-radius: 3px; font-size: 11px; line-height: 1.7; color: #ad9872; }.raffle-roster-status > svg { flex-shrink: 0; }.raffle-roster-status > span { flex: 1; }.raffle-roster-status small { display: block; color: #8c9d76; font-size: 10px; }.raffle-roster-status button { font-size: 10px; color: #d8b878; padding: 7px; }
+.raffle-editor-row { align-items: start; }.raffle-editor-row > button { height: 43px; }
+.raffle-player-picker { min-width: 0; position: relative; }.raffle-player-input { position: relative; display: flex; align-items: center; }
+.raffle-player-input > svg:first-child { position: absolute; left: 12px; color: #a38a62; pointer-events: none; }.raffle-manager .raffle-player-input input { padding-left: 36px; padding-right: 31px; }
+.raffle-player-input > svg:last-child { position: absolute; right: 11px; color: #9f8b63; pointer-events: none; }.raffle-player-input > .raffle-player-check:last-child { color: #a6b97c; }
+.raffle-player-menu { position: relative; z-index: 5; margin-top: 6px; background: #201a12; border: 1px solid #a57b3e88; border-radius: 3px; overflow: hidden; box-shadow: 0 7px 25px #0003; }
+.raffle-player-menu-title { padding: 12px 14px; color: #ab8d5b; font-size: 8px; letter-spacing: 1.3px; background: #17120d; }
+.raffle-player-menu ul { list-style: none; margin: 0; padding: 4px; max-height: 290px; overflow-y: auto; }.raffle-player-menu li { display: flex; gap: 11px; align-items: center; padding: 10px; cursor: pointer; border-radius: 2px; }
+.raffle-player-menu li:hover, .raffle-player-menu li[aria-selected='true'] { background: #b78c3520; }
+.raffle-player-avatar { display: grid; place-items: center; width: 30px; height: 33px; border: 1px solid #9a764039; color: #b6965e; background: #13110c; }.raffle-player-menu li > span:nth-child(2) { flex: 1; min-width: 0; }.raffle-player-menu strong { display: block; font-size: 12px; color: #ddc599; font-weight: 500; }.raffle-player-menu small { display: block; margin-top: 4px; font-size: 9px; color: #a08c69; }.raffle-player-menu li > svg { color: #a6b97c; }.raffle-player-menu > p { padding: 15px; font-size: 11px; line-height: 1.8; color: #baa481; }
+@media (max-width: 900px) { .raffle-content-grid { grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; }.raffle-draw-layout { gap: 15px; padding-inline: 20px; }.raffle-prize-display { padding: 18px; }.raffle-countdown > div { width: 63px; }.raffle-countdown strong { font-size: 29px; }.raffle-totals { flex-wrap: wrap; }.raffle-totals > span { font-size: 10px; } }
+@media (max-width: 700px) { .raffle-stage-heading { padding: 28px 18px 22px; }.raffle-stage-heading .eyebrow { font-size: 8px; letter-spacing: 1.4px; gap: 9px; }.raffle-stage-heading .eyebrow > span { width: 18px; }.raffle-stage h2 { font-size: 27px; }.raffle-stage-intro { font-size: 11px; }.raffle-draw-layout { grid-template-columns: 1fr; padding: 0 17px 24px; gap: 20px; }.raffle-prize-display { min-height: 0; flex-direction: row; align-items: center; padding: 15px 10px; gap: 5px; }.raffle-prize-display .raffle-art { width: 44%; flex-shrink: 0; height: 152px; }.raffle-prize-display .raffle-art-ticket { width: 82px; height: 117px; top: 17px; }.raffle-prize-display .raffle-ticket-word { font-size: 4px; letter-spacing: 1px; }.raffle-prize-display .raffle-ticket-caption { font-size: 4px; letter-spacing: .6px; }.raffle-prize-display .raffle-art-spark { font-size: 14px; }.raffle-prize-plaque { border-top: 0; padding: 12px 7px; flex: 1; min-width: 0; }.raffle-prize-plaque > span { font-size: 7px; letter-spacing: 1px; }.raffle-prize-plaque strong { font-size: 27px; }.raffle-prize-plaque small { font-size: 8px; }.raffle-draw-panel { padding: 3px 0 0; }.raffle-draw-panel h3 { font-size: 28px; margin: 18px 0 23px; }.raffle-countdown > div { width: 61px; }.raffle-countdown { gap: 8px; }.raffle-totals { gap: 12px; padding: 16px 10px; }.raffle-totals strong { font-size: 15px; }.raffle-totals > span:last-child { width: 100%; }.raffle-content-grid { grid-template-columns: 1fr; gap: 20px; }.raffle-top > span { font-size: 8px; }.raffle-roster-status { font-size: 10px; flex-wrap: wrap; }.raffle-roster-status > span { flex-basis: 75%; }.raffle-player-menu-title { font-size: 6px; letter-spacing: .5px; padding: 10px; }.raffle-player-menu li { gap: 7px; padding: 9px 5px; }.raffle-player-avatar { display: none; }.raffle-player-menu strong { font-size: 11px; }.raffle-manager .raffle-player-input input { padding-left: 28px; padding-right: 25px; }.raffle-player-input > svg:first-child { left: 8px; }.raffle-player-input > svg:last-child { right: 7px; } }
 @media (prefers-reduced-motion: reduce) { .raffle-winner, .raffle-drawing > svg { animation: none; }.weekly-raffle .raffle-art-ticket { transition: none; }.weekly-raffle:hover .raffle-art-ticket:not(.raffle-ticket-back) { transform: rotate(9deg); } }
