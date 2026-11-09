@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
+import type { DiscordMember } from './member-types';
 
 export type DiscordEnv = {
   APP_ORIGIN?: string;
@@ -16,6 +17,7 @@ const TOKEN_URL = 'https://discord.com/api/oauth2/token';
 const SCOPES = ['identify', 'guilds.members.read'];
 const SESSION_COOKIE = '__Host-hh-member';
 const STATE_COOKIE = '__Host-hh-discord-state';
+const PROFILE_COOKIE = '__Host-hh-profile';
 const MAX_SESSION_SECONDS = 8 * 60 * 60;
 const encoder = new TextEncoder();
 const snowflake = z.string().regex(/^\d{17,20}$/);
@@ -84,14 +86,14 @@ async function key(config: DiscordConfig) {
 function context(config: DiscordConfig, purpose: string) {
   return encoder.encode(`hh:v1:${purpose}:${config.origin}:${config.clientId}:${config.guildId}`);
 }
-export async function seal(config: DiscordConfig, purpose: 'state' | 'session', value: unknown) {
+export async function seal(config: DiscordConfig, purpose: 'state' | 'session' | 'profile', value: unknown) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: context(config, purpose) }, await key(config), encoder.encode(JSON.stringify(value)));
   const valueText = `v1.${Buffer.from(iv).toString('base64url')}.${Buffer.from(encrypted).toString('base64url')}`;
   if (valueText.length > 3700) throw new DiscordAccessError('unavailable');
   return valueText;
 }
-async function unseal(config: DiscordConfig, purpose: 'state' | 'session', value: string | null): Promise<unknown> {
+async function unseal(config: DiscordConfig, purpose: 'state' | 'session' | 'profile', value: string | null): Promise<unknown> {
   if (!value || value.length > 3700 || !/^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]+$/.test(value)) return null;
   try {
     const [, iv, ciphertext] = value.split('.');
@@ -102,7 +104,19 @@ async function unseal(config: DiscordConfig, purpose: 'state' | 'session', value
 const stateSchema = z.object({ nonce: z.string().length(43), verifier: z.string().length(43), expiresAt: z.number().int() }).strict();
 const sessionSchema = z.object({ accessToken: z.string().min(10).max(512), userId: snowflake, expiresAt: z.number().int() }).strict();
 const userSchema = z.object({ id: snowflake, username: z.string().min(1).max(100), global_name: z.string().max(100).nullable().optional() });
-const memberSchema = z.object({ roles: z.array(snowflake).max(500), pending: z.boolean().optional(), nick: z.string().max(100).nullable().optional(), user: userSchema.optional() });
+const memberSchema = z.object({ roles: z.array(snowflake).max(500), pending: z.boolean().optional(), nick: z.string().max(100).nullable().optional(), joined_at: z.string().max(50).optional(), user: userSchema.optional() });
+
+// A display preference, never proof of RuneScape account ownership. It survives
+// sign-out on this browser and is encrypted and bound to one Discord user.
+export async function readPlayerPreference(request: Request, config: DiscordConfig, userId: string, now = Date.now()) {
+  const parsed = z.object({ userId: snowflake, playerId: z.number().int().positive(), expiresAt: z.number().int() }).strict()
+    .safeParse(await unseal(config, 'profile', readCookie(request, PROFILE_COOKIE)));
+  return parsed.success && parsed.data.userId === userId && parsed.data.expiresAt > now ? parsed.data.playerId : null;
+}
+export async function playerPreferenceCookie(config: DiscordConfig, userId: string, playerId: number) {
+  const seconds = 365 * 24 * 60 * 60;
+  return cookie(PROFILE_COOKIE, await seal(config, 'profile', { userId, playerId, expiresAt: Date.now() + seconds * 1000 }), seconds);
+}
 
 async function discordFetch(url: string, init: RequestInit = {}, fetcher: typeof fetch = fetch) {
   try {
@@ -128,14 +142,20 @@ export async function checkMembership(config: DiscordConfig, token: string, fetc
   if (!config.roleIds.some(id => parsed.data.roles.includes(id))) throw new DiscordAccessError('role');
   return parsed.data;
 }
-export async function authorizeMember(request: Request, config: DiscordConfig, fetcher: typeof fetch = fetch, now = Date.now()) {
+export async function authorizeMember(request: Request, config: DiscordConfig, fetcher: typeof fetch = fetch, now = Date.now()): Promise<DiscordMember> {
   const parsed = sessionSchema.safeParse(await unseal(config, 'session', readCookie(request, SESSION_COOKIE)));
   if (!parsed.success || parsed.data.expiresAt <= now || parsed.data.expiresAt > now + MAX_SESSION_SECONDS * 1000) throw new DiscordAccessError('expired');
   // Never use roles stored in a session. Removed roles and server departures
   // are checked against Discord on every protected page or API request.
   const member = await checkMembership(config, parsed.data.accessToken, fetcher);
   if (!member.user || member.user.id !== parsed.data.userId) throw new DiscordAccessError('expired');
-  return { id: member.user.id, displayName: member.nick || member.user.global_name || member.user.username, expiresAt: parsed.data.expiresAt };
+  return {
+    id: member.user.id, displayName: member.nick || member.user.global_name || member.user.username,
+    username: member.user.username,
+    clanRole: member.roles.includes('1197327572720169030') ? 'Admin' : member.roles.includes('1408990525180084265') ? 'Staff team' : 'Member',
+    joinedAt: member.joined_at && Number.isFinite(Date.parse(member.joined_at)) ? member.joined_at : null,
+    expiresAt: parsed.data.expiresAt,
+  };
 }
 
 async function revoke(config: DiscordConfig, accessToken: string, fetcher: typeof fetch) {

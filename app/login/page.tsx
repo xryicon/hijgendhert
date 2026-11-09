@@ -3,10 +3,13 @@ import { env } from 'cloudflare:workers';
 import { ArrowRight, ShieldCheck, MessageCircle, ArrowLeft } from 'lucide-react';
 import SiteHeader from '@/components/site-header';
 import { discordConfig } from '@/lib/discord-auth';
+import { currentDiscordMember } from '@/lib/discord-member';
+import { redirect } from 'next/navigation';
+import LoginSessionRedirect from '@/components/login-session-redirect';
 import '../member-access.css';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Ledenomgeving | Hijgend Hert', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'Login | Hijgend Hert', robots: { index: false, follow: false } };
 const errors: Record<string, string> = {
   setup: 'De Discord-koppeling wordt nog ingesteld. Je kunt binnenkort inloggen.',
   expired: 'Log in met Discord om de ledenomgeving te openen.',
@@ -21,9 +24,12 @@ const errors: Record<string, string> = {
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
   const config = discordConfig(env);
+  const current = await currentDiscordMember();
+  if (current.member) redirect('/profiel');
   const error = typeof params.error === 'string' ? errors[params.error] : undefined;
-  const message = !config ? errors.setup : error;
+  const message = !config ? errors.setup : error || (current.reason === 'unavailable' ? errors.unavailable : undefined);
   return <>
+    <LoginSessionRedirect/>
     <SiteHeader view="member"/>
     <main id="main" className="member-page">
       <section className="member-gate" aria-labelledby="member-title">

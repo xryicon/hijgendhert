@@ -2,7 +2,31 @@
 
 Homepage, clangegevens, agenda en eventstanden blijven openbaar. `/ledenomgeving`
 controleert de Discord-identiteit en actuele clanrol op de server. Deze koppeling
-regelt toegang tot de ledenomgeving. De inlogpagina staat op `/login`.
+regelt toegang tot de ledenomgeving. De inlogpagina staat op `/login` en het eigen
+profiel op `/profiel`. De oude route `/ledenomgeving` verwijst naar het profiel.
+
+## Profiel en herkenning
+
+- De header controleert de bestaande sessie en toont de Discord-servernaam met
+  Mijn profiel, Mijn events en Uitloggen. `/login` stuurt een al ingelogd lid
+  direct naar het profiel. Een verversing of andere pagina beëindigt de sessie niet.
+- Een tijdelijke verbindingsstoring verbergt beschermde inhoud, bewaart de
+  bestaande cookie en probeert automatisch opnieuw. Werkelijk verlopen toegang
+  of een verwijderde rol stuurt het lid terug naar Login.
+- Het profiel toont de Discord-naam, clanrol en toetredingsdatum, indien aanwezig.
+  Een exacte match met een RuneScape-naam uit WOM-groep 7059 wordt voorgesteld.
+  Leden kunnen ook zelf een account uit die clanlijst kiezen.
+- De accountkeuze is een versleutelde HttpOnly-cookie, gebonden aan het Discord-ID.
+  De keuze wordt één jaar in deze browser onthouden, ook na uitloggen. Het is
+  een weergavevoorkeur, geen verificatie van RuneScape-accountbezit of extra toegang.
+  Op een ander apparaat moet het lid de keuze opnieuw maken.
+- De eventlijst komt uit de persoonlijke WOM-deelnames en wordt beperkt tot
+  groep 7059. Resultaten worden op verzoek uit het afzonderlijke event gelezen;
+  de gecombineerde WOM-standingsfeed gaf tijdens implementatie databasefouten.
+  Alleen inschrijven wordt niet gepresenteerd als actieve deelname.
+- `/api/members/profile` en `/api/members/event` controleren altijd de actuele
+  Discord-toegang. Alleen openbare WOM-data wordt gecachet; profielantwoorden
+  blijven private/no-store. Account wijzigen vereist een same-origin POST.
 
 De toegestane server is `{OSRS} Hijgend Hert` (`1073630238115897455`). De door de
 clanleiding opgegeven toegestane rollen zijn:

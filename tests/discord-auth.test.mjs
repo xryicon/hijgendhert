@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes, createHash } from 'node:crypto';
-import { authorizeMember, checkMembership, discordAuthRoute, discordConfig, discordInteraction, seal } from '../lib/discord-auth.ts';
+import { authorizeMember, checkMembership, discordAuthRoute, discordConfig, discordInteraction, seal, playerPreferenceCookie, readPlayerPreference } from '../lib/discord-auth.ts';
 
 const env = {
   APP_ORIGIN: 'https://clan.example', DISCORD_CLIENT_ID: '123456789012345678',
@@ -51,6 +51,16 @@ test('public paths are unaffected and unconfigured login never grants access', a
   assert.equal(status.status, 503);
   assert.equal((await status.json()).authenticated, false);
   assert.equal((await discordAuthRoute(req('/api/auth/discord'), {})).headers.get('Location'), '/login?error=setup');
+});
+
+test('profile choices are encrypted, expire, and cannot be reused by a different Discord member', async () => {
+  const saved = (await playerPreferenceCookie(config, user.id, 701)).split(';')[0];
+  const request = req('/api/members/profile', { headers: { Cookie: saved } });
+  assert.equal(await readPlayerPreference(request, config, user.id), 701);
+  assert.equal(await readPlayerPreference(request, config, '345678901234567890'), null);
+  assert.equal(await readPlayerPreference(request, config, user.id, Date.now() + 366 * 86400000), null);
+  const forged = await seal(config, 'session', { userId: user.id, playerId: 701, expiresAt: Date.now() + 10000 });
+  assert.equal(await readPlayerPreference(req('/api/members/profile', { headers: { Cookie: `__Host-hh-profile=${forged}` } }), config, user.id), null);
 });
 
 test('full login binds PKCE, state, exact origin and current member identity', async () => {

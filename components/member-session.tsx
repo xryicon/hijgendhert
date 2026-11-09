@@ -1,32 +1,21 @@
 "use client";
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
+import { RefreshCw } from 'lucide-react';
+import { useMemberSession } from './session-provider';
 
 export default function MemberSession({ children }: { children: ReactNode }) {
-  const [locked, setLocked] = useState(false);
+  const session = useMemberSession();
   useEffect(() => {
-    const controller = new AbortController();
-    let checking = false;
-    async function verify() {
-      if (checking || document.hidden || controller.signal.aborted) return;
-      checking = true;
-      try {
-        const response = await fetch('/api/auth/session', { cache: 'no-store', signal: controller.signal });
-        if (!response.ok) {
-          setLocked(true);
-          const body = await response.json() as { reason?: string };
-          const reason = body.reason && ['expired', 'role', 'server', 'pending', 'unavailable', 'setup'].includes(body.reason) ? body.reason : 'unavailable';
-          window.location.replace(`/login?error=${reason}`);
-        }
-      } catch {
-        if (!controller.signal.aborted) { setLocked(true); window.location.replace('/login?error=unavailable'); }
-      } finally { checking = false; }
-    }
-    const timer = window.setInterval(verify, 60_000);
-    const onVisible = () => { if (!document.hidden) void verify(); };
-    const onRestore = (event: PageTransitionEvent) => { if (event.persisted) void verify(); };
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('pageshow', onRestore);
-    return () => { controller.abort(); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('pageshow', onRestore); };
-  }, []);
-  return locked ? <p role="status">Je toegang wordt opnieuw gecontroleerd…</p> : children;
+    if (session.status !== 'anonymous') return;
+    const reason = ['expired', 'role', 'server', 'pending', 'setup'].includes(session.reason) ? session.reason : 'expired';
+    window.location.replace(`/login?error=${reason}`);
+  }, [session.status, session.reason]);
+  if (session.status === 'unavailable') return <section className="member-connection" role="status">
+    <RefreshCw size={24}/><h1>Even opnieuw verbinden</h1>
+    <p>We kunnen je Discord-rol nu niet controleren. Je sessie blijft bewaard; we proberen het automatisch opnieuw.</p>
+    <button type="button" onClick={() => void session.refresh()}>Opnieuw proberen</button>
+  </section>;
+  if (session.status === 'anonymous') return <p role="status">Je toegang wordt opnieuw gecontroleerd…</p>;
+  // The initial server render is already protected by requireDiscordMember().
+  return children;
 }

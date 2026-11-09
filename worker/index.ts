@@ -2,11 +2,14 @@ import handler from "vinext/server/fetch-handler";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 import { discordAuthRoute, privateHeaders } from "../lib/discord-auth";
+import { memberProfileRoute } from "../lib/member-profile";
 
 const worker = {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
     const authResponse = await discordAuthRoute(request, env);
     if (authResponse) return authResponse;
+    const profileResponse = await memberProfileRoute(request, env);
+    if (profileResponse) return profileResponse;
     let binding = ctx.props?.CONNECTORS;
     // Local preview emulates the same request-scoped capability. This branch and
     // the auxiliary service binding are absent from production builds.
@@ -28,9 +31,12 @@ const worker = {
     }
     const response = await runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx));
     const path = new URL(request.url).pathname;
-    if (path === '/login' || path === '/ledenomgeving' || path.startsWith('/ledenomgeving/') || path.startsWith('/api/auth/') || path.startsWith('/api/members/')) {
+    if (path === '/login' || path === '/profiel' || path.startsWith('/profiel/') || path === '/ledenomgeving' || path.startsWith('/ledenomgeving/') || path.startsWith('/api/auth/') || path.startsWith('/api/members/')) {
       const headers = new Headers(response.headers);
       for (const [name, value] of Object.entries(privateHeaders)) headers.set(name, value);
+      // Native same-origin forms need a non-null Origin for CSRF validation.
+      // Auth redirects retain no-referrer; these pages reveal no referrer off-site.
+      if (!path.startsWith('/api/')) headers.set('Referrer-Policy', 'same-origin');
       return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
     }
     return response;

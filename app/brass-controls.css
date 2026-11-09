@@ -76,3 +76,28 @@ body .header .nav-actions .button.gold { margin: 0; white-space: nowrap; }
 @media (max-width: 700px) { body .header .nav-actions { gap: 7px; } }
 @media (max-width: 480px) { body .header .brand > span { display: none; } }
 @media (max-width: 380px) { body .header .nav-actions { gap: 6px; } }
+
+/* The account menu shares the same brass button, with a compact clan seal. */
+.nav-account { position: relative; }
+body .header .nav-actions .button.gold.nav-account-button { gap: 9px; max-width: 240px; cursor: pointer; }
+.nav-account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-account-initial { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 22px; height: 22px; margin: -4px 0; border: 1px solid #a8854c; border-radius: 50%; background: #141d17; color: #e6cc90; font: 600 11px Cinzel, Georgia, serif; text-transform: uppercase; }
+.nav-session-loading { opacity: .65; }
+.account-panel { position: absolute; top: calc(100% + 12px); right: 0; z-index: 100; width: 255px; padding: 7px; border: 1px solid #967747; border-radius: 4px; background: linear-gradient(145deg, #1d2923, #101a17); box-shadow: 0 15px 42px #0009, inset 0 1px 0 #ddbb7826; }
+.account-panel-heading { padding: 12px 12px 15px; margin-bottom: 5px; border-bottom: 1px solid #a38a4e30; }
+.account-panel-heading strong { display: block; color: #e6d6b1; font: 500 15px Cinzel, Georgia, serif; overflow-wrap: anywhere; }
+.account-panel-heading span { display: block; margin-top: 5px; color: #9cae9f; font-size: 11px; }
+.account-panel > a, .account-panel form button { display: flex; align-items: center; gap: 11px; padding: 12px; width: 100%; color: #c3cabc; font-size: 12px; border-radius: 2px; text-align: left; cursor: pointer; }
+.account-panel > a svg, .account-panel form svg { color: #bda16a; }
+.account-panel > a:hover, .account-panel form button:hover { background: #ab8b461a; color: #ead4a1; }
+.account-panel form { margin: 5px 0 0; padding-top: 5px; border-top: 1px solid #a38a4e30; }
+.account-panel a:focus-visible, .account-panel button:focus-visible { outline: 2px solid #dfbf7b; outline-offset: -2px; }
+@media (max-width: 700px) {
+  body .header .nav-actions .button.gold.nav-account-button { max-width: 150px; gap: 6px; }
+  .account-panel { position: fixed; top: 74px; left: 16px; right: 16px; width: auto; }
+  .nav-account-initial { width: 19px; height: 19px; font-size: 9px; }
+}
+@media (max-width: 380px) {
+  body .header .nav-actions .button.gold.nav-account-button { max-width: 96px; }
+  .nav-account-initial { display: none; }
+}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import SessionProvider from '@/components/session-provider';
 import "./globals.css";
 import "./professional.css";
 import "./community.css";
@@ -31,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="nl">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased"><SessionProvider>{children}</SessionProvider></body>
     </html>
   );
 }
