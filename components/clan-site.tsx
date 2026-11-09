@@ -12,6 +12,7 @@ import HallOfFame from "@/components/hall-of-fame";
 import ClanMoments from "@/components/clan-moments";
 import ClanStats from "@/components/clan-stats";
 import ClanOverview, { clanSections, type ClanSection } from "@/components/clan-overview";
+import { WOM_REFRESH_MS } from "@/lib/wom-refresh";
 
 const WOM = "https://wiseoldman.net/groups/7059";
 const DISCORD = "https://discord.gg/KFNqA6bnZ4";
@@ -37,16 +38,19 @@ function useWom<T>(query: string, wait = 0, enabled = true, pollMs = 0) {
   const [loading, setLoading] = useState(true);
   const [retry, setRetry] = useState(0);
   const loadedQuery = useRef(query);
+  const lastResult = useRef<Result<T> | null>(null);
   useEffect(() => {
     if (!enabled) { setLoading(false); return; }
     const controller = new AbortController();
-    setLoading(true); setError("");
-    if (loadedQuery.current !== query) { loadedQuery.current = query; setResult(null); }
+    if (loadedQuery.current !== query) { loadedQuery.current = query; lastResult.current = null; setResult(null); }
+    setLoading(!lastResult.current); setError("");
     let fetching = false;
     let retryAt = 0;
+    let nextPollAt = 0;
     async function load() {
-      if (fetching || controller.signal.aborted || Date.now() < retryAt) return;
+      if (fetching || controller.signal.aborted || Date.now() < Math.max(retryAt, nextPollAt)) return;
       fetching = true;
+      nextPollAt = Date.now() + (pollMs || WOM_REFRESH_MS);
       try {
         const response = await fetch(`/api/clan?${query}`, { signal: controller.signal });
         const body = await response.json() as Result<T> & { error?: string };
@@ -55,8 +59,13 @@ function useWom<T>(query: string, wait = 0, enabled = true, pollMs = 0) {
           if (Number.isFinite(delay) && delay > 0) retryAt = Date.now() + delay * 1000;
           throw new Error(body.error || "De verbinding is tijdelijk onderbroken.");
         }
-        if (!controller.signal.aborted) { setResult(body); setError(""); }
-      } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Laden mislukt."); }
+        if (!controller.signal.aborted) { lastResult.current = body; setResult(body); setError(""); }
+      } catch (e) {
+        if (!controller.signal.aborted) {
+          if (lastResult.current) { lastResult.current = { ...lastResult.current, stale: true }; setResult(lastResult.current); }
+          else setError(e instanceof Error ? e.message : "Laden mislukt.");
+        }
+      }
       finally { fetching = false; if (!controller.signal.aborted) setLoading(false); }
     }
     const timer = setTimeout(load, wait);
@@ -73,8 +82,8 @@ function LoadError({ message, retry }: { message: string; retry: () => void }) {
 function Skeleton({ lines = 3 }: { lines?: number }) { return <div className="skeletons" aria-label="Gegevens worden geladen" role="status">{Array.from({ length: lines }, (_, i) => <div className="skeleton" key={i}/>)}</div>; }
 
 export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | 'events' }) {
-  const group = useWom<Group>("resource=group", 0, view !== 'events', 300_000);
-  const competitions = useWom<Competition[]>("resource=competitions", 400, view !== 'home', 300_000);
+  const group = useWom<Group>("resource=group", 0, view !== 'events', WOM_REFRESH_MS);
+  const competitions = useWom<Competition[]>("resource=competitions", 400, view !== 'home', WOM_REFRESH_MS);
   const [clanSection, setClanSection] = useState<ClanSection>('leden');
   const [metric, setMetric] = useState("overall");
   const [period, setPeriod] = useState("week");

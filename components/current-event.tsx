@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, Clock3, RefreshCw } from "lucide-react";
 import EventPodium from "@/components/event-podium";
+import { WOM_REFRESH_MS } from "@/lib/wom-refresh";
 
 type Participant = { rank: number; player: { id: number; username: string; displayName: string; updatedAt: string }; gained: number | null };
 type EventData = { competition: { id: number; title: string; startsAt: string; endsAt: string; unit: string; participants: Participant[] } | null };
@@ -15,19 +16,23 @@ export default function CurrentEvent({ competitionId, category = 'all' }: { comp
   const [refresh, setRefresh] = useState(0);
   const [now, setNow] = useState(0);
   const loadedSelection = useRef('');
+  const lastData = useRef<EventData | null>(null);
   useEffect(() => { setNow(Date.now()); const interval = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(interval); }, []);
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true); setError("");
+    setError("");
     const selection = `${category}:${competitionId || 'current'}`;
     if (loadedSelection.current !== selection) {
-      loadedSelection.current = selection; setData(null); setFetchedAt(''); setStale(false);
+      loadedSelection.current = selection; lastData.current = null; setData(null); setFetchedAt(''); setStale(false);
     }
+    setLoading(!lastData.current);
     let fetching = false;
     let retryAt = 0;
+    let nextPollAt = 0;
     async function fetchEvent() {
-      if (fetching || controller.signal.aborted || document.hidden || Date.now() < retryAt) return;
+      if (fetching || controller.signal.aborted || document.hidden || Date.now() < Math.max(retryAt, nextPollAt)) return;
       fetching = true;
+      nextPollAt = Date.now() + WOM_REFRESH_MS;
       try {
         const response = await fetch(`/api/event?category=${category}${competitionId ? `&id=${competitionId}` : ''}`, { signal: controller.signal });
         const body = await response.json() as { data: EventData; error?: string; stale?: boolean; fetchedAt?: string };
@@ -36,12 +41,12 @@ export default function CurrentEvent({ competitionId, category = 'all' }: { comp
           if (Number.isFinite(delay) && delay > 0) retryAt = Date.now() + delay * 1000;
           throw new Error(body.error || "De tussenstand kon niet worden geladen.");
         }
-        if (!controller.signal.aborted) { setData(body.data); setNow(Date.now()); setStale(!!body.stale); setFetchedAt(body.fetchedAt || ''); setError(''); }
+        if (!controller.signal.aborted) { lastData.current = body.data; setData(body.data); setNow(Date.now()); setStale(!!body.stale); setFetchedAt(body.fetchedAt || ''); setError(''); }
       } catch (e) { if (!controller.signal.aborted) { setError(e instanceof Error ? e.message : "Laden mislukt."); setStale(true); } }
       finally { fetching = false; if (!controller.signal.aborted) setLoading(false); }
     }
     void fetchEvent();
-    const timer = setInterval(fetchEvent, 300_000);
+    const timer = setInterval(fetchEvent, WOM_REFRESH_MS);
     const visible = () => { if (!document.hidden) void fetchEvent(); };
     document.addEventListener('visibilitychange', visible);
     return () => { controller.abort(); clearInterval(timer); document.removeEventListener('visibilitychange', visible); };

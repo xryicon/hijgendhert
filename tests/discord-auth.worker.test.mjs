@@ -24,8 +24,8 @@ const bundle = await build({
         if (url.pathname === '/api/event') return eventData(request);
         if (url.pathname === '/api/hall-of-fame') return hallData(request);
         if (url.pathname === '/__test/public-wom') {
-          try { return Response.json(await readWiseOldMan('/groups/7059', url.origin, { apiKey: url.searchParams.has('anonymous') ? undefined : env.WOM_API_KEY, freshFor: 300000, now: Date.now() + Number(url.searchParams.get('age') || 0) })); }
-          catch (error) { return Response.json({ unavailable: true, retryAfter: error.retryAfter }, { status: 503 }); }
+          try { return Response.json(await readWiseOldMan('/groups/7059', url.origin, { apiKey: url.searchParams.has('anonymous') ? undefined : env.WOM_API_KEY, freshFor: url.searchParams.has('short-cache') ? 300000 : undefined, now: Date.now() + Number(url.searchParams.get('age') || 0) })); }
+          catch (error) { return Response.json({ unavailable: true, retryAfter: error.retryAfter, code: error.code }, { status: 503 }); }
         }
         return await discordAuthRoute(request, env) || await memberProfileRoute(request, env) || new Response('Public page');
       } };`,
@@ -66,6 +66,8 @@ function runtime(options = {}) {
       if (url.origin === 'https://api.wiseoldman.net') {
         assert.equal(request.headers.has('Authorization'), false, 'Never send Discord tokens to WOM');
         if (request.headers.has('x-api-key')) assert.equal(request.headers.get('x-api-key'), env.WOM_API_KEY);
+        if (options.womDelay) await new Promise(resolve => setTimeout(resolve, options.womDelay));
+        if (options.womInvalidKey) return Response.json({ message: 'Invalid API Key. Please check https://docs.wiseoldman.net/api#rate-limits--api-keys' }, { status: 403 });
         if (options.requireWomKey && !request.headers.has('x-api-key')) return Response.json({}, { status: 403 });
         if (options.womRedirect) return new Response(null, { status: 302, headers: { Location: 'https://untrusted.invalid/capture' } });
         if (options.womOffline) return Response.json({}, { status: options.womStatus || 503, headers: { 'Retry-After': options.womRetryAfter || '60' } });
@@ -162,13 +164,13 @@ test('public WOM data is reused across pages and remains available during rate l
     assert.equal((await second.json()).stale, false);
     assert.equal(calls.filter(c => c.url.includes('api.wiseoldman.net')).length, 1);
     options.womOffline = true; options.womStatus = 429;
-    const stale = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=600000`);
+    const stale = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=600000&short-cache=1`);
     const data = await stale.json();
     assert.equal(stale.status, 200);
     assert.equal(data.stale, true);
     assert.equal(data.fetchedAt, initial.fetchedAt);
     assert.equal(data.data.id, 7059);
-    await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=600000`);
+    await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=600000&short-cache=1`);
     assert.equal(calls.filter(c => c.url.includes('api.wiseoldman.net')).length, 2, 'Cooldown prevents repeated rate-limited calls');
     assert.equal((await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=90000000`)).status, 503, 'Old data expires after one day');
   } finally { await mf.dispose(); }
@@ -213,6 +215,55 @@ test('WOM hourly cooldown is respected and a new API key has an independent quot
     assert.equal(authenticated.status, 200, 'The newly added key must not inherit the anonymous quota');
     assert.equal((await authenticated.json()).stale, false);
     assert.equal(calls.length, 2);
+  } finally { await mf.dispose(); }
+});
+
+test('WOM data refreshes after fifteen minutes and failures pause upstream retries', async () => {
+  const options = {};
+  const { mf, calls } = runtime(options);
+  try {
+    const first = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom`);
+    const initial = await first.json();
+    options.womOffline = true;
+    const stillFresh = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=600000`);
+    assert.equal((await stillFresh.json()).stale, false);
+    assert.equal(calls.length, 1, 'No upstream refresh at the former five-minute interval');
+    const failedRefresh = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=960000`);
+    const saved = await failedRefresh.json();
+    assert.equal(saved.stale, true);
+    assert.equal(saved.fetchedAt, initial.fetchedAt);
+    assert.equal(calls.length, 2);
+    await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=1020000`);
+    assert.equal(calls.length, 2, 'A timeout or outage must not trigger a burst of retries');
+    options.womOffline = false;
+    const recovered = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom?age=1320000`);
+    assert.equal((await recovered.json()).stale, false);
+    assert.equal(calls.length, 3);
+  } finally { await mf.dispose(); }
+});
+
+test('slow successful WOM responses have time to finish', async () => {
+  const { mf } = runtime({ womDelay: 9000 });
+  try {
+    const result = await mf.dispatchFetch(`${env.APP_ORIGIN}/__test/public-wom`);
+    assert.equal(result.status, 200, 'A valid nine-second response must survive the former eight-second timeout');
+    assert.equal((await result.json()).data.memberCount, 2);
+  } finally { await mf.dispose(); }
+});
+
+test('an invalid WOM key is identified safely and retried less often', async () => {
+  const { mf, calls } = runtime({ womInvalidKey: true });
+  try {
+    const result = await mf.dispatchFetch(`${env.APP_ORIGIN}/api/clan?resource=group`);
+    const body = await result.json();
+    assert.equal(result.status, 503);
+    assert.equal(body.code, 'WOM_API_KEY_INVALID');
+    assert.equal(result.headers.get('Retry-After'), '900');
+    assert.ok(!JSON.stringify(body).includes(env.WOM_API_KEY));
+    const cooling = await mf.dispatchFetch(`${env.APP_ORIGIN}/api/event?category=skill`);
+    assert.equal(cooling.status, 503);
+    assert.equal((await cooling.json()).code, 'WOM_API_KEY_INVALID');
+    assert.equal(calls.length, 1, 'A rejected key must not be retried on every page load');
   } finally { await mf.dispose(); }
 });
 

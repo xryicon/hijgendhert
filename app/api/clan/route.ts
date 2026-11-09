@@ -1,6 +1,6 @@
 import communitySnapshot from '@/content/community-snapshot.json';
 import { env } from 'cloudflare:workers';
-import { readWiseOldMan, womRetryAfter } from '@/lib/wise-old-man';
+import { readWiseOldMan, womErrorCode, womRetryAfter } from '@/lib/wise-old-man';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -17,9 +17,9 @@ export async function GET(request: Request) {
       if (!Array.isArray(data)) throw new Error('De gegevens zijn tijdelijk niet beschikbaar.');
       data = resource === 'competitions' ? [...data].sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt)) : data.slice(0, 10);
     }
-    return Response.json({ ...value, data }, { headers: { 'Cache-Control': value.stale ? 'no-store' : 'public, max-age=60, s-maxage=300', 'X-Content-Type-Options': 'nosniff' } });
+    return Response.json({ ...value, data }, { headers: { 'Cache-Control': value.stale ? 'no-store' : 'public, max-age=60, s-maxage=900', 'X-Content-Type-Options': 'nosniff' } });
   } catch (error) {
     if (resource === 'competitions' && Date.now() - Date.parse(communitySnapshot.fetchedAt) < 48 * 60 * 60 * 1000) return Response.json({ data: [...communitySnapshot.competitions].sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt)), fetchedAt: communitySnapshot.fetchedAt, stale: true }, { headers: { 'Cache-Control': 'no-store' } });
-    return Response.json({ error: error instanceof Error ? error.message : 'De gegevens zijn tijdelijk niet beschikbaar.' }, { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': womRetryAfter(error) } });
+    return Response.json({ error: error instanceof Error ? error.message : 'De gegevens zijn tijdelijk niet beschikbaar.', code: womErrorCode(error) }, { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': womRetryAfter(error) } });
   }
 }

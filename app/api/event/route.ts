@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { readWiseOldMan, womRetryAfter } from '@/lib/wise-old-man';
+import { readWiseOldMan, womErrorCode, womRetryAfter } from '@/lib/wise-old-man';
 import { categoryOf, SKILLS as skills } from '@/lib/community';
 
 type Player = { id: number; username: string; displayName: string; type: string; updatedAt: string };
@@ -42,10 +42,10 @@ export async function GET(request: Request) {
       competition = { id: detail.id, title: detail.title, metric: detail.metric, startsAt: detail.startsAt, endsAt: detail.endsAt, participantCount: detail.participantCount, unit: rankedMetric === "total" ? "punten" : skills.has(detail.metric) ? "XP" : ["ehb", "ehp"].includes(detail.metric) ? "uur" : "kills", participants };
     }
     const payload = { data: { competition, activeEvents: active.map(e => ({ id: e.id, title: e.title, metric: e.metric, category: skills.has(e.metric) ? "skill" : "boss" })) }, fetchedAt, stale };
-    const response = Response.json(payload, { headers: { "Cache-Control": stale ? "no-store" : "public, max-age=30, s-maxage=300" } });
+    const response = Response.json(payload, { headers: { "Cache-Control": stale ? "no-store" : "public, max-age=30, s-maxage=900" } });
     if (!stale) try { await edge?.put(key, response.clone()); } catch { /* Return the verified data even without a cache. */ }
     return response;
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "De eventranglijst is tijdelijk niet beschikbaar." }, { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": womRetryAfter(error) } });
+    return Response.json({ error: error instanceof Error ? error.message : "De eventranglijst is tijdelijk niet beschikbaar.", code: womErrorCode(error) }, { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": womRetryAfter(error) } });
   }
 }

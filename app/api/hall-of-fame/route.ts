@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
-import { readWiseOldMan, womRetryAfter } from '@/lib/wise-old-man';
+import { readWiseOldMan, womErrorCode, womRetryAfter } from '@/lib/wise-old-man';
+import { WOM_REFRESH_MS } from '@/lib/wom-refresh';
 import { awardFrom, categoryOf, monthKey, monthlyLeaders, unitOf, type Award, type Competition, type CompetitionDetail } from '@/lib/community';
 import communitySnapshot from '@/content/community-snapshot.json';
 
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
   const key = new Request(`${url.origin}/__hall-cache/${requested || 'latest'}`);
   try { const hit = await edge?.match(key); if (hit) return new Response(hit.body, { status: hit.status, headers: new Headers(hit.headers) }); } catch { /* Optional cache. */ }
   try {
-    const all = await read<Competition[]>('/groups/7059/competitions', 300000);
+    const all = await read<Competition[]>('/groups/7059/competitions', WOM_REFRESH_MS);
     if (!Array.isArray(all)) throw new Error('De competitiegegevens konden niet worden gelezen.');
     const finished = all.filter(c => c.groupId === 7059 && c.type === 'classic' && Date.parse(c.endsAt) <= Date.now()).sort((a, b) => Date.parse(b.endsAt) - Date.parse(a.endsAt) || b.id - a.id);
     const months = [...new Set(finished.map(c => monthKey(c.endsAt)))];
@@ -50,5 +51,5 @@ export async function GET(request: Request) {
     const response = Response.json({ data: { month, months, awards, leaders: partial ? [] : monthlyLeaders(awards), partial, ongoingMonth: month === monthKey(Date.now()) }, fetchedAt, stale }, { headers: { 'Cache-Control': partial || stale ? 'no-store' : 'public, max-age=60, s-maxage=600' } });
     if (!partial && !stale) try { await edge?.put(key, response.clone()); } catch { /* Data remains usable without cache. */ }
     return response;
-  } catch (e) { return fallback(requested) || Response.json({ error: e instanceof Error ? e.message : 'De erelijst is tijdelijk niet beschikbaar.' }, { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': womRetryAfter(e) } }); }
+  } catch (e) { return fallback(requested) || Response.json({ error: e instanceof Error ? e.message : 'De erelijst is tijdelijk niet beschikbaar.', code: womErrorCode(e) }, { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': womRetryAfter(e) } }); }
 }

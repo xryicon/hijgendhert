@@ -3,7 +3,7 @@ import { authorizeMember, discordConfig, DiscordAccessError, playerPreferenceCoo
 import { unitOf } from './community';
 import type { ClanPlayer, DiscordMember, MemberEvent, MemberProfile } from './member-types';
 import { normalizePlayerName } from './player-name';
-import { readWiseOldMan, womRetryAfter, type WomEnv } from './wise-old-man';
+import { readWiseOldMan, womErrorCode, womRetryAfter, type WomEnv } from './wise-old-man';
 
 const groupId = 7059;
 const finite = z.number().finite();
@@ -121,6 +121,6 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv & Wom
     return json(profile);
   } catch (error) {
     if (error instanceof DiscordAccessError) return json({ error: 'Je Discord-toegang kon niet worden bevestigd.', reason: error.code }, error.code === 'unavailable' ? 503 : 401);
-    return json({ error: 'Wise Old Man is tijdelijk niet bereikbaar. Je Discord-login blijft actief.' }, 503, { 'Retry-After': womRetryAfter(error) });
+    return json({ error: 'Wise Old Man is tijdelijk niet bereikbaar. Je Discord-login blijft actief.', code: womErrorCode(error) }, 503, { 'Retry-After': womRetryAfter(error) });
   }
 }
