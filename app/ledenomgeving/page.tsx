@@ -16,7 +16,7 @@ export default async function MembersPage() {
       <p className="member-eyebrow">HIJGEND HERT · LEDENOMGEVING</p>
       <h1>Welkom, <em>{member.displayName}.</em></h1>
       <p className="member-intro">De clan wacht op je. Tijd voor de volgende grind.</p>
-      <div className="member-role"><ShieldCheck size={17}/> Discord gekoppeld · Member</div>
+      <div className="member-role"><ShieldCheck size={17}/> Discord gekoppeld · Toegang bevestigd</div>
     </section>
     <div className="member-links">
       <a href="/events#kalender"><CalendarDays/><span><small>SAMEN OP PAD</small><strong>Clanagenda</strong><p>Bekijk wat er op de planning staat.</p></span><ArrowUpRight/></a>

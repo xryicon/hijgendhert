@@ -225,7 +225,7 @@ export async function discordInteraction(request: Request, env: DiscordEnv, now 
     const command = interaction.data;
     if (command.type !== 2 || command.data?.name !== 'website') return json({ error: 'Unknown interaction' }, 400);
     if (command.guild_id !== config.guildId) return ephemeral('Dit commando hoort bij de Discord-server van Hijgend Hert.');
-    if (command.member?.pending || !config.roleIds.some(id => command.member?.roles.includes(id))) return ephemeral('Voor de ledenomgeving heb je de Member-rol nodig. Vraag de clanleiding om hulp als je rol ontbreekt.');
+    if (command.member?.pending || !config.roleIds.some(id => command.member?.roles.includes(id))) return ephemeral('Voor de ledenomgeving heb je de rol Member, Admin of Staff team nodig. Vraag de clanleiding om hulp als je rol ontbreekt.');
     return ephemeral('Welkom, hert! Log in met je Discord-account om de ledenomgeving te openen.', `${config.origin}/login`);
   } catch { return json({ error: 'Invalid request' }, 400); }
 }

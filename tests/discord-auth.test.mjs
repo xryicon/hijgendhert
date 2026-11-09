@@ -114,6 +114,18 @@ test('roles and identity are checked afresh, never taken from an old session', a
   }
 });
 
+test('Member, Admin and Staff team each independently grant access; unrelated roles do not', async () => {
+  const roles = ['1326459850837987430', '1197327572720169030', '1408990525180084265'];
+  const roleConfig = discordConfig({ ...env, DISCORD_MEMBER_ROLE_IDS: roles.join(',') });
+  const { sessionCookie } = await flow();
+  const request = req('/ledenomgeving', { headers: { Cookie: sessionCookie } });
+  for (const role of roles) {
+    const member = await authorizeMember(request, roleConfig, provider({ roles: [role] }).fetcher);
+    assert.equal(member.id, user.id);
+  }
+  await assert.rejects(authorizeMember(request, roleConfig, provider({ roles: ['345678901234567890'] }).fetcher), error => error.code === 'role');
+});
+
 test('rate limits, malformed responses and outages fail closed without cached role access', async () => {
   for (const status of [429, 500, 503]) await assert.rejects(checkMembership(config, token, provider({ status }).fetcher), error => error.code === 'unavailable');
   await assert.rejects(checkMembership(config, token, async () => { throw Error('Offline'); }), error => error.code === 'unavailable');
@@ -178,6 +190,15 @@ test('bot refuses missing roles, pending membership, other servers and applicati
     assert.equal(result.data.components, undefined);
   }
   assert.equal((await discordInteraction(await signed({ ...command, application_id: '345678901234567890' }), botEnv)).status, 400);
+});
+
+test('the website command also accepts Admin and Staff team without Member', async () => {
+  const roles = ['1326459850837987430', '1197327572720169030', '1408990525180084265'];
+  for (const role of roles) {
+    const result = await (await discordInteraction(await signed({ ...command, member: { user, roles: [role] } }), { ...botEnv, DISCORD_MEMBER_ROLE_IDS: roles.join(',') })).json();
+    assert.equal(result.data.flags, 64);
+    assert.equal(result.data.components[0].components[0].url, `${env.APP_ORIGIN}/login`);
+  }
 });
 
 test('forged, altered, stale, future and oversized interactions are rejected', async () => {

@@ -1,12 +1,20 @@
 # Discord-toegang voor Hijgend Hert
 
 Homepage, clangegevens, agenda en eventstanden blijven openbaar. `/ledenomgeving`
-controleert de Discord-identiteit en actuele Member-rol op de server. Het account
-krijgt geen beheerdersrechten. De inlogpagina staat op `/login`.
+controleert de Discord-identiteit en actuele clanrol op de server. Deze koppeling
+regelt toegang tot de ledenomgeving. De inlogpagina staat op `/login`.
 
 De toegestane server is `{OSRS} Hijgend Hert` (`1073630238115897455`). De door de
-clanleiding opgegeven Member-rol is `1326459850837987430`. Rollen worden uitsluitend
-op ID vergeleken. Een beheerder zonder deze rol krijgt niet automatisch toegang.
+clanleiding opgegeven toegestane rollen zijn:
+
+| Rol | Discord role ID |
+| --- | --- |
+| Member | `1326459850837987430` |
+| Admin | `1197327572720169030` |
+| Staff team | `1408990525180084265` |
+
+Eén van deze rollen is voldoende. Rollen worden uitsluitend op ID vergeleken.
+Andere Discord-rollen of de Administrator-permissie geven op zichzelf geen toegang.
 
 ## Activeren
 
