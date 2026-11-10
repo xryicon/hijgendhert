@@ -1,4 +1,5 @@
 "use client";
+import Link from '@/components/site-link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowUpRight, RefreshCw, Shield, Users } from 'lucide-react';
 import type { PublicMemberProfile } from '@/lib/member-types';
@@ -26,7 +27,7 @@ export default function PublicMemberProfileView({ username }: { username: string
   }, [username]);
   useEffect(() => { setProfile(null); void load(); return () => { active.current?.abort(); active.current = null; }; }, [load]);
   return <div className="container public-member-content">
-    <a className="text-link member-back" href="/leden"><ArrowLeft size={16}/> Alle clanleden</a>
+    <Link prefetch={false} className="text-link member-back" href="/leden"><ArrowLeft size={16}/> Alle clanleden</Link>
     <section className="public-member-identity"><img src="/clan-logo.png" alt="" width={100} height={100}/><div><p className="profile-section-label"><Users size={14}/> HIJGEND HERT · LIDPROFIEL</p><h1>{profile?.player.displayName || username}</h1><p>{profile ? `${profile.progression?.current.name || 'Clanlid'} · ${['ironman', 'hardcore', 'ultimate'].includes(profile.player.type) ? 'Ironman' : 'Regulier account'}` : 'Profiel en voortgang van een clanlid'}</p></div>{profile && <a className="text-link" href={`https://wiseoldman.net/players/${encodeURIComponent(profile.player.username)}`} target="_blank" rel="noreferrer">Wise Old Man <ArrowUpRight size={15}/></a>}</section>
     {error && <div className="public-profile-status" role="status"><p>{error}</p><button className="button gold" disabled={busy} onClick={() => void load()}><RefreshCw size={15}/> Opnieuw proberen</button></div>}
     {!profile && busy && <div className="public-profile-status" role="status"><Shield size={24}/><p>Het clanprofiel wordt opgehaald…</p></div>}

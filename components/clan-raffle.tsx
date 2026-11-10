@@ -1,4 +1,5 @@
 "use client";
+import Link from '@/components/site-link';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Download, Gift, LockKeyhole, Plus, RefreshCw, Search, ShieldCheck, Ticket, Trash2, Trophy, Users, X } from 'lucide-react';
@@ -188,5 +189,5 @@ export function ProfileRaffle({ playerName }: { playerName: string }) {
   const round = data?.round;
   const entry = round?.entries.find(entry => raffleNameKey(entry.name) === raffleNameKey(playerName));
   if (!round || !entry || error) return null;
-  return <section className="profile-raffle"><span className="profile-raffle-icon"><Ticket size={23}/></span><div><p className="profile-section-label">CLANLOTERIJ</p><h3>{round.title}</h3><p><strong>{number(entry.tickets)} {entry.tickets === 1 ? 'lot' : 'loten'}</strong> voor {playerName}</p><small>{round.status === 'scheduled' ? `Trekking: ${dateTime(round.drawAt)} (NL/BE)` : round.status === 'drawn' ? `Winnaar: ${round.winner}` : 'Trekking geannuleerd'}</small></div><a href="/events#raffle" className="text-link">Bekijk loterij <ArrowRight size={15}/></a></section>;
+  return <section className="profile-raffle"><span className="profile-raffle-icon"><Ticket size={23}/></span><div><p className="profile-section-label">CLANLOTERIJ</p><h3>{round.title}</h3><p><strong>{number(entry.tickets)} {entry.tickets === 1 ? 'lot' : 'loten'}</strong> voor {playerName}</p><small>{round.status === 'scheduled' ? `Trekking: ${dateTime(round.drawAt)} (NL/BE)` : round.status === 'drawn' ? `Winnaar: ${round.winner}` : 'Trekking geannuleerd'}</small></div><Link prefetch={false} href="/events#raffle" className="text-link">Bekijk loterij <ArrowRight size={15}/></Link></section>;
 }

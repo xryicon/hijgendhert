@@ -138,3 +138,7 @@ body .profile-page::before { background: linear-gradient(180deg, #0d0c0a99, #0d0
 .profile-admin :is(input, select, textarea, button, summary):focus-visible, .profile-highlights button:focus-visible, .profile-trophy-cabinet a:focus-visible { outline: 2px solid #d5b770; outline-offset: 3px; }
 @media (min-width: 701px) and (max-width: 1100px) { .profile-highlights { grid-template-columns: 1fr; } .profile-admin-grid { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .profile-highlights { grid-template-columns: 1fr; gap: 15px; } .profile-boss-card, .profile-rank-card { padding: 23px; } .profile-trophy-cabinet { grid-template-columns: 1fr; padding: 23px; } .profile-medals { justify-content: space-around; padding-top: 10px; } .profile-admin-grid { grid-template-columns: 1fr; gap: 30px; } .profile-admin-content { padding-inline: 18px; } }
+.profile-unavailable-state { padding: 17px 20px; margin-bottom: 20px; border: 1px solid #79552d55; border-left: 3px solid #bd934b; border-radius: 3px; background: #17130e; }
+.profile-unavailable-state strong { display: block; color: #dfc18b; font-size: 12px; line-height: 1.6; }
+.profile-unavailable-state p { color: #b9ad96; font-size: 11px; line-height: 1.8; margin: 6px 0 0; }
+.profile-activity-unavailable { margin-bottom: 20px; }

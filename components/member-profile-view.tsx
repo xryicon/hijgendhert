@@ -1,4 +1,5 @@
 "use client";
+import Link from '@/components/site-link';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { ArrowUpRight, CalendarDays, Check, ChevronDown, Crown, ExternalLink, RefreshCw, ShieldCheck, Sprout, Swords, Trophy, UserRound } from 'lucide-react';
 import type { DiscordMember, MemberEvent, MemberProfile } from '@/lib/member-types';
@@ -7,6 +8,7 @@ import { SKILLS } from '@/lib/community';
 import { useMemberSession } from './session-provider';
 import { ProfileRaffle } from './clan-raffle';
 import ProfileHighlights from './profile-highlights';
+import ProfileUnavailable from './profile-unavailable';
 import MemberActivityFeed from './member-activity';
 import ProfileRankAdmin from './profile-rank-admin';
 
@@ -79,11 +81,11 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
   }
   const statsReady = !!profile?.player && !profile.eventsError && !error && !loading;
   return <div className="profile-shell">
-    <div className="profile-breadcrumb"><a href="/">Hijgend Hert</a><span>/</span><span>Mijn profiel</span></div>
+    <div className="profile-breadcrumb"><Link prefetch={false} href="/">Hijgend Hert</Link><span>/</span><span>Mijn profiel</span></div>
     <section className="profile-identity" aria-labelledby="profile-title">
       <div className="profile-avatar" aria-hidden="true"><img src="/clan-logo.png" alt=""/><ShieldCheck size={19}/></div>
       <div className="profile-heading"><p className="member-eyebrow">HIJGEND HERT · CLANGENOOT</p><h1 id="profile-title">{member.displayName}</h1><p className="profile-discord"><span>@{member.username}</span><span className="profile-role"><ShieldCheck size={13}/>{member.clanRole}</span></p>{member.joinedAt && <p className="profile-since">Bij de Discord sinds {day(member.joinedAt)}</p>}</div>
-      <a className="profile-agenda" href="/events#kalender"><CalendarDays size={17}/><span>Clanagenda</span><ArrowUpRight size={15}/></a>
+      <Link prefetch={false} className="profile-agenda" href="/events#kalender"><CalendarDays size={17}/><span>Clanagenda</span><ArrowUpRight size={15}/></Link>
       <img className="profile-watermark" src="/clan-logo.png" alt=""/>
     </section>
 
@@ -96,7 +98,7 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
           {profile?.player && !editing ? <>
             <div className="profile-player-name"><img src="/clan-logo.png" alt=""/><div><strong>{profile.player.displayName}</strong><span>{({ regular: 'Main account', ironman: 'Ironman', hardcore: 'Hardcore Ironman', ultimate: 'Ultimate Ironman' } as Record<string, string>)[profile.player.type] || 'RuneScape-account'}</span></div></div>
             <dl className="profile-player-stats"><div><dt>Totale XP</dt><dd>{profile.player.exp !== null ? number(profile.player.exp) : '—'}</dd></div><div><dt>EHP</dt><dd>{profile.player.ehp !== null ? number(profile.player.ehp) : '—'}</dd></div><div><dt>EHB</dt><dd>{profile.player.ehb !== null ? number(profile.player.ehb) : '—'}</dd></div></dl>
-            <a className="profile-wom-link" href={`/leden/${encodeURIComponent(profile.player.username)}`}>Mijn ledenprofiel <ArrowUpRight size={13}/></a>
+            <Link prefetch={false} className="profile-wom-link" href={`/leden/${encodeURIComponent(profile.player.username)}`}>Mijn ledenprofiel <ArrowUpRight size={13}/></Link>
             <a className="profile-wom-link" href={`https://wiseoldman.net/players/${encodeURIComponent(profile.player.username)}`} target="_blank" rel="noreferrer">Bekijk op Wise Old Man <ExternalLink size={13}/></a>
             <button className="profile-change" type="button" onClick={() => setEditing(true)}>Ander account kiezen</button>
             <p className="profile-footnote">{profile.selection === 'account' ? 'Dit RuneScape-account is bij je Discord-account opgeslagen. Na inloggen staat het ook op een ander apparaat voor je klaar.' : profile.selection === 'discord' ? 'Deze naam komt overeen met je Discord-naam. Klopt hij niet? Kies dan je eigen account.' : 'Je accountkeuze wordt in deze browser onthouden.'}</p>
@@ -113,7 +115,7 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
       </aside>
 
       <div className="profile-activity">
-        {profile?.player && <><ProfileHighlights profile={profile} reload={load}/><MemberActivityFeed key={profile.player.id} username={profile.player.username} fallback={profile.activitySnapshot}/></>}
+        {profile?.player ? <><ProfileHighlights profile={profile} reload={load}/><MemberActivityFeed key={profile.player.id} username={profile.player.username} fallback={profile.activitySnapshot}/></> : <ProfileUnavailable state={loading ? 'loading' : error ? 'unavailable' : 'unselected'}/>}
         {profile && ['Admin', 'Staff team'].includes(member.clanRole) && <ProfileRankAdmin players={profile.players} selectedPlayer={profile.player?.id} onChanged={load}/>}
         {profile?.player && <ProfileRaffle playerName={profile.player.displayName}/>}
         <div className="profile-summary" aria-label="Jouw clancompetities">
@@ -122,8 +124,8 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
           <div><CalendarDays size={20}/><strong>{statsReady ? stats.active : '—'}</strong><span>Lopende events</span></div>
         </div>
         <section className="profile-events" id="events" aria-labelledby="profile-events-title">
-          <div className="profile-events-heading"><div><p className="profile-section-label">JOUW CLANAVONTUREN</p><h2 id="profile-events-title">Mijn events</h2></div><a href="/events">Naar events <ArrowUpRight size={14}/></a></div>
-          {loading ? <div className="profile-empty" role="status"><RefreshCw size={24}/><p>Je gegevens worden opgehaald…</p></div> : error || profile?.eventsError ? <div className="profile-empty" role="status"><RefreshCw size={24}/><h3>Even niet beschikbaar</h3><p>{error || profile?.eventsError}</p><button onClick={() => void load()}>Opnieuw proberen</button></div> : !profile?.player ? <div className="profile-empty"><UserRound size={28}/><h3>Welke avonturier ben jij?</h3><p>Kies je RuneScape-account. Hier verschijnen daarna je clancompetities, behaalde XP of kills en eindklasseringen.</p></div> : events.length === 0 ? <div className="profile-empty"><Swords size={28}/><h3>Je eerste avontuur wacht</h3><p>Wise Old Man heeft nog geen Hijgend Hert-competities voor dit account. Nieuwe deelnames verschijnen hier vanzelf.</p><a href="/events#kalender">Bekijk de clanagenda <ArrowUpRight size={14}/></a></div> : <>
+          <div className="profile-events-heading"><div><p className="profile-section-label">JOUW CLANAVONTUREN</p><h2 id="profile-events-title">Mijn events</h2></div><Link prefetch={false} href="/events">Naar events <ArrowUpRight size={14}/></Link></div>
+          {loading ? <div className="profile-empty" role="status"><RefreshCw size={24}/><p>Je gegevens worden opgehaald…</p></div> : error || profile?.eventsError ? <div className="profile-empty" role="status"><RefreshCw size={24}/><h3>Even niet beschikbaar</h3><p>{error || profile?.eventsError}</p><button onClick={() => void load()}>Opnieuw proberen</button></div> : !profile?.player ? <div className="profile-empty"><UserRound size={28}/><h3>Welke avonturier ben jij?</h3><p>Kies je RuneScape-account. Hier verschijnen daarna je clancompetities, behaalde XP of kills en eindklasseringen.</p></div> : events.length === 0 ? <div className="profile-empty"><Swords size={28}/><h3>Je eerste avontuur wacht</h3><p>Wise Old Man heeft nog geen Hijgend Hert-competities voor dit account. Nieuwe deelnames verschijnen hier vanzelf.</p><Link prefetch={false} href="/events#kalender">Bekijk de clanagenda <ArrowUpRight size={14}/></Link></div> : <>
             <div className="profile-event-list">{events.slice(0, limit).map(event => {
               const podium = event.status === 'finished' && event.rank !== null && event.rank <= 3 && event.gained !== null && event.gained > 0;
               const Icon = podium ? Crown : SKILLS.has(event.metric) ? Sprout : Swords;

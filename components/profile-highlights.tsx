@@ -1,4 +1,5 @@
 "use client";
+import Link from '@/components/site-link';
 import { useState } from 'react';
 import { ArrowUpRight, Award, Check, Crown, Flame, RefreshCw, Shield, Swords, Target, Trophy } from 'lucide-react';
 import type { MemberProfile, PublicMemberProfile } from '@/lib/member-types';
@@ -49,7 +50,7 @@ export default function ProfileHighlights({ profile, reload, publicView = false 
     <section className="profile-trophy-cabinet" aria-labelledby="profile-trophy-title">
       <div><p className="profile-section-label"><Award size={15}/> VERDIEND MET DE CLAN</p><h2 id="profile-trophy-title">{publicView ? 'Prijzenkast' : 'Jouw prijzenkast'}</h2><p>Podiumplaatsen uit gecontroleerde, afgeronde clanevents.</p></div>
       <div className="profile-medals">{podiums.map((count, i) => <div className={`profile-medal medal-${i + 1}${count ? ' earned' : ''}`} key={i}><Trophy size={22}/><strong>{profile.eventsError ? '—' : number(count)}</strong><span>{['Goud', 'Zilver', 'Brons'][i]}</span></div>)}</div>
-      <a href="/events#kalender"><Flame size={16}/>{podiums.some(Boolean) ? 'Op naar je volgende podium' : 'Verdien je eerste trofee'}<ArrowUpRight size={15}/></a>
+      <Link prefetch={false} href="/events#kalender"><Flame size={16}/>{podiums.some(Boolean) ? 'Op naar je volgende podium' : 'Verdien je eerste trofee'}<ArrowUpRight size={15}/></Link>
     </section>
   </>;
 }

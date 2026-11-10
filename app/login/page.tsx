@@ -1,3 +1,4 @@
+import Link from '@/components/site-link';
 import type { Metadata } from 'next';
 import { env } from 'cloudflare:workers';
 import { ArrowRight, ShieldCheck, MessageCircle, ArrowLeft } from 'lucide-react';
@@ -34,7 +35,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <SiteHeader view="member"/>
     <main id="main" className="member-page">
       <section className="member-gate" aria-labelledby="member-title">
-        <a className="member-back" href="/"><ArrowLeft size={15}/> Terug naar de clan</a>
+        <Link prefetch={false} className="member-back" href="/"><ArrowLeft size={15}/> Terug naar de clan</Link>
         <img className="member-crest" src="/clan-logo.png" alt=""/>
         <p className="member-eyebrow">HIJGEND HERT · VOOR CLANLEDEN</p>
         <h1 id="member-title">Welkom terug,<br/><em>clanmaat.</em></h1>

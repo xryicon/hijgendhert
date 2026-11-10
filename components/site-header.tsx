@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
+import Link from '@/components/site-link';
 import { ArrowUpRight, ChevronDown, CalendarDays, LogOut, Menu, Shield, Swords, UserRound, Users, X } from 'lucide-react';
 import { useMemberSession, VerifiedMemberSession } from './session-provider';
 import type { DiscordMember } from '@/lib/member-types';
@@ -16,6 +17,7 @@ export default function SiteHeader({ view, initialMember }: { view: 'home' | 'cl
   const accountButton = useRef<HTMLButtonElement>(null);
   const session = useMemberSession();
   const member = session.member || (session.status === 'loading' ? initialMember : null);
+  const brand = <><img src="/clan-logo.png" alt=""/><span>Hijgend Hert<small>OLD SCHOOL RUNESCAPE CLAN</small></span></>;
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const update = () => setScrolled(window.scrollY > 24);
@@ -35,9 +37,9 @@ export default function SiteHeader({ view, initialMember }: { view: 'home' | 'cl
     <a className="skip-link" href="#main">Ga naar inhoud</a>
     <header className={`header header-${view === 'events' ? 'event' : view}${scrolled ? ' is-scrolled' : ''}`}>
       <div className="container nav-wrap">
-        <a className="brand" href={view === 'home' ? '#home' : '/'} aria-label="Hijgend Hert home"><img src="/clan-logo.png" alt=""/><span>Hijgend Hert<small>OLD SCHOOL RUNESCAPE CLAN</small></span></a>
+        {view === 'home' ? <a className="brand" href="#home" aria-label="Hijgend Hert home">{brand}</a> : <Link className="brand" href="/" prefetch={false} aria-label="Hijgend Hert home">{brand}</Link>}
         <nav id="main-navigation" className={menu ? 'navigation open' : 'navigation'} aria-label="Hoofdnavigatie">
-          {navigation.map(item => <a key={item.id} href={item.href} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => setMenu(false)}><item.icon size={15} strokeWidth={1.6} aria-hidden="true"/><span>{item.label}</span></a>)}
+          {navigation.map(item => <Link key={item.id} href={item.href} prefetch={false} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => setMenu(false)}><item.icon size={15} strokeWidth={1.6} aria-hidden="true"/><span>{item.label}</span></Link>)}
         </nav>
         <div className="nav-actions">
           {member ? <div className="nav-account" ref={account}>
@@ -46,11 +48,11 @@ export default function SiteHeader({ view, initialMember }: { view: 'home' | 'cl
             </button>
             {accountOpen && <div className="account-panel" id="account-links">
               <div className="account-panel-heading"><strong>{member.displayName}</strong><span>{member.clanRole} · Hijgend Hert</span></div>
-              <a href="/profiel" onClick={() => setAccountOpen(false)}><UserRound size={16}/> Mijn profiel</a>
-              <a href="/profiel#events" onClick={() => setAccountOpen(false)}><CalendarDays size={16}/> Mijn events</a>
+              <Link href="/profiel" prefetch={false} onClick={() => setAccountOpen(false)}><UserRound size={16}/> Mijn profiel</Link>
+              <Link href="/profiel#events" prefetch={false} onClick={() => setAccountOpen(false)}><CalendarDays size={16}/> Mijn events</Link>
               <form method="post" action="/api/auth/logout"><button type="submit"><LogOut size={16}/> Uitloggen</button></form>
             </div>}
-          </div> : session.status === 'loading' ? <span className="button gold nav-login nav-session-loading" aria-label="Account controleren"><UserRound size={15}/><span>Account</span></span> : session.status === 'unavailable' ? <button type="button" className="button gold nav-login" onClick={() => void session.refresh()} title="Account opnieuw controleren"><UserRound size={15}/>Account</button> : <a className={`button gold nav-login${view === 'member' ? ' active' : ''}`} href="/login" aria-current={view === 'member' ? 'page' : undefined}><UserRound size={15} strokeWidth={1.6} aria-hidden="true"/>Login</a>}
+          </div> : session.status === 'loading' ? <span className="button gold nav-login nav-session-loading" aria-label="Account controleren"><UserRound size={15}/><span>Account</span></span> : session.status === 'unavailable' ? <button type="button" className="button gold nav-login" onClick={() => void session.refresh()} title="Account opnieuw controleren"><UserRound size={15}/>Account</button> : <Link className={`button gold nav-login${view === 'member' ? ' active' : ''}`} href="/login" prefetch={false} aria-current={view === 'member' ? 'page' : undefined}><UserRound size={15} strokeWidth={1.6} aria-hidden="true"/>Login</Link>}
           <a className="button gold nav-join" href="https://discord.gg/KFNqA6bnZ4" target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={16}/></a>
         </div>
         <button className="menu-button" onClick={() => setMenu(!menu)} aria-label={menu ? 'Menu sluiten' : 'Menu openen'} aria-expanded={menu} aria-controls="main-navigation">{menu ? <X/> : <Menu/>}</button>
