@@ -28,9 +28,17 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
     setLoading(true); setError('');
     try {
       const timeout = AbortSignal.timeout(65_000);
-      const response = await fetch('/api/members/profile', { credentials: 'same-origin', cache: 'no-store', signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+      const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+      const requestProfile = () => fetch('/api/members/profile', { credentials: 'same-origin', cache: 'no-store', signal: requestSignal });
+      let response = await requestProfile();
+      if (response.status === 401) {
+        await session.refresh();
+        // A renewed session cookie can be used immediately. Retry once only;
+        // membership checks remain enforced by the profile API.
+        if (!requestSignal.aborted) response = await requestProfile();
+      }
       const body = await response.json() as MemberProfile & { error?: string };
-      if (response.status === 401) { await session.refresh(); throw new Error('Je toegang wordt opnieuw gecontroleerd.'); }
+      if (response.status === 401) throw new Error('Je Discord-toegang kon niet worden bevestigd. Log opnieuw in om je profiel te openen.');
       if (!response.ok) throw new Error(body.error || 'Je profiel is tijdelijk niet beschikbaar.');
       if (!signal?.aborted) { setProfile(body); setName(body.player?.displayName || ''); setLimit(8); setResults({}); }
     } catch (e) { if (!signal?.aborted) setError(e instanceof Error ? e.message : 'Je profiel kon niet worden geladen.'); }
@@ -79,7 +87,8 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
       <img className="profile-watermark" src="/clan-logo.png" alt=""/>
     </section>
 
-    {profile?.stale && <p className="profile-muted" role="status">Wise Old Man is even druk. Je ziet de laatst bevestigde gegevens.</p>}
+    {profile?.notice && <p className="profile-muted" role="status">{profile.notice}</p>}
+    {profile?.stale && <p className="profile-muted" role="status">Je ziet opgeslagen spelgegevens. Laatste meting: {new Date(profile.fetchedAt).toLocaleString('nl-NL')}.</p>}
     <div className="profile-layout">
       <aside className="profile-character" aria-labelledby="character-title">
         <div className="profile-section-label"><Swords size={17}/><span>IN GIELINOR</span></div><h2 id="character-title">Jouw RuneScape-account</h2>
@@ -87,9 +96,10 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
           {profile?.player && !editing ? <>
             <div className="profile-player-name"><img src="/clan-logo.png" alt=""/><div><strong>{profile.player.displayName}</strong><span>{({ regular: 'Main account', ironman: 'Ironman', hardcore: 'Hardcore Ironman', ultimate: 'Ultimate Ironman' } as Record<string, string>)[profile.player.type] || 'RuneScape-account'}</span></div></div>
             <dl className="profile-player-stats"><div><dt>Totale XP</dt><dd>{profile.player.exp !== null ? number(profile.player.exp) : '—'}</dd></div><div><dt>EHP</dt><dd>{profile.player.ehp !== null ? number(profile.player.ehp) : '—'}</dd></div><div><dt>EHB</dt><dd>{profile.player.ehb !== null ? number(profile.player.ehb) : '—'}</dd></div></dl>
+            <a className="profile-wom-link" href={`/leden/${encodeURIComponent(profile.player.username)}`}>Mijn ledenprofiel <ArrowUpRight size={13}/></a>
             <a className="profile-wom-link" href={`https://wiseoldman.net/players/${encodeURIComponent(profile.player.username)}`} target="_blank" rel="noreferrer">Bekijk op Wise Old Man <ExternalLink size={13}/></a>
             <button className="profile-change" type="button" onClick={() => setEditing(true)}>Ander account kiezen</button>
-            <p className="profile-footnote">{profile.selection === 'discord' ? 'Deze naam komt overeen met je Discord-naam. Klopt hij niet? Kies dan je eigen account.' : 'Je accountkeuze wordt in deze browser onthouden.'}</p>
+            <p className="profile-footnote">{profile.selection === 'account' ? 'Dit RuneScape-account is bij je Discord-account opgeslagen. Na inloggen staat het ook op een ander apparaat voor je klaar.' : profile.selection === 'discord' ? 'Deze naam komt overeen met je Discord-naam. Klopt hij niet? Kies dan je eigen account.' : 'Je accountkeuze wordt in deze browser onthouden.'}</p>
           </> : <form className="profile-link-form" onSubmit={save}>
             <p>Selecteer je RuneScape-naam om je clancompetities en resultaten te bekijken.</p>
             <label htmlFor="rsn">RuneScape-naam</label><input id="rsn" list="clan-player-names" value={name} onChange={event => setName(event.target.value)} placeholder="Zoek je naam…" autoComplete="off" maxLength={30} required/>
@@ -97,13 +107,13 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
             <button className="profile-save" type="submit" disabled={saving}>{saving ? <RefreshCw size={15}/> : <Check size={15}/>} {saving ? 'Opslaan…' : 'Account gebruiken'}</button>
             {editing && <button className="profile-change" type="button" onClick={() => setEditing(false)}>Annuleren</button>}
             {formError && <p className="profile-error" role="alert">{formError}</p>}
-            <p className="profile-footnote">Je kiest uit de Hijgend Hert-clanlijst. We onthouden je keuze in deze browser.</p>
+            <p className="profile-footnote">Je kiest uit de Hijgend Hert-clanlijst. Je keuze en laatst opgehaalde spelgegevens worden bij je Discord-account bewaard.</p>
           </form>}
         </>}
       </aside>
 
       <div className="profile-activity">
-        {profile?.player && <><ProfileHighlights profile={profile} reload={load}/><MemberActivityFeed key={profile.player.id} username={profile.player.username}/></>}
+        {profile?.player && <><ProfileHighlights profile={profile} reload={load}/><MemberActivityFeed key={profile.player.id} username={profile.player.username} fallback={profile.activitySnapshot}/></>}
         {profile && ['Admin', 'Staff team'].includes(member.clanRole) && <ProfileRankAdmin players={profile.players} selectedPlayer={profile.player?.id} onChanged={load}/>}
         {profile?.player && <ProfileRaffle playerName={profile.player.displayName}/>}
         <div className="profile-summary" aria-label="Jouw clancompetities">
@@ -129,6 +139,6 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
         </section>
       </div>
     </div>
-    <p className="profile-footer"><ShieldCheck size={13}/> Je profiel is alleen zichtbaar wanneer je bent ingelogd.</p>
+    <p className="profile-footer"><ShieldCheck size={13}/> Je Discord-gegevens en beheerfuncties zijn alleen beschikbaar na inloggen. Je spelprofiel staat ook bij Leden.</p>
   </div>;
 }

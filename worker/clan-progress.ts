@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { DEFAULT_RANK_RULES, EMPTY_PLAYER_PROGRESS, memberRankSchema, rankRulesSchema, type PlayerProgressState, type RankRules } from '../lib/profile-progress';
 import type { MemberEvent } from '../lib/member-types';
+import { EMPTY_MEMBER_ACCOUNT, type SavedMemberAccount, type SavedMemberSnapshot, type SavedMemberActivity } from '../lib/member-account';
 
 // Separate object names isolate the clan policy from each player's event record.
 export class ClanProgress extends DurableObject<Cloudflare.Env> {
@@ -19,6 +20,34 @@ export class ClanProgress extends DurableObject<Cloudflare.Env> {
   #write(key: string, value: unknown, actor: string) {
     this.ctx.storage.sql.exec('INSERT INTO profile_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, JSON.stringify(value));
     this.ctx.storage.sql.exec('INSERT INTO profile_audit (actor, changed_at, value) VALUES (?, ?, ?)', actor, new Date().toISOString(), JSON.stringify({ key, value }));
+  }
+  // Account objects are addressed only with the live-authorized Discord user id.
+  // These cache writes intentionally do not duplicate snapshots in the audit log.
+  #save(key: string, value: unknown) {
+    this.ctx.storage.sql.exec('INSERT INTO profile_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, JSON.stringify(value));
+  }
+  getAccount(): SavedMemberAccount { return this.#read('account', EMPTY_MEMBER_ACCOUNT); }
+  selectAccount(playerId: number | null, revision: number) {
+    const saved = this.getAccount();
+    if (saved.revision !== revision || (playerId !== null && (!Number.isSafeInteger(playerId) || playerId <= 0))) return false;
+    this.#save('account', { revision: revision + 1, playerId, snapshot: saved.playerId === playerId ? saved.snapshot : null });
+    return true;
+  }
+  saveAccountSnapshot(snapshot: SavedMemberSnapshot, revision: number) {
+    const saved = this.getAccount();
+    if (saved.revision !== revision || saved.playerId !== snapshot.player.id || !Number.isFinite(Date.parse(snapshot.fetchedAt))) return false;
+    if (saved.snapshot && Date.parse(saved.snapshot.fetchedAt) > Date.parse(snapshot.fetchedAt)) return false;
+    // Construct the stored shape explicitly; never store auth or request objects.
+    const safe = { player: snapshot.player, role: snapshot.role, events: snapshot.events, bosses: snapshot.bosses, fetchedAt: snapshot.fetchedAt };
+    if (new TextEncoder().encode(JSON.stringify(safe)).byteLength > 900_000) return false;
+    this.#save('account', { ...saved, snapshot: safe });
+    return true;
+  }
+  getActivities(): SavedMemberActivity | null { return this.#read('activities', null); }
+  saveActivities(input: SavedMemberActivity) {
+    if (!Number.isFinite(Date.parse(input.fetchedAt)) || input.activities.length > 10) return;
+    const saved = this.getActivities();
+    if (!saved || Date.parse(input.fetchedAt) >= Date.parse(saved.fetchedAt)) this.#save('activities', input);
   }
   getRules(): RankRules { return this.#read('rules', DEFAULT_RANK_RULES); }
   saveRules(input: unknown, actor: string) {

@@ -6,6 +6,7 @@ import { normalizePlayerName } from './player-name';
 import { readWiseOldMan, womConnection, womErrorCode, womRetryAfter, type WomEnv } from './wise-old-man';
 import { bossProfile, mergeEventResults, rankProgress } from './profile-progress';
 import type { ClanProgress } from '../worker/clan-progress';
+import { currentEventStatuses, EMPTY_MEMBER_ACCOUNT, type SavedMemberSnapshot } from './member-account';
 
 const groupId = 7059;
 const finite = z.number().finite();
@@ -13,6 +14,7 @@ export const playerSchema = z.object({
   id: z.number().int().positive(), username: z.string().min(1).max(30), displayName: z.string().min(1).max(30),
   type: z.string().max(40), exp: finite.nullish(), ehp: finite.nullish(), ehb: finite.nullish(),
 });
+const groupSchema = z.object({ id: z.literal(groupId), memberships: z.array(z.object({ player: playerSchema, role: z.string().max(80).optional() })).max(2000) });
 const eventSchema = z.object({
   playerId: z.number().int().positive(), rank: z.number().int().positive().nullish(),
   progress: z.object({ gained: finite.nullish() }).nullish(),
@@ -71,6 +73,8 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv & Wom
   if (new URL(request.url).origin !== config.origin || (request.method === 'POST' && (request.headers.get('Origin') !== config.origin || request.headers.get('Sec-Fetch-Site') === 'cross-site'))) return json({ error: 'Ongeldig verzoek.' }, 403);
   try {
     const member = await authorizeMember(request, config, fetcher);
+    const accountStore = env.PROGRESS?.getByName(`clan:7059:account:${member.id}`);
+    let account = accountStore ? await accountStore.getAccount() : EMPTY_MEMBER_ACCOUNT;
     let stale = false;
     let fetchedAt = new Date().toISOString();
     const readWom = async (path: string) => {
@@ -86,16 +90,37 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv & Wom
         selectedId = body.playerId;
       } catch { return json({ error: 'Kies een RuneScape-account uit de clanlijst.' }, 400); }
     }
-    const group = z.object({ id: z.literal(groupId), memberships: z.array(z.object({ player: playerSchema, role: z.string().max(80).optional() })).max(2000) })
-      .parse(await readWom('/groups/7059'));
+    let group: z.infer<typeof groupSchema>;
+    try { group = groupSchema.parse(await readWom('/groups/7059')); }
+    catch (error) {
+      if (request.method !== 'GET' || isEvent || !account.snapshot || account.snapshot.player.id !== account.playerId || !env.PROGRESS) throw error;
+      // Discord access was checked above. Stored game data is never a login.
+      const restored = await savedHighlights(account.snapshot, env.PROGRESS);
+      const profile: MemberProfile = { player: account.snapshot.player, selection: 'account', players: [account.snapshot.player],
+        ...restored, bosses: account.snapshot.bosses, bossesError: null, fetchedAt: account.snapshot.fetchedAt, stale: true,
+        activitySnapshot: await env.PROGRESS.getByName(`clan:7059:player:${account.playerId}`).getActivities(),
+        notice: 'Wise Old Man is tijdelijk niet beschikbaar. Je opgeslagen profiel blijft zichtbaar. Een ander account kiezen kan zodra de clanlijst weer bereikbaar is.' };
+      return json(profile);
+    }
     const players: ClanPlayer[] = group.memberships.map(({ player: p }) => ({ ...p, exp: p.exp ?? null, ehp: p.ehp ?? null, ehb: p.ehb ?? null }));
     if (selectedId !== undefined) {
       if (!players.some(p => p.id === selectedId)) return json({ error: 'Dit account staat niet in de clanlijst van Hijgend Hert.' }, 400);
+      if (accountStore && !await accountStore.selectAccount(selectedId, account.revision)) return json({ error: 'Je accountkeuze is inmiddels gewijzigd. Laad je profiel opnieuw.' }, 409);
       return json({ saved: true }, 200, { 'Set-Cookie': await playerPreferenceCookie(config, member.id, selectedId) });
     }
-    const savedId = await readPlayerPreference(request, config, member.id);
+    // A server-side choice always wins over an old browser preference.
+    const savedId = account.playerId ?? await readPlayerPreference(request, config, member.id);
     const saved = players.find(p => p.id === savedId);
-    const player = saved || matchingPlayer(players, member);
+    const removed = account.playerId !== null && !saved;
+    const player = removed ? null : saved || matchingPlayer(players, member);
+    if (accountStore && removed && !stale) {
+      if (!await accountStore.selectAccount(null, account.revision)) return json({ error: 'Je accountkeuze is inmiddels gewijzigd. Laad je profiel opnieuw.' }, 409);
+      account = await accountStore.getAccount();
+    }
+    if (accountStore && player && account.playerId === null) {
+      if (!await accountStore.selectAccount(player.id, account.revision)) return json({ error: 'Je accountkeuze is inmiddels gewijzigd. Laad je profiel opnieuw.' }, 409);
+      account = await accountStore.getAccount();
+    }
     if (isEvent) {
       if (!player) return json({ error: 'Kies eerst je RuneScape-account.' }, 400);
       const detail = z.object({
@@ -110,15 +135,33 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv & Wom
       if (env.PROGRESS) await env.PROGRESS.getByName(`clan:7059:player:${player.id}`).recordEvents([event]);
       return json({ event, stale });
     }
-    const { events, eventsError, bosses, bossesError, progression, progressionError } = await loadPlayerHighlights(player, group.memberships.find(p => p.player.id === player?.id)?.role || 'member', env, readWom);
-    const profile: MemberProfile = { player, selection: saved ? 'saved' : player ? 'discord' : null,
+    const role = group.memberships.find(p => p.player.id === player?.id)?.role || 'member';
+    const highlights = await loadPlayerHighlights(player, role, env, readWom);
+    const old = account.snapshot?.player.id === player?.id ? account.snapshot : null;
+    if (player && old && env.PROGRESS && (highlights.eventsError || highlights.bossesError)) {
+      if (highlights.eventsError) Object.assign(highlights, await savedHighlights({ ...old, role }, env.PROGRESS));
+      if (highlights.bossesError) { highlights.bosses = old.bosses; highlights.bossesError = null; }
+      stale = true;
+      fetchedAt = new Date(Math.min(Date.parse(fetchedAt), Date.parse(old.fetchedAt))).toISOString();
+    } else if (accountStore && player && !highlights.eventsError && !highlights.bossesError) {
+      await accountStore.saveAccountSnapshot({ player, role, events: highlights.events, bosses: highlights.bosses, fetchedAt }, account.revision);
+    }
+    const profile: MemberProfile = { player, selection: player && account.playerId === player.id ? 'account' : saved ? 'saved' : player ? 'discord' : null,
       players: players.map(({ id, username, displayName }) => ({ id, username, displayName })).sort((a, b) => a.displayName.localeCompare(b.displayName)),
-      events, eventsError, fetchedAt, stale, bosses, bossesError, progression, progressionError };
+      ...highlights, fetchedAt, stale,
+      ...(removed ? { notice: 'Je opgeslagen RuneScape-account staat niet meer in de clanlijst. Kies je huidige account.' } : {}),
+      activitySnapshot: player && env.PROGRESS ? await env.PROGRESS.getByName(`clan:7059:player:${player.id}`).getActivities() : null };
     return json(profile);
   } catch (error) {
     if (error instanceof DiscordAccessError) return json({ error: 'Je Discord-toegang kon niet worden bevestigd.', reason: error.code }, error.code === 'unavailable' ? 503 : 401);
     return json({ error: 'Wise Old Man is tijdelijk niet bereikbaar. Je Discord-login blijft actief.', code: womErrorCode(error) }, 503, { 'Retry-After': womRetryAfter(error) });
   }
+}
+
+async function savedHighlights(snapshot: SavedMemberSnapshot, storage: DurableObjectNamespace<ClanProgress>) {
+  const [state, rules] = await Promise.all([storage.getByName(`clan:7059:player:${snapshot.player.id}`).getPlayer(), storage.getByName('clan:7059:rules').getRules()]);
+  const events = mergeEventResults(currentEventStatuses(snapshot.events), state.events);
+  return { events, eventsError: null, progression: rankProgress(snapshot.role, events, state, rules), progressionError: null };
 }
 
 export async function loadPlayerHighlights(player: ClanPlayer | null, role: string, env: { PROGRESS?: DurableObjectNamespace<ClanProgress> }, readWom: (path: string) => Promise<unknown>): Promise<Pick<MemberProfile, 'events' | 'eventsError' | 'bosses' | 'bossesError' | 'progression' | 'progressionError'>> {

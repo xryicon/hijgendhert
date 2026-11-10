@@ -71,3 +71,11 @@ GET /api/clan/member controleert eerst de groepslijst en geeft alleen openbare s
 De activiteitenlijst gebruikt GET /api/clan/member/activity met maximaal 20 WOM-snapshots uit de afgelopen maand, plus bevestigde opgeslagen eventresultaten. Maximaal 10 items, nieuwste eerst. Levelstijgingen en positieve KC-verschillen worden gemeten tussen snapshots: de datum is het meetmoment, niet een exacte in-game timestamp. Onbekende (-1), ontbrekende of dalende waarden tellen niet. Quests en individuele drops zijn niet beschikbaar via deze WOM-gegevens. Snapshots delen de bestaande cache en aanvraaglimieten.
 
 Validatie: member-activity.test.mjs, profile-progress.worker.test.mjs en wom-cache.worker.test.mjs controleren sortering, filtering, onbekende spelers, afscherming en gedeelde caching.
+
+## Eigen account bewaren
+
+Na een geldige Discord-login wordt de gekozen of eenduidig herkende RuneScape-speler in een eigen accountobject opgeslagen, afgeleid van het geautoriseerde Discord-id. De keuze geldt ook op andere apparaten en wint van oude browsercookies. Wijzigen kan alleen na een actuele Discord-rolcheck, dezelfde-origincontrole en bevestiging in de clanlijst. Een succesvolle clanlijst die de speler niet meer bevat, wist de keuze en momentopname.
+
+Het accountobject bewaart uitsluitend een complete laatste spelmomentopname (speler, WOM-rol, events, bosses en meetdatum), zonder Discord-tokens of beheernotities. Bij WOM-uitval wordt die als verouderd getoond, na een nieuwe Discord-toegangscontrole. Rangdoelen en correcties worden opnieuw uit het actuele clanbeheer gelezen. Accountwisselingen wissen de vorige momentopname; revisies en speler-id voorkomen dat trage oude aanvragen die terugschrijven. Activiteiten worden per speler bewaard en blijven bij uitval zichtbaar in Mijn profiel.
+
+De bestaande sessie blijft maximaal 30 dagen geldig en vernieuwt korte Discord-tokens automatisch binnen die termijn. Opgeslagen profielgegevens herstellen nooit zelf een login; uitloggen en ingetrokken rollen blijven van kracht.

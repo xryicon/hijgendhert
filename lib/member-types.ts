@@ -17,12 +17,14 @@ export type MemberEvent = {
 };
 export type MemberProfile = {
   player: ClanPlayer | null;
-  selection: 'saved' | 'discord' | null;
+  selection: 'saved' | 'discord' | 'account' | null;
   players: Pick<ClanPlayer, 'id' | 'username' | 'displayName'>[];
   events: MemberEvent[];
   eventsError: string | null;
   fetchedAt: string;
   stale?: boolean;
+  notice?: string;
+  activitySnapshot?: import('./member-account').SavedMemberActivity | null;
   bosses: import('./profile-progress').BossProfile | null;
   bossesError: string | null;
   progression: import('./profile-progress').RankProgress | null;

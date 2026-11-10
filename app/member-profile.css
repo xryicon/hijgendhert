@@ -32,6 +32,7 @@
 .profile-player-stats dt { color: #8ea190; }
 .profile-player-stats dd { margin: 0; color: #d0d6bd; font-variant-numeric: tabular-nums; }
 .profile-wom-link { display: flex; align-items: center; justify-content: space-between; color: #c7ae72; font-size: 10px; gap: 7px; }
+.profile-wom-link + .profile-wom-link { margin-top: 13px; }
 .profile-change { padding: 0; margin-top: 20px; color: #8ca08e; font-size: 10px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .profile-footnote { margin: 17px 0 0; padding-top: 14px; border-top: 1px solid #9b854d20; color: #708778; font-size: 10px; line-height: 1.7; }
 .profile-link-form > p:first-child { color: #96a998; font-size: 12px; line-height: 1.8; margin-bottom: 20px; }

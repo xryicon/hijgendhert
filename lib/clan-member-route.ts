@@ -28,10 +28,19 @@ export async function clanMemberRoute(request: Request, env: WomEnv & { PROGRESS
     const { player: p, role = 'member' } = matches[0];
     const player: ClanPlayer = { ...p, exp: p.exp ?? null, ehp: p.ehp ?? null, ehb: p.ehb ?? null };
     if (url.pathname.endsWith('/activity')) {
-      const rows = await readWom(`/players/${encodeURIComponent(player.username)}/snapshots?period=month&limit=20`);
-      if (!Array.isArray(rows)) throw new Error('snapshots');
-      const saved = env.PROGRESS ? await env.PROGRESS.getByName(`clan:7059:player:${player.id}`).getPlayer() : null;
-      return json({ activities: memberActivities(rows, player.id, saved?.events), fetchedAt, stale });
+      const playerStore = env.PROGRESS?.getByName(`clan:7059:player:${player.id}`);
+      try {
+        const rows = await readWom(`/players/${encodeURIComponent(player.username)}/snapshots?period=month&limit=20`);
+        if (!Array.isArray(rows)) throw new Error('snapshots');
+        const saved = playerStore ? await playerStore.getPlayer() : null;
+        const activities = memberActivities(rows, player.id, saved?.events);
+        if (playerStore) await playerStore.saveActivities({ activities, fetchedAt });
+        return json({ activities, fetchedAt, stale });
+      } catch (error) {
+        const saved = playerStore ? await playerStore.getActivities() : null;
+        if (saved) return json({ ...saved, stale: true });
+        throw error;
+      }
     }
     const highlights = await loadPlayerHighlights(player, role, env, readWom);
     // Administrative notes, revisions and Discord identity never leave the private profile API.
