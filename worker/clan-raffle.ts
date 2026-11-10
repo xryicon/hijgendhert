@@ -19,6 +19,7 @@ export class ClanRaffle extends DurableObject<Cloudflare.Env> {
     super(ctx, env);
     this.ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS raffle_rounds (id TEXT PRIMARY KEY, request_id TEXT UNIQUE NOT NULL, status TEXT NOT NULL, draw_at INTEGER NOT NULL, created_at INTEGER NOT NULL, data TEXT NOT NULL)');
     this.ctx.storage.sql.exec("CREATE UNIQUE INDEX IF NOT EXISTS raffle_one_scheduled ON raffle_rounds (status) WHERE status = 'scheduled'");
+    this.ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS raffle_discord_outbox (id TEXT PRIMARY KEY, data TEXT NOT NULL, delivered INTEGER NOT NULL DEFAULT 0)');
   }
   #active(): StoredRound | null {
     const row = this.ctx.storage.sql.exec<Row>("SELECT * FROM raffle_rounds WHERE status = 'scheduled' LIMIT 1").toArray()[0];
@@ -102,18 +103,32 @@ export class ClanRaffle extends DurableObject<Cloudflare.Env> {
       if (!winner) throw new Error('Invalid raffle range');
       const drawn: StoredRound = { ...current, status: 'drawn', winningTicket: ticket, winner: winner.name, drawnAt: Date.now() };
       this.ctx.storage.sql.exec("UPDATE raffle_rounds SET status = 'drawn', data = ? WHERE id = ? AND status = 'scheduled'", JSON.stringify(drawn), current.id);
+      if (this.env.DISCORD_SYNC) {
+        this.ctx.storage.sql.exec('INSERT OR IGNORE INTO raffle_discord_outbox (id, data) VALUES (?, ?)', drawn.id, JSON.stringify({ id: drawn.id, title: drawn.title, prize: drawn.prize, winner: drawn.winner, winningTicket: ticket, totalTickets: drawn.totalTickets, drawnAt: drawn.drawnAt }));
+        await this.ctx.storage.setAlarm(Date.now() + 1000);
+      }
       return;
     }
   }
   async alarm(): Promise<void> {
     try {
       await this.#completeDue();
+      await this.#deliverResults();
       const next = this.#active();
       if (next) await this.ctx.storage.setAlarm(Math.max(next.drawAt, Date.now() + 1000));
     } catch {
       await this.ctx.storage.setAlarm(Date.now() + 30_000);
       throw new Error('Raffle draw will retry');
     }
+  }
+  async #deliverResults() {
+    if (!this.env.DISCORD_SYNC) return;
+    const pending = this.ctx.storage.sql.exec<{ id: string; data: string }>('SELECT id, data FROM raffle_discord_outbox WHERE delivered = 0 LIMIT 20').toArray();
+    for (const row of pending) {
+      await this.env.DISCORD_SYNC.getByName('clan:7059').recordRaffle(JSON.parse(row.data));
+      this.ctx.storage.sql.exec('UPDATE raffle_discord_outbox SET delivered = 1 WHERE id = ?', row.id);
+    }
+    if (this.ctx.storage.sql.exec('SELECT 1 FROM raffle_discord_outbox WHERE delivered = 0 LIMIT 1').toArray().length) await this.ctx.storage.setAlarm(Date.now() + 1000);
   }
   getNotificationRounds() {
     // Announcements never expose participant details, draw seeds or creator IDs.
@@ -142,7 +157,8 @@ export class ClanRaffle extends DurableObject<Cloudflare.Env> {
     if (!round || round.id !== parsed.data.id || Date.now() >= round.drawAt) return failure(409, 'Deze trekking kan niet meer worden geannuleerd.');
     const cancelled: StoredRound = { ...round, status: 'cancelled', cancellationReason: parsed.data.reason, cancelledAt: Date.now() };
     this.ctx.storage.sql.exec("UPDATE raffle_rounds SET status = 'cancelled', data = ? WHERE id = ? AND status = 'scheduled'", JSON.stringify(cancelled), round.id);
-    await this.ctx.storage.deleteAlarm();
+    if (this.ctx.storage.sql.exec('SELECT 1 FROM raffle_discord_outbox WHERE delivered = 0 LIMIT 1').toArray().length) await this.ctx.storage.setAlarm(Date.now() + 1000);
+    else await this.ctx.storage.deleteAlarm();
     return { ok: true, round: visible(cancelled) };
   }
 }

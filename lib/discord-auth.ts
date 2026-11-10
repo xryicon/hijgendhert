@@ -14,6 +14,7 @@ export type DiscordEnv = {
   DISCORD_PUBLIC_KEY?: string;
   DISCORD_SESSION_SECRET?: string;
   PROGRESS?: DurableObjectNamespace<ClanProgress>;
+  DISCORD_SYNC?: DurableObjectNamespace<import('../worker/clan-discord').ClanDiscord>;
 };
 
 const API = 'https://discord.com/api/v10';
@@ -209,7 +210,7 @@ export async function authorizeMember(request: Request, config: DiscordConfig, f
   // Bundle a page's read requests for at most 15 seconds. Mutations and admin
   // reads require a fresh provider check; no roles are trusted from the cookie.
   const path = new URL(request.url).pathname;
-  const sharedRead = request.method === 'GET' && ['/profiel', '/api/auth/session', '/api/members/profile', '/api/members/event', '/api/members/notifications'].includes(path);
+  const sharedRead = request.method === 'GET' && ['/profiel', '/api/auth/session', '/api/members/profile', '/api/members/event', '/api/members/notifications', '/api/members/clan-events'].includes(path);
   const member = await checkMembership(config, parsed.data.accessToken, fetcher, !sharedRead);
   if (!member.user || member.user.id !== parsed.data.userId) throw new DiscordAccessError('expired');
   return {
@@ -268,7 +269,7 @@ async function start(request: Request, config: DiscordConfig) {
   return redirect(url.toString(), [cookie(STATE_COOKIE, await seal(config, 'state', { nonce, verifier, expiresAt: Date.now() + 600_000 }), 600)]);
 }
 
-async function callback(request: Request, config: DiscordConfig, fetcher: typeof fetch) {
+async function callback(request: Request, config: DiscordConfig, fetcher: typeof fetch, env: DiscordEnv) {
   const params = new URL(request.url).searchParams;
   let accessToken: string | undefined;
   let stage = 'STATE';
@@ -303,6 +304,14 @@ async function callback(request: Request, config: DiscordConfig, fetcher: typeof
     stage = 'SESSION';
     const seconds = tokens.data.refresh_token ? MAX_SESSION_SECONDS : Math.min(tokens.data.expires_in, MAX_SESSION_SECONDS);
     const session = await seal(config, 'session', { accessToken, refreshToken: tokens.data.refresh_token, accessExpiresAt: Date.now() + tokens.data.expires_in * 1000, userId: user.data.id, expiresAt: Date.now() + seconds * 1000 });
+    // Only a completed OAuth login produces a notice; session reads and renewals
+    // never do. Hash the one-time state instead of retaining OAuth credentials.
+    try {
+      if (env.DISCORD_SYNC) {
+        const digest = await crypto.subtle.digest('SHA-256', encoder.encode(parsed.data.nonce));
+        await env.DISCORD_SYNC.getByName('clan:7059').recordLogin({ id: Buffer.from(digest).toString('hex'), userId: user.data.id, name: member.nick || user.data.global_name || user.data.username, at: new Date().toISOString() });
+      }
+    } catch { console.warn(JSON.stringify({ event: 'discord_login_notice_unavailable' })); }
     return redirect('/ledenomgeving', [clearState(), cookie(SESSION_COOKIE, session, seconds)]);
   } catch (error) {
     if (accessToken) await revoke(config, accessToken, fetcher);
@@ -347,15 +356,25 @@ export async function discordInteraction(request: Request, env: DiscordEnv, now 
     const key = await crypto.subtle.importKey('raw', new Uint8Array(Buffer.from(publicKey, 'hex')), 'Ed25519', false, ['verify']);
     const valid = await crypto.subtle.verify('Ed25519', key, new Uint8Array(Buffer.from(signature, 'hex')), new Uint8Array(Buffer.concat([Buffer.from(timestamp), body])));
     if (!valid) return json({ error: 'Invalid signature' }, 401);
-    const interaction = z.object({ type: z.number().int(), application_id: snowflake, guild_id: snowflake.optional(), data: z.object({ name: z.string() }).optional(), member: memberSchema.optional() }).safeParse(JSON.parse(body.toString('utf8')));
+    const interaction = z.object({ id: snowflake.optional(), type: z.number().int(), application_id: snowflake, guild_id: snowflake.optional(), channel_id: snowflake.optional(), message: z.object({ id: snowflake }).optional(), data: z.object({ name: z.string().optional(), custom_id: z.string().max(100).optional() }).optional(), member: memberSchema.optional() }).safeParse(JSON.parse(body.toString('utf8')));
     if (!interaction.success || interaction.data.application_id !== env.DISCORD_CLIENT_ID) return json({ error: 'Invalid application' }, 400);
     if (interaction.data.type === 1) return json({ type: 1 });
     const config = discordConfig(env);
     if (!config) return ephemeral('De Discord-koppeling wordt nog ingesteld. Probeer het later opnieuw.');
     const command = interaction.data;
-    if (command.type !== 2 || command.data?.name !== 'website') return json({ error: 'Unknown interaction' }, 400);
     if (command.guild_id !== config.guildId) return ephemeral('Dit commando hoort bij de Discord-server van Hijgend Hert.');
     if (command.member?.pending || !config.roleIds.some(id => command.member?.roles.includes(id))) return ephemeral('Voor de ledenomgeving heb je de rol Member, Admin of Staff team nodig. Vraag de clanleiding om hulp als je rol ontbreekt.');
+    if (command.type === 3) {
+      const match = /^hh:event:(join|leave):([a-f0-9-]{36})$/.exec(command.data?.custom_id || '');
+      if (!match || !z.string().uuid().safeParse(match[2]).success || !command.id || !command.channel_id || !command.message || !command.member?.user) return ephemeral('Deze knop is niet geldig. Open het event op de website.');
+      if (!env.DISCORD_SYNC) return ephemeral('Eventinschrijvingen worden nog klaargezet.');
+      try {
+        // One local RPC; no Discord/WOM HTTP fetch before the 3-second reply.
+        const result = await env.DISCORD_SYNC.getByName('clan:7059').register(match[2], command.member.user.id, command.member.nick || command.member.user.global_name || command.member.user.username, match[1] as 'join' | 'leave', { id: command.id, channelId: command.channel_id, messageId: command.message.id });
+        return ephemeral(result.ok ? match[1] === 'join' ? 'Je bent aangemeld! Je inschrijving staat ook op de website.' : 'Je bent afgemeld. De website is ook bijgewerkt.' : result.error || 'Probeer opnieuw.');
+      } catch { return ephemeral('Je inschrijving kon niet worden bevestigd. Probeer opnieuw of open de website.'); }
+    }
+    if (command.type !== 2 || command.data?.name !== 'website') return json({ error: 'Unknown interaction' }, 400);
     return ephemeral('Welkom, hert! Log in met je Discord-account om de ledenomgeving te openen.', `${config.origin}/login`);
   } catch { return json({ error: 'Invalid request' }, 400); }
 }
@@ -371,7 +390,7 @@ export async function discordAuthRoute(request: Request, env: DiscordEnv, fetche
   // Never derive OAuth redirect destinations from forwarded headers or user input.
   if (url.origin !== config.origin) return json({ error: 'Open de ledenomgeving op de officiële website.' }, 403);
   if (url.pathname === '/api/auth/discord') return start(request, config);
-  if (url.pathname === '/api/auth/discord/callback') return callback(request, config, fetcher);
+  if (url.pathname === '/api/auth/discord/callback') return callback(request, config, fetcher, env);
   if (logout) {
     if (request.headers.get('Origin') !== config.origin || request.headers.get('Sec-Fetch-Site') === 'cross-site') return json({ error: 'Ongeldig verzoek.' }, 403);
     const session = sessionSchema.safeParse(await unseal(config, 'session', readCookie(request, SESSION_COOKIE)));

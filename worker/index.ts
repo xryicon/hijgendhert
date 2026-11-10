@@ -8,6 +8,8 @@ import { profileProgressRoute } from "../lib/profile-progress-route";
 import { clanMemberRoute } from "../lib/clan-member-route";
 import { siteAccessRoute } from "../lib/site-access";
 import { notificationRoute } from "../lib/notification-route";
+import { clanDiscordRoute } from '../lib/clan-discord-route';
+export { ClanDiscord } from './clan-discord';
 import { eventLeaderboardRoute } from '../lib/event-leaderboard-route';
 export { ClanRaffle } from './clan-raffle';
 export { ClanProgress } from './clan-progress';
@@ -24,6 +26,8 @@ const application = {
     }
     const memberResponse = await clanMemberRoute(request, env);
     if (memberResponse) return memberResponse;
+    const syncResponse = await clanDiscordRoute(request, env);
+    if (syncResponse) return syncResponse;
     const leaderboardResponse = await eventLeaderboardRoute(request, env);
     if (leaderboardResponse) return leaderboardResponse;
     const raffleResponse = await raffleRoute(request, env);
@@ -57,7 +61,7 @@ const application = {
     }
     const response = await runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx));
     const path = new URL(request.url).pathname;
-    if (path === '/login' || path === '/profiel' || path.startsWith('/profiel/') || path === '/ledenomgeving' || path.startsWith('/ledenomgeving/') || path.startsWith('/api/auth/') || path.startsWith('/api/members/')) {
+    if (path.startsWith('/beheer/') || path.startsWith('/api/admin/') || path === '/login' || path === '/profiel' || path.startsWith('/profiel/') || path === '/ledenomgeving' || path.startsWith('/ledenomgeving/') || path.startsWith('/api/auth/') || path.startsWith('/api/members/')) {
       const headers = new Headers(response.headers);
       for (const [name, value] of Object.entries(privateHeaders)) headers.set(name, value);
       // Native same-origin forms need a non-null Origin for CSRF validation.

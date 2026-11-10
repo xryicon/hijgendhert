@@ -7,6 +7,7 @@ import { normalizePlayerName } from '@/lib/player-name';
 import { SKILLS } from '@/lib/community';
 import { useMemberSession } from './session-provider';
 import { ProfileRaffle } from './clan-raffle';
+import { MyClanSignups } from './clan-event-signups';
 import ProfileHighlights from './profile-highlights';
 import ProfileUnavailable from './profile-unavailable';
 import MemberActivityFeed from './member-activity';
@@ -121,6 +122,7 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
         {profile?.player ? <><ProfileHighlights profile={profile} reload={load}/><MemberActivityFeed key={profile.player.id} username={profile.player.username} fallback={profile.activitySnapshot}/></> : <ProfileUnavailable state={loading ? 'loading' : error ? 'unavailable' : 'unselected'}/>}
         {profile && ['Admin', 'Staff team'].includes(member.clanRole) && <ProfileRankAdmin players={profile.players} selectedPlayer={profile.player?.id} onChanged={load}/>}
         {profile?.player && <ProfileRaffle playerName={profile.player.displayName}/>}
+        <MyClanSignups/>
         <div className="profile-summary" aria-label="Jouw clancompetities">
           <div><Swords size={20}/><strong>{statsReady ? stats.total : '—'}</strong><span>Clancompetities</span></div>
           <div><Trophy size={20}/><strong>{statsReady ? stats.finished : '—'}</strong><span>Afgeronde events</span></div>

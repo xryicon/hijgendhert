@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes, createHash } from 'node:crypto';
-import { authorizeMember, checkMembership, discordAuthRoute, discordConfig, discordInteraction, seal, playerPreferenceCookie, readPlayerPreference } from '../lib/discord-auth.ts';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+const { build } = createRequire(import.meta.resolve('wrangler/package.json'))('esbuild');
+// Bundle the same extensionless TypeScript imports used by the Worker.
+const bundle = await build({ entryPoints: [fileURLToPath(new URL('../lib/discord-auth.ts', import.meta.url))], bundle: true, write: false, format: 'esm', platform: 'node', target: 'es2022' });
+const { authorizeMember, checkMembership, discordAuthRoute, discordConfig, discordInteraction, seal, playerPreferenceCookie, readPlayerPreference } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 
 const env = {
   APP_ORIGIN: 'https://clan.example', DISCORD_CLIENT_ID: '123456789012345678',

@@ -1,5 +1,6 @@
 "use client";
 import Link from '@/components/site-link';
+import { useSearchParams } from 'next/navigation';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Download, Gift, LockKeyhole, Plus, RefreshCw, Search, ShieldCheck, Ticket, Trash2, Trophy, Users, X } from 'lucide-react';
@@ -152,7 +153,8 @@ function RaffleManager({ active, offset, canManage, onSaved }: { active: RaffleR
 }
 
 export default function ClanRaffle({ onBack }: { onBack: () => void }) {
-  const [selected, setSelected] = useState('');
+  const requested = useSearchParams().get('id') || '';
+  const [selected, setSelected] = useState(/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(requested) ? requested : '');
   const { data, loading, error, offset, refresh } = useRaffle(selected);
   const session = useMemberSession();
   const staff = session.status === 'authenticated' && ['Admin', 'Staff team'].includes(session.member?.clanRole || '');
