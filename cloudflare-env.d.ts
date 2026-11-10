@@ -13,6 +13,7 @@ declare namespace Cloudflare {
     DISCORD_SESSION_SECRET?: string;
     DISCORD_BOT_TOKEN?: string;
     DISCORD_SYNC?: DurableObjectNamespace<import('./worker/clan-discord').ClanDiscord>;
+    PK?: DurableObjectNamespace<import('./worker/clan-pk').ClanPk>;
     SITE_MAINTENANCE_MODE?: string;
     SITE_ACCESS_SECRET?: string;
     SITE_ACCESS_LIMITS?: DurableObjectNamespace<import('./worker/site-access').SiteAccessLimits>;

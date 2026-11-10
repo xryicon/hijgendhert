@@ -205,22 +205,27 @@ async function clearMembershipCheck(config: DiscordConfig, token: string) {
   await config.membershipChecks.getByName(`discord-membership:${Buffer.from(digest).toString('hex')}`).clearDiscordMembership();
 }
 export async function authorizeMember(request: Request, config: DiscordConfig, fetcher: typeof fetch = fetch, now = Date.now()): Promise<DiscordMember> {
+  return (await authorizeMemberWithRoles(request, config, fetcher, now)).member;
+}
+// Raw role IDs stay server-side. Feature access is evaluated against live roles,
+// never a role, owner or permissions value supplied by a client.
+export async function authorizeMemberWithRoles(request: Request, config: DiscordConfig, fetcher: typeof fetch = fetch, now = Date.now()): Promise<{ member: DiscordMember; roles: string[] }> {
   const parsed = sessionSchema.safeParse(await unseal(config, 'session', readCookie(request, SESSION_COOKIE)));
   if (!parsed.success || parsed.data.expiresAt <= now || parsed.data.expiresAt > now + MAX_SESSION_SECONDS * 1000 || (parsed.data.accessExpiresAt !== undefined && parsed.data.accessExpiresAt <= now)) throw new DiscordAccessError('expired');
   // Bundle a page's read requests for at most 15 seconds. Mutations and admin
   // reads require a fresh provider check; no roles are trusted from the cookie.
   const path = new URL(request.url).pathname;
-  const sharedRead = request.method === 'GET' && ['/profiel', '/api/auth/session', '/api/members/profile', '/api/members/event', '/api/members/notifications', '/api/members/clan-events'].includes(path);
+  const sharedRead = request.method === 'GET' && ['/profiel', '/api/auth/session', '/api/members/profile', '/api/members/event', '/api/members/notifications', '/api/members/clan-events', '/pk', '/api/pk', '/api/pk/session', '/api/pk/access'].includes(path);
   const member = await checkMembership(config, parsed.data.accessToken, fetcher, !sharedRead);
   if (!member.user || member.user.id !== parsed.data.userId) throw new DiscordAccessError('expired');
-  return {
+  return { roles: member.roles, member: {
     id: member.user.id, displayName: member.nick || member.user.global_name || member.user.username,
     username: member.user.username,
     avatarUrl: discordAvatarUrl(member.user, config.guildId, member.avatar),
     clanRole: member.roles.includes('1197327572720169030') ? 'Admin' : member.roles.includes('1408990525180084265') ? 'Staff team' : 'Member',
     joinedAt: member.joined_at && Number.isFinite(Date.parse(member.joined_at)) ? member.joined_at : null,
     expiresAt: parsed.data.expiresAt,
-  };
+  } };
 }
 
 async function revoke(config: DiscordConfig, accessToken: string, fetcher: typeof fetch) {

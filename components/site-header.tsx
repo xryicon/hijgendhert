@@ -6,6 +6,7 @@ import { useMemberSession, VerifiedMemberSession } from './session-provider';
 import { NotificationBell } from './notification-center';
 import type { DiscordMember } from '@/lib/member-types';
 import MemberAvatar from './member-avatar';
+import PkAccessLink from './pk-access-link';
 
 const navigation = [
   { id: 'clan', label: 'Leden', href: '/leden', icon: Users },
@@ -42,6 +43,7 @@ export default function SiteHeader({ view, initialMember }: { view: 'home' | 'cl
         {view === 'home' ? <a className="brand" href="#home" aria-label="Hijgend Hert home">{brand}</a> : <Link className="brand" href="/" prefetch={false} aria-label="Hijgend Hert home">{brand}</Link>}
         <nav id="main-navigation" className={menu ? 'navigation open' : 'navigation'} aria-label="Hoofdnavigatie">
           {navigation.map(item => <Link key={item.id} href={item.href} prefetch={false} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => setMenu(false)}><item.icon size={15} strokeWidth={1.6} aria-hidden="true"/><span>{item.label}</span></Link>)}
+          <PkAccessLink onNavigate={() => setMenu(false)}/>
         </nav>
         <div className="nav-actions">
           <NotificationBell onOpen={() => setAccountOpen(false)}/>

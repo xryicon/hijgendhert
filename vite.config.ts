@@ -19,8 +19,8 @@ const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
   assets: { binding: 'ASSETS', run_worker_first: true },
-  durable_objects: { bindings: [{ name: 'RAFFLES', class_name: 'ClanRaffle' }, { name: 'WOM_CACHE', class_name: 'WomCache' }, { name: 'PROGRESS', class_name: 'ClanProgress' }, { name: 'SITE_ACCESS_LIMITS', class_name: 'SiteAccessLimits' }, { name: 'DISCORD_SYNC', class_name: 'ClanDiscord' }] },
-  migrations: [{ tag: 'raffle-v1', new_sqlite_classes: ['ClanRaffle'] }, { tag: 'wom-cache-v1', new_sqlite_classes: ['WomCache'] }, { tag: 'profile-progress-v1', new_sqlite_classes: ['ClanProgress'] }, { tag: 'site-access-v1', new_sqlite_classes: ['SiteAccessLimits'] }, { tag: 'clan-discord-v1', new_sqlite_classes: ['ClanDiscord'] }],
+  durable_objects: { bindings: [{ name: 'RAFFLES', class_name: 'ClanRaffle' }, { name: 'WOM_CACHE', class_name: 'WomCache' }, { name: 'PROGRESS', class_name: 'ClanProgress' }, { name: 'SITE_ACCESS_LIMITS', class_name: 'SiteAccessLimits' }, { name: 'DISCORD_SYNC', class_name: 'ClanDiscord' }, { name: 'PK', class_name: 'ClanPk' }] },
+  migrations: [{ tag: 'raffle-v1', new_sqlite_classes: ['ClanRaffle'] }, { tag: 'wom-cache-v1', new_sqlite_classes: ['WomCache'] }, { tag: 'profile-progress-v1', new_sqlite_classes: ['ClanProgress'] }, { tag: 'site-access-v1', new_sqlite_classes: ['SiteAccessLimits'] }, { tag: 'clan-discord-v1', new_sqlite_classes: ['ClanDiscord'] }, { tag: 'clan-pk-v1', new_sqlite_classes: ['ClanPk'] }],
   // Public Discord application metadata. Credentials are encrypted runtime secrets.
   vars: {
     SITE_MAINTENANCE_MODE: "on",
