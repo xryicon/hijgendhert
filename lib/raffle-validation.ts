@@ -31,3 +31,4 @@ export const raffleEntriesSchema = z.object({
 export const raffleCancellationSchema = z.object({
   id: z.string().uuid(), reason: z.string().trim().min(5).max(200),
 }).strict();
+export const raffleRemovalSchema = z.object({ id: z.string().uuid() }).strict();

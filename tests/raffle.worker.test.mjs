@@ -18,6 +18,7 @@ const bundle = await build({
     import { discordAuthRoute } from './lib/discord-auth.ts';
     export class TestRaffle extends ClanRaffle {
       inspect(id) { return this.ctx.storage.sql.exec('SELECT status, data FROM raffle_rounds WHERE id = ?', id).toArray()[0]; }
+      removal(id) { return this.ctx.storage.sql.exec('SELECT * FROM raffle_removed WHERE id = ?', id).toArray()[0] || null; }
       repeatAlarm() { return this.alarm(); }
       async makeDue(id) {
         const row = this.inspect(id); const round = JSON.parse(row.data);
@@ -31,6 +32,8 @@ const bundle = await build({
       const stub = env.RAFFLES.getByName('clan:7059');
       if(url.pathname === '/__test/fast') return Response.json(await stub.schedule({...await request.json(), drawAt: Date.now()+1500}, 'test-staff'));
       if(url.pathname === '/__test/inspect') return Response.json(await stub.inspect(url.searchParams.get('id')));
+      if(url.pathname === '/__test/removal') return Response.json(await stub.removal(url.searchParams.get('id')));
+      if(url.pathname === '/__test/notifications') return Response.json(await stub.getNotificationRounds());
       if(url.pathname === '/__test/repeat') { await stub.repeatAlarm(); return new Response('ok'); }
       if(url.pathname === '/__test/due') { await stub.makeDue((await request.json()).id); return new Response('ok'); }
       return await raffleRoute(request,env) || await discordAuthRoute(request,env) || new Response('Not found',{status:404});
@@ -303,6 +306,7 @@ test('the deadline rejects edits before recovery processes an overdue draw', asy
     const { round } = await (await post(mf, '/api/raffle/schedule', schedule(), session)).json();
     await post(mf, '/__test/due', { id: round.id });
     assert.equal((await inspect(mf, round.id)).status, 'scheduled');
+    assert.equal((await post(mf, '/api/raffle/remove', { id: round.id }, session)).status, 409, 'An overdue scheduled round must not be removed before its draw');
     assert.equal((await post(mf, '/api/raffle/entries', edit(round, [{ name: 'Too late', tickets: 999 }]), session)).status, 409);
     const raw = await inspect(mf, round.id);
     assert.equal(raw.entriesHash, round.entriesHash); assert.equal(raw.totalTickets, round.totalTickets);
@@ -342,4 +346,73 @@ test('ticket selection rejects biased values instead of wrapping them', () => {
   assert.equal(ticketFromHash('ffffffff'.repeat(8), 3), null);
   assert.equal(ticketFromHash('ffffffff00000002' + '00000000'.repeat(6), 3), 3);
   assert.equal(ticketFromHash('00000000'.repeat(8), 1), 1);
+});
+
+test('history removal checks current staff access, CSRF, input and final status', async () => {
+  const options = { roles: ['1197327572720169030'] };
+  const { mf, checks } = runtime(options);
+  try {
+    const session = await login(mf);
+    const { round } = await (await post(mf, '/api/raffle/schedule', schedule(), session)).json();
+    const input = { id: round.id };
+    assert.equal((await post(mf, '/api/raffle/remove', input)).status, 401);
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/api/raffle/remove')).status, 405);
+    const before = checks();
+    assert.equal((await post(mf, '/api/raffle/remove', input, session, { Origin: 'https://untrusted.invalid' })).status, 403);
+    assert.equal(checks(), before);
+    for (const invalid of [{}, { id: 'not-a-round' }, { ...input, status: 'drawn' }]) assert.equal((await post(mf, '/api/raffle/remove', invalid, session)).status, 400);
+    assert.equal((await post(mf, '/api/raffle/remove', { id: randomUUID() }, session)).status, 404);
+    assert.equal((await post(mf, '/api/raffle/remove', input, session)).status, 409);
+    assert.equal((await post(mf, '/api/raffle/cancel', { ...input, reason: 'Test annulering' }, session)).status, 200);
+    for (const roles of [['1326459850837987430'], []]) {
+      options.roles = roles;
+      assert.equal((await post(mf, '/api/raffle/remove', input, session)).status, 403);
+    }
+    options.roles = ['1408990525180084265']; options.memberFailure = true;
+    assert.equal((await post(mf, '/api/raffle/remove', input, session)).status, 503);
+    assert.equal((await getState(mf)).round.id, round.id);
+    options.memberFailure = false;
+    assert.equal((await post(mf, '/api/raffle/remove', input, session)).status, 200);
+    const state = await getState(mf);
+    assert.equal(state.round, null); assert.deepEqual(state.history, []);
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/api/raffle?id=' + round.id)).status, 404);
+  } finally { await mf.dispose(); }
+});
+
+test('removed draws stay absent after restart without changing proofs, future draws or idempotency', async () => {
+  const persist = await mkdtemp(path.join(tmpdir(), 'hh-raffle-test-'));
+  let instance = runtime({ persist });
+  try {
+    const session = await login(instance.mf); const input = schedule();
+    const { round } = await (await post(instance.mf, '/api/raffle/schedule', input, session)).json();
+    await post(instance.mf, '/__test/due', { id: round.id });
+    const drawn = (await getState(instance.mf)).round;
+    assert.equal(drawn.status, 'drawn'); assert.equal(await verifyRaffle(drawn), true);
+    const stored = await inspect(instance.mf, round.id);
+    const { round: active } = await (await post(instance.mf, '/api/raffle/schedule', schedule(), session)).json();
+    const removals = await Promise.all([1,2].map(() => post(instance.mf, '/api/raffle/remove', { id: round.id }, session)));
+    assert.deepEqual(removals.map(r=>r.status), [200,200]);
+    assert.deepEqual(await inspect(instance.mf, round.id), stored, 'The original result and proof are immutable');
+    assert.equal((await post(instance.mf, '/api/raffle/schedule', input, session)).status, 409, 'A retried scheduling request cannot revive a removed draw');
+    assert.deepEqual((await getState(instance.mf)).round, active);
+    assert.deepEqual((await getState(instance.mf)).history, []);
+    const announcements = await (await instance.mf.dispatchFetch(env.APP_ORIGIN + '/__test/notifications')).json();
+    assert.deepEqual(announcements.map(r=>r.id), [active.id]);
+    const removal = await (await instance.mf.dispatchFetch(env.APP_ORIGIN + '/__test/removal?id=' + round.id)).json();
+    assert.equal(removal.removed_by, '234567890123456789'); assert.ok(removal.removed_at > 0);
+    await instance.mf.dispose(); instance = runtime({ persist });
+    assert.equal((await instance.mf.dispatchFetch(env.APP_ORIGIN + '/api/raffle?id=' + round.id)).status, 404);
+    assert.equal((await getState(instance.mf)).round.id, active.id);
+    assert.deepEqual((await getState(instance.mf)).history, []);
+    assert.equal((await post(instance.mf, '/api/raffle/remove', { id: round.id }, session)).status, 200);
+    assert.deepEqual(await (await instance.mf.dispatchFetch(env.APP_ORIGIN + '/__test/removal?id=' + round.id)).json(), removal, 'Retries retain the original removal audit');
+    await post(instance.mf, '/__test/due', { id: active.id });
+    const next = await getState(instance.mf);
+    assert.equal(next.round.status, 'drawn'); assert.equal(await verifyRaffle(next.round), true);
+    assert.deepEqual(next.history.map(r=>r.id), [active.id]);
+  } finally {
+    await instance.mf.dispose();
+    if (!path.resolve(persist).startsWith(path.resolve(tmpdir()) + path.sep + 'hh-raffle-test-')) throw new Error('Unexpected test storage directory');
+    await rm(persist, { recursive: true, force: true });
+  }
 });

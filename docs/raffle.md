@@ -47,7 +47,25 @@ Een SQL-constraint laat maar één geplande ronde tegelijk toe. Een verzoek-ID
 voorkomt dubbele rondes door dubbelklikken of netwerkherhalingen. Gelijktijdige
 alarm- en pagina-aanvragen schrijven alleen wanneer de ronde nog gepland staat.
 Annuleringen blijven bewaard. De publieke geschiedenis toont de laatste 20
-afgeronde/geannuleerde rondes; oudere rondes blijven via hun ID beschikbaar.
+zichtbare afgeronde/geannuleerde rondes; oudere zichtbare rondes blijven via hun ID beschikbaar.
+
+Admin en Staff team kunnen onder **Vorige trekkingen** een afgeronde of
+geannuleerde ronde selecteren en **Trekking verwijderen** kiezen. Het
+bevestigingsvak toont de titel en datum. Na bevestiging verdwijnen de ronde,
+uitslag en lotenlijst van de publieke website, geschiedenis, profielkaart en
+nieuwe websitemeldingen. Bestaande Discord-berichten worden niet verwijderd.
+De pagina keert terug naar de laatste zichtbare ronde en meldt de verwijdering.
+Ook de laatst afgeronde ronde kan verwijderd worden. Geplande rondes gebruiken
+de bestaande annuleeroptie.
+
+`POST /api/raffle/remove` vereist dezelfde actuele rol- en origincontroles als
+de andere beheeracties en accepteert alleen `{ id }`. SQLite bewaart de
+verwijderdatum en beheerder apart in `raffle_removed`. De oorspronkelijke
+uitslag, bewijsgegevens en verzoek-ID blijven intern ongewijzigd; alle publieke
+leesroutes sluiten verwijderde rondes uit en directe links geven HTTP 404.
+Herhaalde verwijderverzoeken zijn veilig. Herhaling van het oorspronkelijke
+planningsverzoek kan de ronde niet terugbrengen. De verwijdering wijzigt geen
+alarm of geplande trekking en blijft behouden na een herstart.
 
 `POST /api/raffle/entries` vereist een actuele Staff/Admin-rol, dezelfde origin,
 de ronde-ID, `expectedEntriesHash` en de volledige nieuwe lijst. De server

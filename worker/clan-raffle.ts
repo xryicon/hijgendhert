@@ -1,12 +1,12 @@
 import { DurableObject } from 'cloudflare:workers';
 import { entriesText, hashText, seedText, winningTicket } from '../lib/raffle-proof';
-import { raffleCancellationSchema, raffleEntriesSchema, raffleScheduleSchema } from '../lib/raffle-validation';
+import { raffleCancellationSchema, raffleEntriesSchema, raffleRemovalSchema, raffleScheduleSchema } from '../lib/raffle-validation';
 import type { RaffleEntriesUpdate, RaffleRound, RaffleSchedule, RaffleState, RaffleSummary } from '../lib/raffle-types';
 
 type StoredRound = RaffleRound & { seed: string; createdBy: string; requestId: string; inputHash: string };
 type Row = { id: string; status: string; draw_at: number; data: string };
 export type RaffleOperation = { ok: true; round: RaffleRound } | { ok: false; status: number; error: string };
-const failure = (status: number, error: string): RaffleOperation => ({ ok: false, status, error });
+const failure = (status: number, error: string) => ({ ok: false as const, status, error });
 function visible(round: StoredRound): RaffleRound {
   const { createdBy: _createdBy, requestId: _requestId, inputHash: _inputHash, seed, ...data } = round;
   return round.status === 'scheduled' ? data : { ...data, seed };
@@ -20,7 +20,9 @@ export class ClanRaffle extends DurableObject<Cloudflare.Env> {
     this.ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS raffle_rounds (id TEXT PRIMARY KEY, request_id TEXT UNIQUE NOT NULL, status TEXT NOT NULL, draw_at INTEGER NOT NULL, created_at INTEGER NOT NULL, data TEXT NOT NULL)');
     this.ctx.storage.sql.exec("CREATE UNIQUE INDEX IF NOT EXISTS raffle_one_scheduled ON raffle_rounds (status) WHERE status = 'scheduled'");
     this.ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS raffle_discord_outbox (id TEXT PRIMARY KEY, data TEXT NOT NULL, delivered INTEGER NOT NULL DEFAULT 0)');
+    this.ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS raffle_removed (id TEXT PRIMARY KEY, removed_at INTEGER NOT NULL, removed_by TEXT NOT NULL)');
   }
+  #removed(id: string) { return this.ctx.storage.sql.exec('SELECT 1 FROM raffle_removed WHERE id = ?', id).toArray().length > 0; }
   #active(): StoredRound | null {
     const row = this.ctx.storage.sql.exec<Row>("SELECT * FROM raffle_rounds WHERE status = 'scheduled' LIMIT 1").toArray()[0];
     return row ? JSON.parse(row.data) as StoredRound : null;
@@ -33,6 +35,7 @@ export class ClanRaffle extends DurableObject<Cloudflare.Env> {
     const previous = this.ctx.storage.sql.exec<Row>('SELECT * FROM raffle_rounds WHERE request_id = ?', value.requestId).toArray()[0];
     if (previous) {
       const stored = JSON.parse(previous.data) as StoredRound;
+      if (this.#removed(stored.id)) return failure(409, 'Deze trekking is verwijderd. Maak een nieuwe ronde aan.');
       return stored.inputHash === inputHash && stored.createdBy === actor ? { ok: true, round: visible(stored) } : failure(409, 'Dit verzoek is al gebruikt. Ververs de pagina.');
     }
     const now = Date.now();
@@ -52,6 +55,7 @@ export class ClanRaffle extends DurableObject<Cloudflare.Env> {
     const raced = this.ctx.storage.sql.exec<Row>('SELECT * FROM raffle_rounds WHERE request_id = ?', value.requestId).toArray()[0];
     if (raced) {
       const stored = JSON.parse(raced.data) as StoredRound;
+      if (this.#removed(stored.id)) return failure(409, 'Deze trekking is verwijderd. Maak een nieuwe ronde aan.');
       return stored.inputHash === inputHash && stored.createdBy === actor ? { ok: true, round: visible(stored) } : failure(409, 'Dit verzoek is al gebruikt.');
     }
     if (this.#active()) return failure(409, 'Er staat al een trekking gepland.');
@@ -132,7 +136,7 @@ export class ClanRaffle extends DurableObject<Cloudflare.Env> {
   }
   getNotificationRounds() {
     // Announcements never expose participant details, draw seeds or creator IDs.
-    return this.ctx.storage.sql.exec<Row>('SELECT * FROM raffle_rounds ORDER BY created_at DESC, id DESC LIMIT 20').toArray().map(row => {
+    return this.ctx.storage.sql.exec<Row>('SELECT * FROM raffle_rounds WHERE id NOT IN (SELECT id FROM raffle_removed) ORDER BY created_at DESC, id DESC LIMIT 20').toArray().map(row => {
       const round = JSON.parse(row.data) as StoredRound;
       return { id: round.id, title: round.title, prize: round.prize, createdAt: round.createdAt, drawAt: round.drawAt, status: round.status };
     });
@@ -141,13 +145,24 @@ export class ClanRaffle extends DurableObject<Cloudflare.Env> {
     // A read also recovers an overdue draw after an alarm/platform interruption.
     await this.#completeDue();
     const row = id
-      ? this.ctx.storage.sql.exec<Row>('SELECT * FROM raffle_rounds WHERE id = ?', id).toArray()[0]
-      : this.ctx.storage.sql.exec<Row>('SELECT * FROM raffle_rounds ORDER BY created_at DESC, id DESC LIMIT 1').toArray()[0];
-    const history = this.ctx.storage.sql.exec<Row>("SELECT * FROM raffle_rounds WHERE status != 'scheduled' ORDER BY created_at DESC, id DESC LIMIT 20").toArray().map(row => {
+      ? this.ctx.storage.sql.exec<Row>('SELECT * FROM raffle_rounds WHERE id = ? AND id NOT IN (SELECT id FROM raffle_removed)', id).toArray()[0]
+      : this.ctx.storage.sql.exec<Row>('SELECT * FROM raffle_rounds WHERE id NOT IN (SELECT id FROM raffle_removed) ORDER BY created_at DESC, id DESC LIMIT 1').toArray()[0];
+    const history = this.ctx.storage.sql.exec<Row>("SELECT * FROM raffle_rounds WHERE status != 'scheduled' AND id NOT IN (SELECT id FROM raffle_removed) ORDER BY created_at DESC, id DESC LIMIT 20").toArray().map(row => {
       const round = JSON.parse(row.data) as StoredRound;
       return { id: round.id, title: round.title, drawAt: round.drawAt, status: round.status, winner: round.winner, totalTickets: round.totalTickets } satisfies RaffleSummary;
     });
     return { round: row ? visible(JSON.parse(row.data) as StoredRound) : null, history, serverNow: Date.now() };
+  }
+  remove(input: { id: string }, actor: string): { ok: true; id: string } | ReturnType<typeof failure> {
+    const parsed = raffleRemovalSchema.safeParse(input);
+    if (!parsed.success) return failure(400, 'Ongeldige trekking.');
+    const row = this.ctx.storage.sql.exec<Row>('SELECT * FROM raffle_rounds WHERE id = ?', parsed.data.id).toArray()[0];
+    if (!row) return failure(404, 'Deze trekking is niet gevonden.');
+    if (!['drawn', 'cancelled'].includes(row.status)) return failure(409, 'Alleen afgeronde of geannuleerde trekkingen kunnen worden verwijderd.');
+    // Keep the immutable proof and original request id, so retries cannot
+    // resurrect or reroll a removed draw. All public reads exclude this marker.
+    this.ctx.storage.sql.exec('INSERT OR IGNORE INTO raffle_removed (id, removed_at, removed_by) VALUES (?, ?, ?)', row.id, Date.now(), actor);
+    return { ok: true, id: row.id };
   }
   async cancel(input: { id: string; reason: string }): Promise<RaffleOperation> {
     const parsed = raffleCancellationSchema.safeParse(input);

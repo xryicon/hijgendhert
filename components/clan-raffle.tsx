@@ -1,6 +1,6 @@
 "use client";
 import Link from '@/components/site-link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Download, Gift, LockKeyhole, Plus, RefreshCw, Search, ShieldCheck, Ticket, Trash2, Trophy, Users, X } from 'lucide-react';
@@ -33,7 +33,7 @@ function useRaffle(id = '') {
         const started = Date.now();
         const response = await fetch(`/api/raffle${id ? `?id=${encodeURIComponent(id)}` : ''}`, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]) });
         const body = await response.json() as RaffleState & { error?: string };
-        if (!response.ok) throw new Error(body.error || 'De loterij kon niet worden geladen.');
+        if (!response.ok) { if (response.status === 404) setData(null); throw new Error(body.error || 'De loterij kon niet worden geladen.'); }
         if (controller.signal.aborted) return;
         setOffset(body.serverNow - (started + Date.now()) / 2); setData(body); setError('');
         if (body.round?.status === 'scheduled' && body.round.drawAt - body.serverNow < 35_000) delay = 2000;
@@ -45,7 +45,7 @@ function useRaffle(id = '') {
     document.addEventListener('visibilitychange', visible);
     return () => { controller.abort(); clearTimeout(timer); document.removeEventListener('visibilitychange', visible); };
   }, [id, reload]);
-  return { data, loading, error, offset, refresh: () => setReload(value => value + 1) };
+  return { data, loading, error, offset, refresh: () => setReload(value => value + 1), forget: (removedId: string) => setData(old => old ? { ...old, round: old.round?.id === removedId ? null : old.round, history: old.history.filter(item => item.id !== removedId) } : old) };
 }
 
 export function RaffleArt() {
@@ -137,7 +137,7 @@ function RaffleManager({ active, offset, canManage, onSaved }: { active: RaffleR
     finally { setBusy(false); }
   }
   return <details className="raffle-manager" open={active?.status !== 'scheduled'}><summary><ShieldCheck size={18}/><span>Loterij beheren<small>Alleen voor Admin en Staff team</small></span><Plus size={16}/></summary><div className="raffle-manager-body">{!canManage && <p role="status">Discord kan je rol even niet controleren. Je invoer blijft bewaard; opslaan kan zodra je toegang opnieuw is gecontroleerd.</p>}<fieldset disabled={!canManage}>
-    {active?.status === 'scheduled' ? <><p>Je kunt deelnemers en loten aanpassen tot de trekking op <strong>{dateTime(active.drawAt)} (NL/BE)</strong>. De trekking gebeurt automatisch.</p><RaffleEntryEditor key={active.id} round={active} offset={offset} canManage={canManage} onSaved={onSaved}/><button className="text-link raffle-cancel-toggle" onClick={() => setCancelOpen(value => !value)}>Trekking annuleren</button>{cancelOpen && <form onSubmit={e => { e.preventDefault(); void send('cancel', { id: active.id, reason }); }}><label>Reden voor annulering<input value={reason} onChange={e => setReason(e.target.value)} minLength={5} maxLength={200} required/></label><p className="raffle-muted">De annulering en reden blijven openbaar in de geschiedenis. Een getrokken winnaar kan niet worden gewijzigd.</p><button className="button outline" disabled={busy || reason.trim().length < 5}>Bevestig annulering</button></form>}</> : <form onSubmit={prepare}>
+    {active?.status === 'scheduled' ? <><p>Je kunt deelnemers en loten aanpassen tot de trekking op <strong>{dateTime(active.drawAt)} (NL/BE)</strong>. De trekking gebeurt automatisch.</p><RaffleEntryEditor key={active.id} round={active} offset={offset} canManage={canManage} onSaved={onSaved}/><button className="text-link raffle-cancel-toggle" onClick={() => setCancelOpen(value => !value)}>Trekking annuleren</button>{cancelOpen && <form onSubmit={e => { e.preventDefault(); void send('cancel', { id: active.id, reason }); }}><label>Reden voor annulering<input value={reason} onChange={e => setReason(e.target.value)} minLength={5} maxLength={200} required/></label><p className="raffle-muted">De annulering en reden worden in de geschiedenis getoond. Een getrokken winnaar kan niet worden gewijzigd.</p><button className="button outline" disabled={busy || reason.trim().length < 5}>Bevestig annulering</button></form>}</> : <form onSubmit={prepare}>
       <fieldset disabled={busy}><div className="raffle-form-grid"><label>Naam van de loterij<input value={title} onChange={e => { changed(); setTitle(e.target.value); }} required minLength={3} maxLength={80}/></label><label>Prijs <small>(optioneel)</small><input value={prize} onChange={e => { changed(); setPrize(e.target.value); }} placeholder="Wat geeft de clan weg?" maxLength={160}/></label><label className="raffle-date-field">Datum en tijd van de trekking<input type="datetime-local" value={drawAt} onChange={e => { changed(); setDrawAt(e.target.value); }} required/><small>In jouw tijdzone: {zone}</small></label></div>
         <div className="raffle-editor-heading"><h4>Deelnemers & loten</h4><span>{number(rows.reduce((sum, row) => sum + Math.max(0, Number(row.tickets) || 0), 0))} loten</span></div>
         <div className="raffle-roster-status" role="status"><Users size={15}/><span>{roster.loading && !roster.players.length ? 'Clanleden ophalen bij Wise Old Man…' : roster.message}{roster.players.length > 0 && <small>{number(roster.players.length)} namen beschikbaar</small>}</span>{!roster.loading && <button type="button" disabled={!roster.canRetry} onClick={roster.retry}>{roster.canRetry ? 'Vernieuwen' : 'Even wachten'}</button>}</div><div className="raffle-editor-labels"><span>NAAM</span><span>AANTAL LOTEN</span><span/></div>
@@ -152,10 +152,37 @@ function RaffleManager({ active, offset, canManage, onSaved }: { active: RaffleR
   </fieldset></div></details>;
 }
 
+function RaffleHistory({ data, selected, onSelect, showManager, canManage, onRemoved }: { data: RaffleState; selected: string; onSelect: (id: string) => void; showManager: boolean; canManage: boolean; onRemoved: (id: string) => void }) {
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const round = data.round;
+  useEffect(() => { setConfirm(false); setError(''); }, [round?.id]);
+  async function remove() {
+    if (!canManage || !round || round.status === 'scheduled' || busy) return;
+    setBusy(true); setError('');
+    try {
+      const response = await fetch('/api/raffle/remove', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: round.id }), signal: AbortSignal.timeout(25_000) });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'Verwijderen is niet gelukt.');
+      setConfirm(false); onRemoved(round.id);
+    } catch (error) { setError(error instanceof Error ? error.message : 'Verwijderen is niet gelukt. Probeer opnieuw.'); }
+    finally { setBusy(false); }
+  }
+  return <section className="raffle-history" aria-label="Vorige trekkingen"><label>Vorige trekkingen<select value={selected} disabled={busy} onChange={e => { setConfirm(false); setError(''); onSelect(e.target.value); }}><option value="">Laatste loterij</option>{data.history.map(item => <option key={item.id} value={item.id}>{item.title} · {dateTime(item.drawAt)}{item.status === 'cancelled' ? ' · Geannuleerd' : ` · ${item.winner}`}</option>)}</select></label>
+    {selected && <button className="text-link" disabled={busy} onClick={() => onSelect('')}>Terug naar de laatste loterij <ArrowRight size={15}/></button>}
+    {showManager && round && round.status !== 'scheduled' && <button className="text-link raffle-remove" disabled={!canManage || busy} onClick={() => { setConfirm(true); setError(''); }}><Trash2 size={15}/> Trekking verwijderen</button>}
+    {confirm && round && <div className="raffle-remove-confirm" role="group" aria-label="Trekking verwijderen bevestigen"><h3>Deze trekking verwijderen?</h3><p><strong>{round.title}</strong> · {dateTime(round.drawAt)} (NL/BE)</p><p>De uitslag en lotenlijst verdwijnen van de website en uit de geschiedenis.</p><div><button className="button outline" disabled={!canManage || busy} onClick={() => void remove()}><Trash2 size={15}/>{busy ? 'Verwijderen…' : 'Bevestig verwijderen'}</button><button className="text-link" disabled={busy} onClick={() => setConfirm(false)}>Annuleren</button></div>{!canManage && <p role="status">Log opnieuw in als Admin of Staff team om deze trekking te verwijderen.</p>}</div>}
+    {error && <p className="raffle-error" role="alert">{error}</p>}
+  </section>;
+}
+
 export default function ClanRaffle({ onBack }: { onBack: () => void }) {
+  const router = useRouter();
   const requested = useSearchParams().get('id') || '';
   const [selected, setSelected] = useState(/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(requested) ? requested : '');
-  const { data, loading, error, offset, refresh } = useRaffle(selected);
+  const { data, loading, error, offset, refresh, forget } = useRaffle(selected);
+  const [notice, setNotice] = useState('');
   const session = useMemberSession();
   const staff = session.status === 'authenticated' && ['Admin', 'Staff team'].includes(session.member?.clanRole || '');
   const showManager = staff || (session.status === 'unavailable' && ['Admin', 'Staff team'].includes(session.member?.clanRole || ''));
@@ -176,12 +203,13 @@ export default function ClanRaffle({ onBack }: { onBack: () => void }) {
       </div>
       <div className="raffle-totals"><span><Users size={19}/><strong>{round ? number(round.entries.length) : '—'}</strong> {round?.entries.length === 1 ? 'deelnemer' : 'deelnemers'}</span><span><Ticket size={19}/><strong>{round ? number(round.totalTickets) : '—'}</strong> loten in de trekking</span><span><ShieldCheck size={19}/> Elk lot evenveel kans</span></div>
     </div>
-    {error && <div className="raffle-error raffle-connection" role="status"><p>{error}{data ? ' Je ziet de laatst geladen gegevens.' : ''}</p><button className="text-link" onClick={refresh}><RefreshCw size={14}/> Opnieuw proberen</button></div>}
+    {error && <div className="raffle-error raffle-connection" role="status"><p>{error}{data ? ' Je ziet de laatst geladen gegevens.' : ''}</p><button className="text-link" onClick={refresh}><RefreshCw size={14}/> Opnieuw proberen</button>{selected && <button className="text-link" onClick={() => setSelected('')}>Terug naar de laatste loterij <ArrowRight size={15}/></button>}</div>}
     {data && <>
       {showManager && !selected && <RaffleManager active={round || null} offset={offset} canManage={staff} onSaved={refresh}/>}
-      <div className="raffle-content-grid"><div>{round && <><Entrants round={round}/><RaffleProof round={round}/></>}</div><aside className="raffle-how"><p className="eyebrow">VAN LOT TOT WINNAAR</p><h3>Zo werkt de loterij</h3><ol><li><span>01</span><div><h4>Jouw naam op de lijst</h4><p>De clanleiding voegt deelnemers en hun loten toe.</p></div></li><li><span>02</span><div><h4>Samen aftellen</h4><p>De clanleiding kan namen en loten tot de trekking aanpassen. Daarna sluit de lijst vanzelf.</p></div></li><li><span>03</span><div><h4>Het winnende lot</h4><p>Op het gekozen moment wordt één lot getrokken. De uitslag blijft hier staan.</p></div></li></ol><div className="raffle-fair-note"><ShieldCheck size={19}/><p>Elk lot heeft dezelfde kans.<br/><span>Je kunt de uitslag zelf controleren.</span></p></div><details className="raffle-terms"><summary>Over deelname</summary><p>Deelname is kosteloos en zonder inleg. Loten worden door de clanleiding toegekend.</p></details></aside></div>
-      {!!data.history.length && <div className="raffle-history"><label>Vorige trekkingen<select value={selected} onChange={e => setSelected(e.target.value)}><option value="">Laatste loterij</option>{data.history.map(item => <option key={item.id} value={item.id}>{item.title} · {dateTime(item.drawAt)}{item.status === 'cancelled' ? ' · Geannuleerd' : ` · ${item.winner}`}</option>)}</select></label>{selected && <button className="text-link" onClick={() => setSelected('')}>Terug naar de laatste loterij <ArrowRight size={15}/></button>}</div>}
+      <div className="raffle-content-grid"><div>{round && <><Entrants round={round}/><RaffleProof round={round}/></>}</div><aside className="raffle-how"><p className="eyebrow">VAN LOT TOT WINNAAR</p><h3>Zo werkt de loterij</h3><ol><li><span>01</span><div><h4>Jouw naam op de lijst</h4><p>De clanleiding voegt deelnemers en hun loten toe.</p></div></li><li><span>02</span><div><h4>Samen aftellen</h4><p>De clanleiding kan namen en loten tot de trekking aanpassen. Daarna sluit de lijst vanzelf.</p></div></li><li><span>03</span><div><h4>Het winnende lot</h4><p>Op het gekozen moment wordt één lot getrokken. Hier kun je de uitslag bekijken.</p></div></li></ol><div className="raffle-fair-note"><ShieldCheck size={19}/><p>Elk lot heeft dezelfde kans.<br/><span>Je kunt de uitslag zelf controleren.</span></p></div><details className="raffle-terms"><summary>Over deelname</summary><p>Deelname is kosteloos en zonder inleg. Loten worden door de clanleiding toegekend.</p></details></aside></div>
+      {!!data.history.length && <RaffleHistory data={data} selected={selected} onSelect={id => { setSelected(id); setNotice(''); }} showManager={showManager} canManage={staff} onRemoved={id => { forget(id); setSelected(''); setNotice('Trekking verwijderd.'); refresh(); if (requested) router.replace('/events#raffle', { scroll: false }); }}/>}
     </>}
+    {notice && <p className="raffle-history-notice" role="status"><Check size={16}/>{notice}</p>}
     <p className="raffle-footer-note">Hijgend Hert · Samen spelen. Samen winnen.</p>
   </section>;
 }
