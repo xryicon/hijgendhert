@@ -82,8 +82,7 @@ export function eventLeaderboardRows(playerIds: number[], events: LeaderboardEve
     if (value) { value.count++; value.sum += result.place; }
   }
   const rows = [...sums].map(([playerId, value]) => ({ playerId, events: value.count, averagePlace: value.count ? value.sum / value.count : null, position: null as number | null }))
-    .sort((a, b) => Number(b.events >= LEADERBOARD_MIN_EVENTS) - Number(a.events >= LEADERBOARD_MIN_EVENTS)
-      || (a.averagePlace ?? Infinity) - (b.averagePlace ?? Infinity) || b.events - a.events || a.playerId - b.playerId);
+    .sort((a, b) => b.events - a.events || a.playerId - b.playerId);
   rows.forEach((row, index) => {
     if (row.events < LEADERBOARD_MIN_EVENTS || !complete) return;
     row.position = index + 1;
