@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, ChevronDown, CalendarDays, LogOut, Menu, Shield, Swords, UserRound, X } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, CalendarDays, LogOut, Menu, Shield, Swords, UserRound, Users, X } from 'lucide-react';
 import { useMemberSession, VerifiedMemberSession } from './session-provider';
 import type { DiscordMember } from '@/lib/member-types';
 
 const navigation = [
-  { id: 'clan', label: 'De clan', href: '/clan', icon: Shield },
+  { id: 'clan', label: 'Leden', href: '/leden', icon: Users },
   { id: 'events', label: 'Events', href: '/events', icon: Swords },
 ];
 

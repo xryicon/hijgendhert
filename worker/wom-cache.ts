@@ -8,7 +8,7 @@ const success = (value: WomResult<unknown>): Reply => ({ ok: true, valueJson: JS
 type CacheRow = { expires_at: number };
 const allowedPath = (path: string) => /^\/groups\/7059(?:\/competitions|\/gained\?metric=(?:overall|ehb)&period=(?:week|month)&limit=10)?$/.test(path)
   || /^\/competitions\/[1-9]\d{0,9}$/.test(path)
-  || /^\/players\/[^/?#]{1,180}(?:\/competitions)?$/.test(path);
+  || /^\/players\/[^/?#]{1,180}(?:\/competitions|\/snapshots\?period=month&limit=20)?$/.test(path);
 
 // The coordination atom is this clan's WOM quota, not all website traffic.
 // Only public data and quota deadlines are stored; Discord never uses this cache.

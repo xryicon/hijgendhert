@@ -19,8 +19,9 @@ const bundle = await build({ stdin: { contents: `
   import { discordAuthRoute } from './lib/discord-auth.ts';
   import { memberProfileRoute } from './lib/member-profile.ts';
   import { profileProgressRoute } from './lib/profile-progress-route.ts';
+  import { clanMemberRoute } from './lib/clan-member-route.ts';
   export default { async fetch(request, env) {
-    return await discordAuthRoute(request, env) || await profileProgressRoute(request, env) || await memberProfileRoute(request, env) || new Response('Not found', {status:404});
+    return await clanMemberRoute(request, env) || await discordAuthRoute(request, env) || await profileProgressRoute(request, env) || await memberProfileRoute(request, env) || new Response('Not found', {status:404});
   }};`, resolveDir: root, loader: 'ts', sourcefile: 'profile-test-worker.ts' }, bundle: true, write: false, platform: 'neutral', format: 'esm', target: 'es2022', external: ['cloudflare:workers', 'node:crypto'] });
 const env = { APP_ORIGIN: 'https://clan.example', DISCORD_CLIENT_ID: '123456789012345678', DISCORD_CLIENT_SECRET: 'profile-tests-only', DISCORD_GUILD_ID: '1073630238115897455', DISCORD_MEMBER_ROLE_IDS: '1326459850837987430,1197327572720169030,1408990525180084265', DISCORD_SESSION_SECRET: randomBytes(32).toString('base64url') };
 const player = { id: 701, username: 'hert', displayName: 'Hert', type: 'regular', exp: 200000000, ehp: 100, ehb: 200 };
@@ -43,6 +44,7 @@ function runtime(options = {}) {
       assert.equal(url.origin, 'https://api.wiseoldman.net');
       if (options.womOffline) return Response.json({}, { status: 503 });
       if (url.pathname === '/v2/groups/7059') return Response.json({ id: 7059, memberships: [{ role: 'recruit', player }, { role: 'sergeant', player: { ...player, id: 702, username: 'ander hert', displayName: 'Ander Hert' } }] });
+      if (url.pathname === '/v2/players/hert/snapshots') return Response.json([{ playerId: 701, createdAt: '2026-11-01T00:00:00Z', data: { skills: { attack: { level: 85 } }, bosses: { vorkath: { kills: 3500 } } } }, { playerId: 701, createdAt: '2026-11-02T00:00:00Z', data: { skills: { attack: { level: 86 } }, bosses: { vorkath: { kills: 3521 } } } }]);
       if (url.pathname === '/v2/players/hert') return options.bossOffline ? Response.json({}, { status: 404 }) : Response.json(bossData);
       if (url.pathname === '/v2/players/hert/competitions') return Response.json([participation(1, null), participation(2, null), participation(3, null), participation(4, null), participation(5, null, 1, { endsAt: '2099-01-01T00:00:00Z' }), participation(6, 100, 1, { groupId: 999 }), { ...participation(7, 100), playerId: 999 }]);
       assert.equal(url.pathname.endsWith('/competitions/standings'), false, 'Do not call the broken aggregate endpoint');
@@ -161,4 +163,35 @@ test('durable rules and admin corrections survive a runtime restart', async () =
     ({ mf } = runtime({ persist })); const state = await (await read(mf, session, '/api/members/progress/admin?playerId=701')).json();
     assert.equal(state.rules.revision, 1); assert.equal(state.state.eventAdjustment, 7); assert.equal(state.state.rankOverride, 'sergeant'); assert.equal(state.state.events.length, 3);
   } finally { if (mf) await mf.dispose(); await rm(persist, { recursive: true, force: true }); }
+});
+
+test('public profiles accept only current clan members and omit private administrative state', async () => {
+  const { mf, calls } = runtime();
+  try {
+    const session = await login(mf);
+    await post(mf, session, 'member', { playerId: 701, revision: 0, rankOverride: 'sergeant', eventAdjustment: 7, reason: 'Private administrative note' });
+    const response = await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/member?username=HERT');
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.player.id, 701); assert.equal(body.progression.current.id, 'sergeant');
+    assert.equal(body.progression.totalEvents, 9); assert.equal(body.bosses.favourite.metric, 'vorkath');
+    for (const key of ['adjustmentReason', 'stateRevision', 'rankOverride', 'eventAdjustment']) assert.equal(key in body.progression, false);
+    assert.equal('players' in body, false); assert.equal('selection' in body, false);
+    assert.equal(JSON.stringify(body).includes('Private administrative note'), false);
+    const before = calls.length;
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/member?username=outsider')).status, 404);
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/member/activity?username=outsider')).status, 404);
+    assert.equal(calls.slice(before).some(path => path.includes('/players/outsider')), false);
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/member?username=..%2Fadmin')).status, 400);
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/member?username=hert', { method: 'POST' })).status, 405);
+    const activity = await (await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/member/activity?username=hert')).json();
+    assert.equal(activity.activities.filter(a => a.kind === 'level').length, 1);
+    assert.equal(activity.activities.find(a => a.kind === 'boss').title, 'Vorkath · +21 KC');
+  } finally { await mf.dispose(); }
+});
+
+test('public membership failures are unavailable, never false outsider/not-found results', async () => {
+  const { mf } = runtime({ womOffline: true });
+  try { assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/member?username=hert')).status, 503); }
+  finally { await mf.dispose(); }
 });

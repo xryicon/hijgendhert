@@ -213,3 +213,8 @@ body .clan-inner-page.clan-page > .section, body .clan-page > .community-section
   .clan-page .spotlight-top { left: 20px; }
   .clan-page .spotlight-content { padding: 0 22px 24px; }
 }
+
+/* A focused member directory using the existing woodland and brass palette. */
+.clan-page > #leden { padding-top: 155px; min-height: 75vh; }
+.clan-page > #leden h1 { font: 500 clamp(28px,4vw,44px)/1.25 Cinzel,Georgia,serif; color:#efe1c4; margin:10px 0; }
+@media(max-width:640px) { .clan-page > #leden { padding-top:125px; } .clan-page > #leden .section-heading { align-items:flex-start; } }

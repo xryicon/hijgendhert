@@ -5,12 +5,15 @@ import { discordAuthRoute, privateHeaders } from "../lib/discord-auth";
 import { memberProfileRoute } from "../lib/member-profile";
 import { raffleRoute } from "../lib/raffle-route";
 import { profileProgressRoute } from "../lib/profile-progress-route";
+import { clanMemberRoute } from "../lib/clan-member-route";
 export { ClanRaffle } from './clan-raffle';
 export { ClanProgress } from './clan-progress';
 export { WomCache } from './wom-cache';
 
 const worker = {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+    const memberResponse = await clanMemberRoute(request, env);
+    if (memberResponse) return memberResponse;
     const raffleResponse = await raffleRoute(request, env);
     if (raffleResponse) return raffleResponse;
     const authResponse = await discordAuthRoute(request, env);

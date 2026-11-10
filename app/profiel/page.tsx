@@ -6,6 +6,7 @@ import { requireDiscordMember } from '@/lib/discord-member';
 import '../member-access.css';
 import '../member-profile.css';
 import '../profile-highlights.css';
+import '../leden/members.css';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Mijn profiel | Hijgend Hert', robots: { index: false, follow: false } };

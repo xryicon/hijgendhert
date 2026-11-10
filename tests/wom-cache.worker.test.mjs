@@ -49,6 +49,10 @@ test('profile boss snapshots share the cache while unsupported player paths stay
     assert.equal((await read(mf,'?path='+encodeURIComponent('/players/hert'))).status,200); assert.equal(calls.length,1);
     const invalid=await read(mf,'?path='+encodeURIComponent('/players/hert/competitions/standings'));
     assert.equal(invalid.status,503); assert.equal((await invalid.json()).code,'WOM_PATH'); assert.equal(calls.length,1);
+    const snapshots = '?path='+encodeURIComponent('/players/hert/snapshots?period=month&limit=20');
+    assert.equal((await read(mf,snapshots)).status,200); assert.equal(calls.length,2);
+    assert.equal((await read(mf,snapshots)).status,200); assert.equal(calls.length,2);
+    assert.equal((await read(mf,'?path='+encodeURIComponent('/players/hert/snapshots?period=month&limit=99999'))).status,503); assert.equal(calls.length,2);
   } finally { await mf.dispose(); }
 });
 

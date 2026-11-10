@@ -9,7 +9,7 @@ import type { ClanProgress } from '../worker/clan-progress';
 
 const groupId = 7059;
 const finite = z.number().finite();
-const playerSchema = z.object({
+export const playerSchema = z.object({
   id: z.number().int().positive(), username: z.string().min(1).max(30), displayName: z.string().min(1).max(30),
   type: z.string().max(40), exp: finite.nullish(), ehp: finite.nullish(), ehb: finite.nullish(),
 });
@@ -110,6 +110,18 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv & Wom
       if (env.PROGRESS) await env.PROGRESS.getByName(`clan:7059:player:${player.id}`).recordEvents([event]);
       return json({ event, stale });
     }
+    const { events, eventsError, bosses, bossesError, progression, progressionError } = await loadPlayerHighlights(player, group.memberships.find(p => p.player.id === player?.id)?.role || 'member', env, readWom);
+    const profile: MemberProfile = { player, selection: saved ? 'saved' : player ? 'discord' : null,
+      players: players.map(({ id, username, displayName }) => ({ id, username, displayName })).sort((a, b) => a.displayName.localeCompare(b.displayName)),
+      events, eventsError, fetchedAt, stale, bosses, bossesError, progression, progressionError };
+    return json(profile);
+  } catch (error) {
+    if (error instanceof DiscordAccessError) return json({ error: 'Je Discord-toegang kon niet worden bevestigd.', reason: error.code }, error.code === 'unavailable' ? 503 : 401);
+    return json({ error: 'Wise Old Man is tijdelijk niet bereikbaar. Je Discord-login blijft actief.', code: womErrorCode(error) }, 503, { 'Retry-After': womRetryAfter(error) });
+  }
+}
+
+export async function loadPlayerHighlights(player: ClanPlayer | null, role: string, env: { PROGRESS?: DurableObjectNamespace<ClanProgress> }, readWom: (path: string) => Promise<unknown>): Promise<Pick<MemberProfile, 'events' | 'eventsError' | 'bosses' | 'bossesError' | 'progression' | 'progressionError'>> {
     let events: MemberEvent[] = []; let eventsError: string | null = null;
     if (player) {
       try {
@@ -145,17 +157,10 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv & Wom
           state = await playerStore.recordEvents([...events.filter(e => e.status === 'finished' && e.gained !== null), ...results]);
           events = mergeEventResults(events, state.events);
           if (eventsError) throw new Error('history');
-          const role = group.memberships.find(p => p.player.id === player.id)?.role || 'member';
           progression = rankProgress(role, events, state, rules);
         } catch { progressionError = 'Je rangvoortgang is tijdelijk niet beschikbaar. Opgeslagen instellingen blijven bewaard.'; }
       })(),
     ]);
-    const profile: MemberProfile = { player, selection: saved ? 'saved' : player ? 'discord' : null,
-      players: players.map(({ id, username, displayName }) => ({ id, username, displayName })).sort((a, b) => a.displayName.localeCompare(b.displayName)),
-      events, eventsError, fetchedAt, stale, bosses, bossesError, progression, progressionError };
-    return json(profile);
-  } catch (error) {
-    if (error instanceof DiscordAccessError) return json({ error: 'Je Discord-toegang kon niet worden bevestigd.', reason: error.code }, error.code === 'unavailable' ? 503 : 401);
-    return json({ error: 'Wise Old Man is tijdelijk niet bereikbaar. Je Discord-login blijft actief.', code: womErrorCode(error) }, 503, { 'Retry-After': womRetryAfter(error) });
-  }
+
+  return { events, eventsError, bosses, bossesError, progression, progressionError };
 }

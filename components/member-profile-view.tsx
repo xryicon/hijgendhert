@@ -7,6 +7,7 @@ import { SKILLS } from '@/lib/community';
 import { useMemberSession } from './session-provider';
 import { ProfileRaffle } from './clan-raffle';
 import ProfileHighlights from './profile-highlights';
+import MemberActivityFeed from './member-activity';
 import ProfileRankAdmin from './profile-rank-admin';
 
 const number = (value: number) => new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 0 }).format(value);
@@ -102,7 +103,7 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
       </aside>
 
       <div className="profile-activity">
-        {profile?.player && <ProfileHighlights profile={profile} reload={load}/>}
+        {profile?.player && <><ProfileHighlights profile={profile} reload={load}/><MemberActivityFeed key={profile.player.id} username={profile.player.username}/></>}
         {profile && ['Admin', 'Staff team'].includes(member.clanRole) && <ProfileRankAdmin players={profile.players} selectedPlayer={profile.player?.id} onChanged={load}/>}
         {profile?.player && <ProfileRaffle playerName={profile.player.displayName}/>}
         <div className="profile-summary" aria-label="Jouw clancompetities">

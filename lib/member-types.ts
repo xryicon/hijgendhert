@@ -28,3 +28,9 @@ export type MemberProfile = {
   progression: import('./profile-progress').RankProgress | null;
   progressionError: string | null;
 };
+export type PublicRankProgress = Omit<import('./profile-progress').RankProgress, 'eventAdjustment' | 'stateRevision' | 'rankOverride' | 'adjustmentReason' | 'rules'> & {
+  rules: Pick<import('./profile-progress').RankRules, 'steps' | 'configured'>;
+};
+export type PublicMemberProfile = Omit<MemberProfile, 'selection' | 'players' | 'progression'> & {
+  player: ClanPlayer; progression: PublicRankProgress | null;
+};

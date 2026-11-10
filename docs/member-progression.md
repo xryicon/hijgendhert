@@ -61,3 +61,13 @@ rankgrenzen en ontbrekende gegevens.
 
 Bronnen: https://docs.wiseoldman.net/api/players/player-endpoints en
 https://developers.cloudflare.com/durable-objects/api/sqlite-storage-api/.
+
+## Leden en openbare profielen
+
+De navigatie heet Leden en gaat naar /leden. /clan verwijst door. De zoekfunctie filtert alleen de leden van WOM-groep 7059; een naam opent /leden/[username]. De externe WOM-pagina is een secundaire link.
+
+GET /api/clan/member controleert eerst de groepslijst en geeft alleen openbare spelerdata, clanrang, eventvoortgang en bosskills terug. Discord-identiteit, accountkeuzes, beheernotities en wijzigingsrevisies worden niet gepubliceerd. Bestaande beheeracties vereisen nog steeds een actuele Admin- of Staff-rol.
+
+De activiteitenlijst gebruikt GET /api/clan/member/activity met maximaal 20 WOM-snapshots uit de afgelopen maand, plus bevestigde opgeslagen eventresultaten. Maximaal 10 items, nieuwste eerst. Levelstijgingen en positieve KC-verschillen worden gemeten tussen snapshots: de datum is het meetmoment, niet een exacte in-game timestamp. Onbekende (-1), ontbrekende of dalende waarden tellen niet. Quests en individuele drops zijn niet beschikbaar via deze WOM-gegevens. Snapshots delen de bestaande cache en aanvraaglimieten.
+
+Validatie: member-activity.test.mjs, profile-progress.worker.test.mjs en wom-cache.worker.test.mjs controleren sortering, filtering, onbekende spelers, afscherming en gedeelde caching.
