@@ -24,6 +24,13 @@ een sessieleider helpen. Er is geen bot-token of extra OAuth-scope nodig.
 - Bedragen zijn hele GP. De rest van een deling blijft apart in de restpot.
   `totale loot = alle spelersplits samen + restpot`; er worden geen in-game
   betalingen uitgevoerd of automatisch waargenomen.
+- Lootinvoer: klik een spelernaam aan, vul de GP van één key in en sla op.
+  Een omschrijving is niet nodig. `250k`, `2.5m` en `2,5M` worden exact omgezet
+  naar hele GP; de bevestigde GP en split staan vóór opslaan in beeld.
+  Per speler staan het aantal keys, totaal gepakte GP en zijn groepssplit apart.
+  Alleen sessieleider en staff voeren keys in of verwijderen ze.
+  Oude drops zonder spelerkoppeling blijven behouden en worden apart gemeld;
+  er wordt geen eigenaar gegokt. Een verwijderde key telt nergens meer mee.
 - Een verwijderde drop trekt precies zijn oorspronkelijke aandelen en rest af.
   De oorspronkelijke drop, verwijderreden, actor en tijd blijven zichtbaar.
 - Na afsluiten staan de gegevens vast. Open verzoeken sluiten mee af. Links

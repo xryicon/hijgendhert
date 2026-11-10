@@ -94,12 +94,15 @@ export class ClanPk extends DurableObject<Cloudflare.Env> {
       if (p.status === value.status) return fail(409, 'Deze speler heeft die status al.');
       p.status = value.status; p.changedAt = now; text = `${p.name}: ${pkStatusLabel[value.status]}.`;
     } else if (value.type === 'add_drop') {
+      const player = value.playerId ? s.players.find(p => p.id === value.playerId) : null;
+      if (value.playerId && !player) return fail(400, 'Kies een speler uit deze sessie.');
+      const label = player ? `Loot van ${player.name}` : value.label!;
       const active = s.players.filter(p => p.status === 'active');
       if (!active.length) return fail(409, 'Zet eerst minimaal één speler op Actief.');
       if (s.drops.length >= 500) return fail(409, 'Maximaal 500 drops per sessie. Rond deze sessie af.');
       const share = Math.floor(value.gp / active.length);
-      s.drops.push({ id: value.requestId, label: value.label, gp: value.gp, at: now, addedBy: actor.name, shares: active.map(p => ({ playerId: p.id, gp: share })), remainder: value.gp - share * active.length, removedAt: null, removedBy: null, reason: null });
-      text = `${value.label}: ${value.gp.toLocaleString('nl-NL')} GP toegevoegd, verdeeld over ${active.length} actieve spelers.`;
+      s.drops.push({ id: value.requestId, label, ...(player ? { playerId: player.id, playerName: player.name } : {}), gp: value.gp, at: now, addedBy: actor.name, shares: active.map(p => ({ playerId: p.id, gp: share })), remainder: value.gp - share * active.length, removedAt: null, removedBy: null, reason: null });
+      text = `${label}: ${value.gp.toLocaleString('nl-NL')} GP toegevoegd, verdeeld over ${active.length} actieve spelers.`;
     } else if (value.type === 'remove_drop') {
       const drop = s.drops.find(d => d.id === value.dropId); if (!drop || drop.removedAt) return fail(409, 'Deze drop is niet beschikbaar of al verwijderd.');
       drop.removedAt = now; drop.removedBy = actor.name; drop.reason = value.reason;

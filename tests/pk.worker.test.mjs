@@ -163,3 +163,22 @@ test('sessions, role settings, requests, recipient snapshots and deleted-drop au
     assert.deepEqual(loaded, s); assert.equal((await ok(await get(second.mf, '/api/pk', session))).active.length, 1);
   } finally { await first?.mf.dispose(); await second?.mf.dispose(); assert.ok(path.basename(persist).startsWith('hh-pk-')); await rm(persist, { recursive: true, force: true }); }
 });
+
+test('player keys need no description, keep collected loot separate from splits and reverse both on removal', async () => {
+  const { mf } = runtime();
+  try {
+    const { a, b } = await setup(mf); let s = await create(mf, a, [1, 2]);
+    assert.equal((await post(mf, '/api/pk/action', action(s, { type: 'add_drop', playerId: 999, gp: 100 }), a)).status, 400);
+    assert.equal((await post(mf, '/api/pk/action', action(s, { type: 'add_drop', gp: 100 }), a)).status, 400);
+    s = await change(mf, a, s, { type: 'add_drop', playerId: 1, gp: 750001 });
+    assert.equal(s.drops[0].playerId, 1); assert.equal(s.drops[0].playerName, 'Hert 1'); assert.equal(s.drops[0].label, 'Loot van Hert 1');
+    s = await change(mf, a, s, { type: 'add_drop', playerId: 2, gp: 2500000 });
+    assert.deepEqual(s.totals.collected, { 1: 750001, 2: 2500000 }); assert.deepEqual(s.totals.keys, { 1: 1, 2: 1 }); assert.deepEqual(s.totals.shares, { 1: 1625000, 2: 1625000 }); assert.equal(s.totals.remainder, 1);
+    s = await change(mf, a, s, { type: 'remove_drop', dropId: s.drops[0].id, reason: 'Dubbele key' });
+    assert.deepEqual(s.totals.collected, { 1: 0, 2: 2500000 }); assert.deepEqual(s.totals.keys, { 1: 0, 2: 1 }); assert.deepEqual(s.totals.shares, { 1: 1250000, 2: 1250000 }); assert.equal(s.totals.gp, 2500000); assert.equal(s.totals.remainder, 0);
+    const viewer = (await ok(await get(mf, `/api/pk/session?id=${s.id}`, b))).session; assert.deepEqual(viewer.totals, s.totals); assert.ok(viewer.drops[0].removedAt);
+    s = await change(mf, a, s, { type: 'add_drop', label: 'Oude client', gp: 100 });
+    assert.equal(s.totals.unattributed, 100); assert.equal(Object.values(s.totals.collected).reduce((sum, gp) => sum + gp, 0) + s.totals.unattributed, s.totals.gp);
+    assert.equal((await post(mf, '/api/pk/action', action(s, { type: 'add_drop', playerId: 2, gp: 1 }), b)).status, 403);
+  } finally { await mf.dispose(); }
+});
