@@ -61,7 +61,11 @@ function runtime(options = {}) {
       assert.equal(url.origin, 'https://api.wiseoldman.net');
       if (options.womOffline) return Response.json({}, { status: 503 });
       if (url.pathname === '/v2/groups/7059') return Response.json({ id: 7059, memberships: players.filter(p => p.id !== options.excludePlayer).map(player => ({ role: 'recruit', player })) });
-      if (url.pathname === '/v2/groups/7059/competitions') return Response.json([{ ...event, type: 'classic' }]);
+      if (url.pathname === '/v2/groups/7059/competitions') return Response.json(options.competitions || [{ ...event, type: 'classic' }]);
+      if (options.competitions && url.pathname.startsWith('/v2/competitions/')) {
+        const detail = options.competitions.find(event => event.id === Number(url.pathname.split('/').at(-1)));
+        assert.ok(detail); return Response.json(detail);
+      }
       if (url.pathname === '/v2/competitions/41') return Response.json({ ...event, type: 'classic', participations: players.map((player, i) => ({ player, deltas: [{ metric: 'vorkath', values: { gained: i ? 50 : 100 } }] })) });
       const player = players.find(p => ['', '/competitions', '/snapshots'].some(suffix => decodeURIComponent(url.pathname) === `/v2/players/${p.username}${suffix}`));
       assert.ok(player, `Unexpected upstream path ${url.pathname}`);
@@ -280,4 +284,19 @@ test('event leaderboard persists final results, avoids refetching and filters de
     assert.equal(calls.includes('/v2/competitions/41'), false);
     assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/leaderboard', { method: 'POST' })).status, 405);
   });
+});
+
+test('leaderboard route counts a multi-boss week once and includes a separate team event', async () => {
+  const make = (id, metric, gains, extra = {}) => ({ ...event, id, metric, type: 'classic', ...extra, participations: players.map((player, i) => ({ player, teamName: 'Herten', deltas: [{ metric, values: { gained: gains[i] } }] })) });
+  const competitions = [make(41, 'vorkath', [100,50]), make(42, 'zulrah', [50,100]), make(43, 'vorkath', [100,50]), make(44, 'ehp', [100,0], { type: 'team' })];
+  const { mf, calls } = runtime({ competitions });
+  try {
+    const response = await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/leaderboard');
+    assert.equal(response.status, 200);
+    const board = await response.json();
+    assert.equal(board.totalEvents, 2); assert.equal(board.loadedEvents, 2);
+    assert.equal(board.totalCompetitions, 3); assert.equal(board.complete, true);
+    assert.deepEqual(board.rows.map(r => [r.playerId, r.events, r.averagePlace, r.position]), [[701,2,1.25,1],[702,1,1.5,2]]);
+    assert.equal(calls.includes('/v2/competitions/43'), false, 'Duplicate trackers are not requested');
+  } finally { await mf.dispose(); }
 });

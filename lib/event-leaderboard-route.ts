@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { readWiseOldMan, womConnection, womRetryAfter, type WomEnv } from './wise-old-man';
-import { eventLeaderboardRows, eventRevision, leaderboardEventSchema, summarizeLeaderboardEvent, type LeaderboardEvent, type EventLeaderboard } from './event-leaderboard';
+import { eventLeaderboardRows, eventRevision, leaderboardEventSchema, leaderboardRounds, summarizeLeaderboardRounds, summarizeLeaderboardEvent, type LeaderboardEvent, type EventLeaderboard } from './event-leaderboard';
 import type { ClanProgress } from '../worker/clan-progress';
 
 export async function eventLeaderboardRoute(request: Request, env: WomEnv & { PROGRESS?: DurableObjectNamespace<ClanProgress> }, fetcher: typeof fetch = fetch): Promise<Response | null> {
@@ -22,7 +22,8 @@ export async function eventLeaderboardRoute(request: Request, env: WomEnv & { PR
     const group = z.object({ id: z.literal(7059), memberships: z.array(z.object({ player: z.object({ id: z.number().int().positive() }) })).max(2000) }).parse(groupResult.data);
     // This WOM endpoint returns the complete group catalogue, without pagination.
     const catalogue = z.array(leaderboardEventSchema).max(2000).parse(eventResult.data);
-    const finished = [...new Map(catalogue.filter(e => e.groupId === 7059 && e.type === 'classic' && Date.parse(e.endsAt) <= Date.now()).map(e => [e.id, e])).values()].sort((a, b) => Date.parse(b.endsAt) - Date.parse(a.endsAt));
+    const rounds = leaderboardRounds(catalogue);
+    const finished = rounds.flat();
     const saved = new Map<number, LeaderboardEvent>(stored.map(event => [event.id, event]));
     const missing = finished.filter(event => !saved.has(event.id) || saved.get(event.id)!.sourceRevision !== eventRevision(event));
     let retryAfter = 10;
@@ -44,8 +45,9 @@ export async function eventLeaderboardRoute(request: Request, env: WomEnv & { PR
       const summary = saved.get(event.id);
       return summary?.sourceRevision === eventRevision(event) ? [summary] : [];
     });
-    const complete = results.length === finished.length;
-    const data: EventLeaderboard = { rows: eventLeaderboardRows(group.memberships.map(m => m.player.id), results, complete), totalEvents: finished.length, loadedEvents: results.length, complete, stale, fetchedAt, retryAfter: complete ? 3600 : retryAfter };
+    const summaries = summarizeLeaderboardRounds(rounds, saved);
+    const complete = summaries.length === rounds.length;
+    const data: EventLeaderboard = { rows: eventLeaderboardRows(group.memberships.map(m => m.player.id), summaries, complete), totalEvents: rounds.length, loadedEvents: summaries.length, totalCompetitions: finished.length, loadedCompetitions: results.length, complete, stale, fetchedAt, retryAfter: complete ? 3600 : retryAfter };
     return json(data);
   } catch (error) { return json({ error: 'Het eventklassement kan nu niet worden bijgewerkt. Probeer het later opnieuw.' }, 503, { 'Retry-After': womRetryAfter(error) }); }
 }
