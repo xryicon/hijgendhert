@@ -60,7 +60,7 @@ export default function SiteHeader({ view, initialMember }: { view: 'home' | 'cl
               <form method="post" action="/api/auth/logout"><button type="submit"><LogOut size={16}/><span>Uitloggen</span></button></form>
             </div>}
           </div> : <a className={`button gold nav-login${view === 'member' ? ' active' : ''}`} href="/login" aria-current={view === 'member' ? 'page' : undefined} title={session.status === 'unavailable' ? 'Open je account en herstel de Discord-verbinding' : undefined}><UserRound size={15} strokeWidth={1.6} aria-hidden="true"/>{session.status === 'anonymous' ? 'Login' : 'Account'}</a>}
-          <a className="button gold nav-join" href="https://discord.gg/KFNqA6bnZ4" target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={16}/></a>
+          {!member && session.status !== 'loading' && <a className="button gold nav-join" href="https://discord.gg/KFNqA6bnZ4" target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={16}/></a>}
         </div>
         <button className="menu-button" onClick={() => setMenu(!menu)} aria-label={menu ? 'Menu sluiten' : 'Menu openen'} aria-expanded={menu} aria-controls="main-navigation">{menu ? <X/> : <Menu/>}</button>
       </div>

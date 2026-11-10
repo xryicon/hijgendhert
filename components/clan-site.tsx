@@ -18,6 +18,7 @@ import ClanRaffle from '@/components/clan-raffle';
 import RankIcon from './rank-icon';
 import MemberAvatar from './member-avatar';
 import MemberLeaderboard from './member-leaderboard';
+import { useMemberSession } from './session-provider';
 import { rankLabel as roleLabel } from '@/lib/osrs-ranks';
 
 const WOM = "https://wiseoldman.net/groups/7059";
@@ -86,6 +87,7 @@ function LoadError({ message, retry }: { message: string; retry: () => void }) {
 function Skeleton({ lines = 3 }: { lines?: number }) { return <div className="skeletons" aria-label="Gegevens worden geladen" role="status">{Array.from({ length: lines }, (_, i) => <div className="skeleton" key={i}/>)}</div>; }
 
 export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | 'events' }) {
+  const session = useMemberSession();
   const group = useWom<Group>("resource=group", 0, view !== 'events', WOM_REFRESH_MS);
   const competitions = useWom<Competition[]>("resource=competitions", 400, view === 'events', WOM_REFRESH_MS);
   const [join, setJoin] = useState(false);
@@ -139,7 +141,7 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
           <h1>Waarom join je<br/><em>Hijgend Hert?</em></h1>
           <div className="poem-rule" aria-hidden="true"><span/>◆<span/></div>
           <p className="clan-rhyme"><span>Omdat je daar pas echt een legend wordt!</span><span>Van raids tot PK, we strijden zij aan zij,</span><span>bij Hijgend Hert hoor jij erbij!</span></p>
-          <a className="poem-discord" href={DISCORD} target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={15}/></a>
+          {!session.member && session.status !== 'loading' && <a className="poem-discord" href={DISCORD} target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={15}/></a>}
         </div><div className="hero-identity"><div className="emblem-ring"/><BreathingCrest/></div></div>
       </section>
       <ClanStats memberCount={group.result?.data.memberCount ?? null} totalXp={group.result ? totals.exp : null} homeWorld={group.result?.data.homeworld || null} fetchedAt={group.result?.fetchedAt ?? null} loading={group.loading} error={group.error} stale={!!group.result?.stale} onRetry={group.reload}/>
