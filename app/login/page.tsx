@@ -1,3 +1,4 @@
+import ClanCrest from '@/components/clan-crest';
 import Link from '@/components/site-link';
 import type { Metadata } from 'next';
 import { env } from 'cloudflare:workers';
@@ -42,7 +43,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <main id="main" className="member-page login-page" data-discord-retry-at={retryAt || undefined}>
       <section className="member-gate" aria-labelledby="member-title">
         <Link prefetch={false} className="member-back" href="/"><ArrowLeft size={15}/> Terug naar de clan</Link>
-        <img className="member-crest" src="/clan-logo.png" alt=""/>
+        <ClanCrest className="member-crest"/>
         <p className="member-eyebrow">HIJGEND HERT</p>
         <h1 id="member-title">Welkom <em>terug.</em></h1>
         <p className="member-intro">Je clan, je avonturen en je voortgang.<br/>Log in met je Discord-account.</p>

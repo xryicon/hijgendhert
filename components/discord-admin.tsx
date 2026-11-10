@@ -1,6 +1,8 @@
 'use client';
+import ClanCrest from './clan-crest';
 import { useEffect, useState, type FormEvent } from 'react';
-import { CalendarDays, Check, MessageCircle, ShieldCheck, Ticket, Users } from 'lucide-react';
+import { CalendarDays, Check, MessageCircle, ShieldCheck, Snowflake, Ticket, Users } from 'lucide-react';
+import AdminAppearance from './admin-appearance';
 import { EMPTY_SYNC_SETTINGS, type ClanEventInput, type EventView, type SyncSettings } from '@/lib/clan-discord';
 import Link from './site-link';
 import { EventCategoryFields, EventMinimumFields } from './admin-event-fields';
@@ -19,7 +21,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
 export default function DiscordAdmin() {
   const [state, setState] = useState<SettingsState | null>(null); const [settings, setSettings] = useState(EMPTY_SYNC_SETTINGS);
   const [events, setEvents] = useState<EventView[]>([]); const [editing, setEditing] = useState<ClanEventInput | null>(null);
-  const [tab, setTab] = useState<'events' | 'discord'>('events');
+  const [tab, setTab] = useState<'events' | 'discord' | 'appearance'>('events');
   const [error, setError] = useState(''); const [message, setMessage] = useState(''); const [busy, setBusy] = useState(false);
   async function load() {
     const [s, e] = await Promise.all([api<SettingsState>('/api/admin/discord'), api<{ events: EventView[] }>('/api/admin/clan-events')]);
@@ -36,8 +38,9 @@ export default function DiscordAdmin() {
     try { await api('/api/admin/clan-events', editing); await load(); setEditing(null); setMessage('Event opgeslagen. De agenda is bijgewerkt.'); }
     catch (e) { setError(e instanceof Error ? e.message : 'Probeer opnieuw.'); } finally { setBusy(false); }
   }
-  return <div className="clan-admin container"><header className="clan-admin-heading"><img className="admin-clan-crest" src="/clan-logo.png" width={118} height={118} alt="Hijgend Hert"/><div><p className="eyebrow">HIJGEND HERT</p><h1>De clanleiding</h1><p>Onze events, onze afspraken, onze clan.</p><span className="admin-access"><ShieldCheck size={14}/> Alleen Admin & Staff team</span></div><Link href="/events#kalender" className="button gold">Naar de agenda</Link></header>
-    <nav className="admin-tabs" aria-label="Clanbeheer"><button aria-pressed={tab === 'events'} onClick={() => setTab('events')}><CalendarDays size={17}/> Clanactiviteiten</button><button aria-pressed={tab === 'discord'} onClick={() => setTab('discord')}><MessageCircle size={17}/> Discord</button></nav>
+  return <div className="clan-admin container"><header className="clan-admin-heading"><ClanCrest className="admin-clan-crest" alt="Hijgend Hert"/><div><p className="eyebrow">HIJGEND HERT</p><h1>De clanleiding</h1><p>Onze events, onze afspraken, onze clan.</p><span className="admin-access"><ShieldCheck size={14}/> Alleen Admin & Staff team</span></div><Link href="/events#kalender" className="button gold">Naar de agenda</Link></header>
+    <nav className="admin-tabs" aria-label="Clanbeheer"><button aria-pressed={tab === 'events'} onClick={() => setTab('events')}><CalendarDays size={17}/> Clanactiviteiten</button><button aria-pressed={tab === 'discord'} onClick={() => setTab('discord')}><MessageCircle size={17}/> Discord</button><button aria-pressed={tab === 'appearance'} onClick={() => setTab('appearance')}><Snowflake size={17}/> Uiterlijk</button></nav>
+    {tab === 'appearance' && <AdminAppearance/>}
     <div className="sync-status" hidden={tab !== 'discord'}><ShieldCheck size={22}/><div><strong>{state?.botConfigured ? 'Botgegevens aanwezig' : 'Discord staat klaar voor later'}</strong><p>{state?.botConfigured ? 'Kies per onderdeel een kanaal en zet de melding aan.' : 'Je kunt alvast events plannen en kanalen bewaren. Meldingen blijven uit totdat de bot en kanalen zijn ingesteld.'}</p></div></div>
     {error && <p className="clan-admin-feedback error" role="alert">{error} <button className="text-link" onClick={() => void load().then(() => setError('')).catch(e => setError(e.message))}>Opnieuw laden</button></p>}
     {message && <p className="clan-admin-feedback" role="status"><Check size={16}/>{message}</p>}

@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
+import { env } from 'cloudflare:workers';
+import SiteAppearanceProvider from '@/components/site-appearance-provider';
+import { loadSiteAppearance } from '@/lib/site-appearance';
+import { CHRISTMAS_STYLESHEET } from '@/lib/christmas-decoration';
 import SessionProvider from '@/components/session-provider';
 import NotificationProvider from '@/components/notification-center';
 import { MemberAvatarProvider } from '@/components/member-avatar';
@@ -36,14 +40,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export const dynamic = 'force-dynamic';
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const initial = await loadSiteAppearance(env);
   return (
-    <html lang="nl">
-      <body className="antialiased"><SessionProvider><MemberAvatarProvider><NotificationProvider>{children}</NotificationProvider></MemberAvatarProvider></SessionProvider></body>
+    <html lang="nl" data-season={initial.appearance.christmasEnabled ? 'christmas' : 'default'}>
+      <head><link rel="stylesheet" href={CHRISTMAS_STYLESHEET}/></head>
+      <body className="antialiased"><SiteAppearanceProvider initial={initial}><SessionProvider><MemberAvatarProvider><NotificationProvider>{children}</NotificationProvider></MemberAvatarProvider></SessionProvider></SiteAppearanceProvider></body>
     </html>
   );
 }

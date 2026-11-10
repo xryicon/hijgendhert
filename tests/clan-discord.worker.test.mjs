@@ -64,6 +64,49 @@ function runtime(options = {}) {
   return { mf, deliveries };
 }
 const cookie = (response, name) => response.headers.getSetCookie().find(v => v.startsWith(name + '='))?.split(';')[0];
+
+test('site appearance is public to read but only current staff may change it, independently of Discord notices', async () => {
+  const options = { noBot: true }; const { mf, deliveries } = runtime(options);
+  try {
+    const initial = { christmasEnabled: true, revision: 0 };
+    const read = await get(mf, '/api/site/appearance');
+    assert.match(read.headers.get('Cache-Control'), /no-store/);
+    assert.deepEqual(await read.json(), { appearance: initial });
+    assert.equal((await post(mf, '/api/site/appearance', initial)).status, 405);
+    assert.equal((await post(mf, '/api/admin/appearance', initial)).status, 401);
+    const admin = await login(mf); const member = await login(mf, 'b');
+    const settingsBefore = await (await get(mf, '/api/admin/discord', admin)).json();
+    assert.equal((await get(mf, '/api/admin/appearance', member)).status, 403);
+    assert.equal((await post(mf, '/api/admin/appearance', initial, member)).status, 403);
+    assert.equal((await post(mf, '/api/admin/appearance', initial, admin, { Origin: 'https://evil.example' })).status, 403);
+    for (const body of [{ christmasEnabled: 'yes', revision: 0 }, { ...initial, extra: true }, { christmasEnabled: false, revision: -1 }]) assert.equal((await post(mf, '/api/admin/appearance', body, admin)).status, 400);
+    const saved = await post(mf, '/api/admin/appearance', { ...initial, christmasEnabled: false }, admin);
+    assert.equal(saved.status, 200); assert.deepEqual((await saved.json()).appearance, { christmasEnabled: false, revision: 1 });
+    assert.equal((await post(mf, '/api/admin/appearance', initial, admin)).status, 409);
+    options.roles = [MEMBER];
+    assert.equal((await post(mf, '/api/admin/appearance', { christmasEnabled: true, revision: 1 }, admin)).status, 403, 'revoked staff cannot reuse a session to update the theme');
+    options.roles = ['1408990525180084265'];
+    assert.equal((await post(mf, '/api/admin/appearance', { christmasEnabled: true, revision: 1 }, admin)).status, 200, 'Staff team can manage the theme');
+    assert.deepEqual(await (await get(mf, '/api/admin/discord', admin)).json(), settingsBefore);
+    assert.deepEqual((await flush(mf)).jobs, []); assert.deepEqual(deliveries, []);
+  } finally { await mf.dispose(); }
+});
+
+test('site appearance rejects competing stale writes and persists across object restarts', async () => {
+  const persist = await mkdtemp(path.join(tmpdir(), 'hh-appearance-'));
+  let instance = runtime({ noBot: true, persist });
+  try {
+    let session = await login(instance.mf);
+    const results = await Promise.all([false, false].map(christmasEnabled => post(instance.mf, '/api/admin/appearance', { christmasEnabled, revision: 0 }, session)));
+    assert.deepEqual(results.map(r => r.status).sort(), [200, 409]);
+    await instance.mf.dispose(); instance = runtime({ noBot: true, persist });
+    assert.deepEqual(await (await get(instance.mf, '/api/site/appearance')).json(), { appearance: { christmasEnabled: false, revision: 1 } });
+    session = await login(instance.mf);
+    assert.equal((await post(instance.mf, '/api/admin/appearance', { christmasEnabled: true, revision: 1 }, session)).status, 200);
+    await instance.mf.dispose(); instance = runtime({ noBot: true, persist });
+    assert.deepEqual(await (await get(instance.mf, '/api/site/appearance')).json(), { appearance: { christmasEnabled: true, revision: 2 } });
+  } finally { await instance.mf.dispose(); await rm(persist, { recursive: true, force: true }); }
+});
 async function login(mf, who = 'a') {
   const start = await mf.dispatchFetch(`${env.APP_ORIGIN}/api/auth/discord`, { redirect: 'manual' });
   const state = new URL(start.headers.get('Location')).searchParams.get('state');

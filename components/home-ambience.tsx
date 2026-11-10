@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, type RefObject } from "react";
+import { AntlerLights } from './clan-crest';
 
 function useAmbientVisibility(ref: RefObject<HTMLElement | null>) {
   useEffect(() => {
@@ -47,6 +48,7 @@ export function BreathingCrest() {
   useAmbientVisibility(crest);
   return <div className="hero-crest" ref={crest}>
     <img className="hero-logo" src="/clan-logo.png" alt="Hijgend Hert — hert met kroon en zwart-gouden clanbanieren" fetchPriority="high" width="1254" height="1254"/>
+    <AntlerLights/>
     <svg className="stag-eye" viewBox="0 0 1254 1254" aria-hidden="true">
       <defs>
         <linearGradient id={`${id}-fur`} x1="0" y1="0" x2="0.3" y2="1"><stop stopColor="#e99135"/><stop offset=".5" stopColor="#b85b1d"/><stop offset="1" stopColor="#70310f"/></linearGradient>

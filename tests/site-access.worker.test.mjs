@@ -20,12 +20,18 @@ const bundle = await build({
     contents: `
       import worker from './worker/index.ts';
       import { SiteAccessLimits } from './worker/site-access.ts';
+      export { ClanDiscord } from './worker/clan-discord.ts';
       import { discordConfig, seal } from './lib/discord-auth.ts';
       export class TestAccessLimits extends SiteAccessLimits {
         ageWindow() { this.ctx.storage.sql.exec('UPDATE access_window SET started_at = ?', Date.now() - 901000); }
       }
       export default { async fetch(request, env, ctx) {
         const url = new URL(request.url);
+        if (url.pathname === '/__test/theme') {
+          const store = env.DISCORD_SYNC.getByName('clan:7059');
+          const current = await store.getAppearance();
+          return Response.json(await store.saveAppearance({ ...current, christmasEnabled: url.searchParams.get('enabled') === 'true' }, 'test-only'));
+        }
         if (url.pathname === '/__test/discord-cookie') {
           const config = discordConfig(env);
           return Response.json({cookie: '__Host-hh-member=' + await seal(config, 'session', {
@@ -97,7 +103,7 @@ function runtime(options = {}) {
   const mf = new Miniflare({
     modules: true, script: bundle.outputFiles[0].text,
     compatibilityDate: '2026-05-15', compatibilityFlags: ['nodejs_compat'], bindings,
-    durableObjects: options.noLimiter ? {} : { SITE_ACCESS_LIMITS: { className: 'TestAccessLimits', useSQLite: true } },
+    durableObjects: { DISCORD_SYNC: { className: 'ClanDiscord', useSQLite: true }, ...(options.noLimiter ? {} : { SITE_ACCESS_LIMITS: { className: 'TestAccessLimits', useSQLite: true } }) },
     ...(options.persist ? { durableObjectsPersist: options.persist } : {}),
     serviceBindings: { ASSETS: async request => {
       assetCalls.push(new URL(request.url).pathname);
@@ -164,7 +170,7 @@ test('the maintenance page is a private native form without client code or embed
     assert.match(response.headers.get('Content-Security-Policy') || '', /form-action 'self'/);
     assert.match(response.headers.get('X-Robots-Tag') || '', /noindex/);
     const html = await response.text();
-    assert.match(html, /<html lang="nl">/);
+    assert.match(html, /<html lang="nl" data-season="christmas">/);
     assert.match(html, /<form method="post" action="\/api\/site-access">/);
     assert.match(html, /name="code" type="password"/);
     assert.match(html, /Deze toegangscode klopt niet/);
@@ -177,9 +183,25 @@ test('the maintenance page is a private native form without client code or embed
   } finally { await mf.dispose(); }
 });
 
-test('only the five maintenance image/font assets are public and asset responses cannot be cached', async () => {
+test('the script-free access page follows the shared Christmas switch without opening protected routes', async () => {
+  const { mf } = runtime();
+  try {
+    for (const enabled of [false, true]) {
+      assert.equal((await request(mf, `/__test/theme?enabled=${enabled}`)).status, 200);
+      const response = await request(mf, '/binnenkort'); const html = await response.text();
+      assert.ok(html.includes(`data-season="${enabled ? 'christmas' : 'default'}"`));
+      assert.match(html, /href="\/christmas.css/); assert.match(html, /antler-lights/);
+      assert.doesNotMatch(html, /<script|type="module"/i);
+      assert.match(response.headers.get('Content-Security-Policy'), /style-src 'self' 'unsafe-inline'/);
+      assert.equal((await request(mf, '/api/site/appearance')).status, 503);
+      assert.equal((await request(mf, '/api/admin/appearance')).status, 503);
+    }
+  } finally { await mf.dispose(); }
+});
+
+test('only maintenance image/font/theme assets are public and asset responses cannot be cached', async () => {
   const { mf, assetCalls } = runtime();
-  const publicAssets = ['/clan-logo.png', '/hijgend-hert-woodland.webp', '/fonts/cinzel-semibold.ttf', '/fonts/inter-regular.ttf', '/favicon.svg'];
+  const publicAssets = ['/clan-logo.png', '/hijgend-hert-woodland.webp', '/fonts/cinzel-semibold.ttf', '/fonts/inter-regular.ttf', '/favicon.svg', '/christmas.css', '/christmas-evergreen.svg'];
   try {
     for (const route of publicAssets) {
       for (const method of ['GET', 'HEAD']) {

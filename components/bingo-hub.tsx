@@ -1,4 +1,5 @@
 "use client";
+import ClanCrest from './clan-crest';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Check, CheckCheck, ChevronDown, Clock3, Copy, Crown, Eye, EyeOff, Gem, Grid2X2, List, LockKeyhole, Plus, RefreshCw, Save, Settings2, ShieldCheck, Sparkles, Swords, Target, Trophy, Users, X } from 'lucide-react';
 import BingoEditor from '@/components/bingo-editor';
@@ -92,7 +93,7 @@ export default function BingoHub() {
   async function copyLink() { if (!event) return; try { await navigator.clipboard.writeText(`${window.location.origin}/bingo?event=${event.id}`); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setNotice('Kopieer de link uit de adresbalk.'); } }
   return <>
     <a className="skip-link" href="#bingo-main">Ga naar inhoud</a>
-    <header className="header"><div className="container nav-wrap bingo-nav"><a className="brand" href="/" aria-label="Hijgend Hert home"><img src="/clan-logo.png" alt=""/><span>Hijgend Hert<small>OLD SCHOOL RUNESCAPE CLAN</small></span></a><nav aria-label="Bingonavigatie"><a href="/"><ArrowLeft size={14}/> De clan</a><span className="active"><Grid2X2 size={14}/> Clanbingo</span></nav><a className="button gold nav-join" href="https://discord.gg/KFNqA6bnZ4" target="_blank" rel="noreferrer">Discord <ArrowUpRight size={15}/></a></div></header>
+    <header className="header"><div className="container nav-wrap bingo-nav"><a className="brand" href="/" aria-label="Hijgend Hert home"><ClanCrest className="brand-crest"/><span>Hijgend Hert<small>OLD SCHOOL RUNESCAPE CLAN</small></span></a><nav aria-label="Bingonavigatie"><a href="/"><ArrowLeft size={14}/> De clan</a><span className="active"><Grid2X2 size={14}/> Clanbingo</span></nav><a className="button gold nav-join" href="https://discord.gg/KFNqA6bnZ4" target="_blank" rel="noreferrer">Discord <ArrowUpRight size={15}/></a></div></header>
     <main id="bingo-main" className="container bingo-shell"><div className="bingo-page-heading"><div><p className="eyebrow">HIJGEND HERT · CLANBINGO</p><h1>{event && !hidden ? event.title : 'Twee teams. Eén avontuur.'}</h1><p>{event && !hidden ? event.description : 'Een gedeeld speelveld, 25 uitdagingen en de hele clan op jacht.'}</p></div>{canManage && <button className="button outline" onClick={() => { setWriteError(''); setEditor('create'); }}><Plus size={16}/> Nieuwe bingo</button>}</div>
       {notice && <div className="bingo-toast" role="status"><Check size={16}/>{notice}</div>}
       {error && <div className="bingo-error-banner" role="status"><p>{error}{data && ' Je ziet de laatst opgehaalde stand.'}</p><button className="text-link" onClick={() => setRefresh(v => v + 1)}><RefreshCw size={14}/> Opnieuw proberen</button></div>}

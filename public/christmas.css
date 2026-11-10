@@ -1,0 +1,51 @@
+.clan-crest{display:inline-block;position:relative;flex-shrink:0;line-height:0;font-style:normal}
+body .clan-crest>img{display:block;width:100%;height:100%;object-fit:contain}
+.brand .brand-crest{width:43px;height:49px}.admin-clan-crest{width:118px;height:118px}
+.antler-lights{display:none;position:absolute;inset:0;z-index:3;pointer-events:none;line-height:0}
+.antler-lights>svg,body .clan-crest .antler-lights>svg{display:block;width:100%;height:100%;overflow:visible}
+html[data-season="christmas"] .antler-lights{display:block}
+.antler-lamp{animation:hh-lamp-glow 4.6s var(--lamp-delay) ease-in-out infinite;filter:drop-shadow(0 0 5px var(--lamp-color))}
+@keyframes hh-lamp-glow{0%,100%{opacity:.55}50%{opacity:1}}
+html[data-season-paused="true"] .antler-lamp,[data-motion="off"] .antler-lamp{animation-play-state:paused}
+.maintenance-crest{width:195px;height:205px;animation:breathe 7s ease-in-out infinite}.crest .maintenance-crest>img{animation:none}
+.christmas-decor{display:none;pointer-events:none!important;user-select:none}
+html[data-season="christmas"] .christmas-decor{display:block;position:fixed;inset:0;z-index:34;overflow:hidden;contain:strict}
+.christmas-bough{position:absolute;width:210px;height:auto;top:76px;opacity:.93;filter:drop-shadow(0 5px 7px #0007)}
+.christmas-bough-left{left:-100px}.christmas-bough-right{right:-100px;transform:scaleX(-1)}
+.christmas-snow{position:absolute;inset:0;overflow:hidden}
+.christmas-snow i{position:absolute;left:var(--snow-x);top:-12px;width:var(--snow-size);height:var(--snow-size);border-radius:50%;background:#f4f4e6;opacity:0;box-shadow:0 0 5px #fff4;animation:hh-snow var(--snow-time) var(--snow-delay) linear infinite;will-change:transform}
+@keyframes hh-snow{0%{transform:translate3d(0,-12px,0);opacity:0}8%{opacity:.5}85%{opacity:.3}100%{transform:translate3d(38px,102vh,0);opacity:0}}
+html[data-season-paused="true"] .christmas-snow i{animation-play-state:paused}
+html[data-season="christmas"] body{--gold:#d5b46e;--gold-light:#f2d798;--bg:#0b1511;--text:#eee4cc}
+html[data-season="christmas"] body .header,html[data-season="christmas"] .site-header{background:linear-gradient(110deg,#10261ef5,#102019f7 58%,#35201ff2);border-bottom:1px solid #bca15d99;box-shadow:0 5px 28px #0005}
+html[data-season="christmas"] body .header::after{content:'';position:absolute;pointer-events:none;left:0;right:0;bottom:-4px;height:7px;background:radial-gradient(circle,#ffe9a1 0 2px,transparent 3px) 12px 0/76px 7px repeat-x;filter:drop-shadow(0 0 5px #ffce77b3)}
+html[data-season="christmas"] body :is(.button.gold,.poem-discord){background:linear-gradient(145deg,#742c2c,#4c2124 75%);border-color:#d0ad69;color:#f6e1b8;box-shadow:inset 0 1px #ffe1ac38,0 3px 12px #0005}
+html[data-season="christmas"] body :is(.button.gold,.poem-discord):hover{background:linear-gradient(145deg,#8a3935,#63282c);border-color:#f0d293}
+html[data-season="christmas"] body :is(.panel,.clan-admin-panel,.member-gate,.profile-boss-card,.profile-rank-card,.raffle-stage,.raffle-how,.raffle-entrants,.access){border-color:#ac935866;box-shadow:inset 0 2px 0 #e4e8d033,0 14px 40px #0004}
+html[data-season="christmas"] body :is(.eyebrow,.member-eyebrow,.profile-section-label){color:#dbbe80}
+html[data-season="christmas"] body :is(.count-badge,.profile-current-rank,.raffle-prize-plaque){border-color:#bb9f5b80}
+html[data-season="christmas"] body .navigation a.active{color:#f0d593}
+html[data-season="christmas"] body .navigation a.active::after{background:#b75046}
+html[data-season="christmas"] body .brand>img{filter:drop-shadow(0 0 7px #f2c97444)}
+html[data-season="christmas"] body .member-leaderboard{border-top-color:#bd6150!important}
+html[data-season="christmas"] body .leaderboard-position.is-podium{color:#f5d591;text-shadow:0 0 12px #e9b94755}
+html[data-season="christmas"] .site-header{position:relative;z-index:35}
+html[data-season="christmas"] .wordmark{color:#efd7a5}
+.appearance-theme-card{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(0,1.2fr);gap:32px;align-items:stretch;margin-top:26px}
+.appearance-preview{position:relative;min-height:290px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid #9c814a66;border-radius:6px;background:radial-gradient(ellipse at 50% 55%,#b58a3833,transparent 65%),linear-gradient(150deg,#17382a,#101a15 65%,#442427);box-shadow:inset 0 1px #e7dca124}
+.appearance-preview>img:first-child{position:absolute;top:0;left:-13px;width:100%;max-height:170px;object-fit:cover;object-position:left top}
+.appearance-preview .appearance-preview-crest{width:115px;height:125px;object-fit:contain;margin-top:25px;filter:drop-shadow(0 5px 14px #0008)}
+.appearance-preview>span:not(.clan-crest){font:500 11px Cinzel,Georgia,serif;letter-spacing:2px;color:#e8ce91;margin:20px 15px;text-align:center}
+.appearance-theme-copy{padding:5px 0}.appearance-theme-copy h3{font:500 23px Cinzel,Georgia,serif;color:#e7d1a5;margin:12px 0 18px}.appearance-theme-copy>p:not(.eyebrow){color:#b9af95;font-size:13px;line-height:1.85}
+.appearance-switch-row{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:24px 0 18px;padding:20px 0;border-block:1px solid #ab8e4c3d}.appearance-switch-row strong{display:block;color:#e4d0aa;font-size:14px}.appearance-switch-row span{display:block;color:#ac9e83;font-size:11px;margin-top:5px}
+.appearance-switch-row button[role="switch"]{width:58px;height:32px;flex-shrink:0;padding:3px;border-radius:20px;background:#302c25;border:1px solid #8e794d;transition:background .2s}
+.appearance-switch-row button[aria-checked="true"]{background:#426043;border-color:#b9a268}.appearance-switch-row button[role="switch"]>span{display:block;width:24px;height:24px;background:#e7d5ac;border-radius:50%;margin:0;box-shadow:0 2px 4px #0004;transition:transform .2s}.appearance-switch-row button[aria-checked="true"]>span{transform:translateX(24px)}
+.appearance-theme-copy>p.appearance-help{font-size:11px;color:#a89b80}.admin-tabs{flex-wrap:wrap}
+@media(max-width:700px){.christmas-bough{width:150px;top:66px;opacity:.8}.christmas-bough-left{left:-85px}.christmas-bough-right{right:-85px}.christmas-snow i:nth-child(n+10){display:none}.appearance-theme-card{grid-template-columns:1fr;gap:24px}.appearance-preview{min-height:235px}.appearance-preview>img:first-child{max-height:150px}.appearance-theme-copy h3{font-size:21px}}
+@media(max-width:1100px){.brand .brand-crest{width:39px;height:45px}}
+@media(max-width:700px){.brand .brand-crest{width:31px;height:38px}}
+@media(max-width:380px){.brand .brand-crest{width:29px}}
+@media(max-width:800px){.clan-crest.admin-clan-crest{width:88px;height:88px}}
+@media(max-width:520px){.clan-crest.admin-clan-crest{width:69px;height:69px}}
+@media(prefers-reduced-motion:reduce){.christmas-snow{display:none}.antler-lamp,.maintenance-crest{animation:none}.appearance-switch-row button,.appearance-switch-row button>span{transition:none}}
+@media print{.christmas-decor{display:none!important}}

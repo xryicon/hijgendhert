@@ -1,5 +1,6 @@
 "use client";
 
+import ClanCrest from './clan-crest';
 import { ArrowRight, ArrowUpRight, CalendarDays, Camera, Crown, Swords, Users } from 'lucide-react';
 
 export const clanSections = [
@@ -40,7 +41,7 @@ export default function ClanOverview({ selected, onNavigate, members, totalXp, w
             <a className="text-link" href="https://wiseoldman.net/groups/7059" target="_blank" rel="noreferrer">Wise Old Man <ArrowUpRight size={14}/></a>
           </div>
         </div>
-        <img className="clan-masthead-crest" src="/clan-logo.png" alt="" width="1254" height="1254"/>
+        <ClanCrest className="clan-masthead-crest"/>
         <div className="clan-masthead-bottom">
           <dl className="clan-facts" aria-label="De clan in cijfers" aria-busy={loading}>
             <div><dt>Clanleden</dt><dd>{members === null ? '—' : format(members)}</dd></div>

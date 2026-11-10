@@ -45,11 +45,16 @@
   .notification-heading { padding: 18px 17px 14px; }
   .notification-toolbar { padding-inline: 17px; }
   .notification-list li > a { padding-inline: 15px; gap: 10px; }
-  body .header .nav-actions:has(.notification-center) .nav-account-button { max-width: 120px; }
+  body .header .nav-actions:has(.notification-center) .button.gold.nav-account-button { max-width: 120px; }
 }
 @media (max-width: 380px) {
-  body .header .nav-actions:has(.notification-center) .nav-account-button { max-width: 70px; padding-inline: 7px; }
+  body .header .nav-actions:has(.notification-center) .button.gold.nav-account-button { max-width: 70px; padding-inline: 7px; }
   body .header .nav-actions:has(.notification-center) .nav-join { padding-inline: 7px; font-size: 8px; }
   .notification-bell { width: 36px; }
 }
 @media (prefers-reduced-motion: reduce) { .notification-bell, .notification-list li > a { transition: none; } }
+@media (max-width: 480px) {
+  body .header .nav-actions:has(.notification-center) .nav-account-name { display: none; }
+  body .header .nav-actions:has(.notification-center) .button.gold.nav-account-button { padding-inline: 7px; gap: 5px; }
+  body .header .nav-actions:has(.notification-center) .button.gold.nav-join { padding-inline: 7px; font-size: 8px; }
+}

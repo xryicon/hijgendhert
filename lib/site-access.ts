@@ -1,8 +1,9 @@
 import { timingSafeEqual } from 'node:crypto';
 import { maintenancePage } from './maintenance-page';
 import type { SiteAccessLimits } from '../worker/site-access';
+import { loadSiteAppearance, type AppearanceEnv } from './site-appearance';
 
-export type SiteAccessEnv = {
+export type SiteAccessEnv = AppearanceEnv & {
   SITE_MAINTENANCE_MODE?: string;
   SITE_ACCESS_SECRET?: string;
   DISCORD_SESSION_SECRET?: string;
@@ -19,7 +20,7 @@ const SESSION_SECONDS = 7 * 24 * 60 * 60;
 const encoder = new TextEncoder();
 const PUBLIC_ASSETS = new Set([
   '/clan-logo.png', '/hijgend-hert-woodland.webp', '/fonts/cinzel-semibold.ttf',
-  '/fonts/inter-regular.ttf', '/favicon.svg',
+  '/fonts/inter-regular.ttf', '/favicon.svg', '/christmas.css', '/christmas-evergreen.svg',
 ]);
 const headers = {
   'Cache-Control': 'private, no-store, max-age=0',
@@ -77,11 +78,12 @@ function redirect(location: string, extra: Record<string, string> = {}): Respons
 function unavailable(): Response {
   return Response.json({ error: 'De website is in onderhoud. Gebruik de toegangscode op de onderhoudspagina.' }, { status: 503, headers: { ...headers, 'Retry-After': '900' } });
 }
-function page(next: string, error?: GateError, status = 200, head = false): Response {
-  return new Response(head ? null : maintenancePage({ next, error }), {
+async function page(env: SiteAccessEnv, next: string, error?: GateError, status = 200, head = false): Promise<Response> {
+  const { appearance } = head ? { appearance: { christmasEnabled: false } } : await loadSiteAppearance(env);
+  return new Response(head ? null : maintenancePage({ next, error, christmasEnabled: appearance.christmasEnabled }), {
     status, headers: {
       ...headers, 'Content-Type': 'text/html; charset=utf-8',
-      'Content-Security-Policy': "default-src 'none'; img-src 'self'; font-src 'self'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'",
+      'Content-Security-Policy': "default-src 'none'; img-src 'self'; font-src 'self'; style-src 'self' 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'",
     },
   });
 }
@@ -152,7 +154,7 @@ export async function siteAccessRoute(request: Request, env: SiteAccessEnv): Pro
   const config = settings(url, env);
   const next = safeNext(url.searchParams.get('next'), url.origin);
   if (url.pathname === '/api/site-access' && request.method === 'POST') {
-    if (!config || !env.SITE_ACCESS_LIMITS) return page(next, 'unavailable', 503);
+    if (!config || !env.SITE_ACCESS_LIMITS) return page(env, next, 'unavailable', 503);
     if (request.headers.get('Origin') !== url.origin || request.headers.get('Sec-Fetch-Site') === 'cross-site') return new Response('Ongeldig verzoek.', { status: 403, headers });
     if (request.headers.get('Content-Type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/x-www-form-urlencoded') return new Response('Ongeldig formulier.', { status: 415, headers });
     let destination = next;
@@ -174,7 +176,7 @@ export async function siteAccessRoute(request: Request, env: SiteAccessEnv): Pro
   if (url.pathname === '/binnenkort' && read) {
     const suppliedError = url.searchParams.get('error');
     const error = config && env.SITE_ACCESS_LIMITS ? suppliedError === 'invalid' || suppliedError === 'rate' || suppliedError === 'unavailable' ? suppliedError : undefined : 'unavailable';
-    return page(next, error, config && env.SITE_ACCESS_LIMITS ? 200 : 503, request.method === 'HEAD');
+    return page(env, next, error, config && env.SITE_ACCESS_LIMITS ? 200 : 503, request.method === 'HEAD');
   }
   if (!read || url.pathname.startsWith('/api/') || /\.(?:js|mjs|css|map|json|wasm)$/i.test(url.pathname)) return unavailable();
   return redirect(gateLocation(safeNext(`${url.pathname}${url.search}`, url.origin)));

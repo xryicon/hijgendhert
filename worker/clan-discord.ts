@@ -2,6 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { EMPTY_SYNC_SETTINGS, discordId, eventInputSchema, syncSettingsSchema, eventDiscordMessage, noticeDiscordMessage, type ClanEvent, type ClanEventInput, type EventParticipant, type EventView, type LoginNotice, type RaffleNotice, type SyncKind, type SyncSettings } from '../lib/clan-discord';
 import { DeliveryError, discordBotRequest, validateDiscordChannels } from '../lib/discord-delivery';
 import { eventResultSchema, progressFor, type EventResultInput } from '../lib/clan-event-rules';
+import { DEFAULT_SITE_APPEARANCE, siteAppearanceInput, type SiteAppearance } from '../lib/site-appearance';
 
 type Job = { key: string; kind: SyncKind; data: string; version: number; delivered: number; next_at: number; attempts: number; channel_id: string; message_id: string; error: string; created_at: number };
 const fail = (status: number, error: string) => ({ ok: false as const, status, error });
@@ -11,6 +12,7 @@ export class ClanDiscord extends DurableObject<Cloudflare.Env> {
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env);
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS sync_settings (id INTEGER PRIMARY KEY, data TEXT NOT NULL)');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS site_appearance (id INTEGER PRIMARY KEY, data TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at INTEGER NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS clan_events (id TEXT PRIMARY KEY, starts_at INTEGER NOT NULL, data TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS event_signups (event_id TEXT NOT NULL, user_id TEXT NOT NULL, name TEXT NOT NULL, joined_at TEXT NOT NULL, PRIMARY KEY(event_id, user_id))');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS event_results (event_id TEXT NOT NULL, user_id TEXT NOT NULL, revision INTEGER NOT NULL, gained INTEGER, updated_at TEXT NOT NULL, PRIMARY KEY(event_id, user_id))');
@@ -22,6 +24,19 @@ export class ClanDiscord extends DurableObject<Cloudflare.Env> {
   #settings(): SyncSettings {
     const row = this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM sync_settings WHERE id = 1').toArray()[0];
     return row ? JSON.parse(row.data) : EMPTY_SYNC_SETTINGS;
+  }
+  getAppearance(): SiteAppearance {
+    const row = this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM site_appearance WHERE id = 1').toArray()[0];
+    return row ? JSON.parse(row.data) : DEFAULT_SITE_APPEARANCE;
+  }
+  saveAppearance(input: unknown, actor: string) {
+    const parsed = siteAppearanceInput.safeParse(input);
+    if (!parsed.success) return fail(400, 'Controleer de thema-instelling.');
+    const current = this.getAppearance();
+    if (parsed.data.revision !== current.revision) return fail(409, 'Een andere beheerder heeft het thema gewijzigd. Wacht even tot de actuele instelling geladen is en probeer opnieuw.');
+    const appearance = { christmasEnabled: parsed.data.christmasEnabled, revision: current.revision + 1 };
+    this.ctx.storage.sql.exec('INSERT INTO site_appearance VALUES (1, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_by = excluded.updated_by, updated_at = excluded.updated_at', JSON.stringify(appearance), actor, Date.now());
+    return { ok: true as const, appearance };
   }
   #ready(kind: SyncKind, settings = this.#settings()) { return Boolean(settings[`${kind}Enabled`] && settings[`${kind}Channel`] && this.env.DISCORD_BOT_TOKEN && this.env.APP_ORIGIN); }
   getSettings() {

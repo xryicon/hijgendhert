@@ -6,6 +6,7 @@ import { useMemberSession, VerifiedMemberSession } from './session-provider';
 import { NotificationBell } from './notification-center';
 import type { DiscordMember } from '@/lib/member-types';
 import MemberAvatar from './member-avatar';
+import ClanCrest from './clan-crest';
 import PkAccessLink from './pk-access-link';
 
 const navigation = [
@@ -20,7 +21,7 @@ export default function SiteHeader({ view, initialMember }: { view: 'home' | 'cl
   const accountButton = useRef<HTMLButtonElement>(null);
   const session = useMemberSession();
   const member = session.member || (session.status === 'loading' ? initialMember : null);
-  const brand = <><img src="/clan-logo.png" alt=""/><span>Hijgend Hert<small>OLD SCHOOL RUNESCAPE CLAN</small></span></>;
+  const brand = <><ClanCrest className="brand-crest"/><span>Hijgend Hert<small>OLD SCHOOL RUNESCAPE CLAN</small></span></>;
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const update = () => setScrolled(window.scrollY > 24);
@@ -55,7 +56,7 @@ export default function SiteHeader({ view, initialMember }: { view: 'home' | 'cl
               <div className="account-panel-heading"><MemberAvatar src={member.avatarUrl} name={member.displayName}/><div><small>MIJN HIJGEND HERT</small><strong>{member.displayName}</strong><span>Ingelogd via Discord</span></div></div>
               <Link href="/profiel" prefetch={false} onClick={() => setAccountOpen(false)}><span className="account-link-icon"><UserRound size={18}/></span><span className="account-link-copy"><strong>Mijn profiel</strong><small>Je account en prestaties</small></span><ArrowUpRight size={14}/></Link>
               <Link href="/profiel#events" prefetch={false} onClick={() => setAccountOpen(false)}><span className="account-link-icon"><CalendarDays size={18}/></span><span className="account-link-copy"><strong>Mijn events</strong><small>Deelnames en uitslagen</small></span><ArrowUpRight size={14}/></Link>
-              {['Admin', 'Staff team'].includes(member.clanRole) && <Link href="/beheer/discord" prefetch={false} onClick={() => setAccountOpen(false)}><span className="account-link-icon"><Shield size={18}/></span><span className="account-link-copy"><strong>Clanbeheer</strong><small>Events en Discord-meldingen</small></span><ArrowUpRight size={14}/></Link>}
+              {['Admin', 'Staff team'].includes(member.clanRole) && <Link href="/beheer/discord" prefetch={false} onClick={() => setAccountOpen(false)}><span className="account-link-icon"><Shield size={18}/></span><span className="account-link-copy"><strong>Clanbeheer</strong><small>Events, Discord en uiterlijk</small></span><ArrowUpRight size={14}/></Link>}
               <form method="post" action="/api/auth/logout"><button type="submit"><LogOut size={16}/><span>Uitloggen</span></button></form>
             </div>}
           </div> : session.status === 'loading' ? <span className="button gold nav-login nav-session-loading" aria-label="Account controleren"><UserRound size={15}/><span>Account</span></span> : session.status === 'unavailable' ? <button type="button" className="button gold nav-login" onClick={() => void session.refresh()} title="Account opnieuw controleren"><UserRound size={15}/>Account</button> : <Link className={`button gold nav-login${view === 'member' ? ' active' : ''}`} href="/login" prefetch={false} aria-current={view === 'member' ? 'page' : undefined}><UserRound size={15} strokeWidth={1.6} aria-hidden="true"/>Login</Link>}

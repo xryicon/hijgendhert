@@ -6,7 +6,7 @@ import DiscordAdmin from '@/components/discord-admin';
 import { requireDiscordMember } from '@/lib/discord-member';
 import { isStaff } from '@/lib/clan-discord';
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Events & Discord beheren | Hijgend Hert', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'Clanbeheer | Hijgend Hert', robots: { index: false, follow: false } };
 export default async function Page() {
   const member = await requireDiscordMember();
   if (!isStaff(member.clanRole)) notFound();
