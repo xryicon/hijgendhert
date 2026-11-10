@@ -1,5 +1,6 @@
 export type DiscordMember = {
   id: string;
+  avatarUrl?: string | null;
   displayName: string;
   username: string;
   clanRole: 'Member' | 'Admin' | 'Staff team';

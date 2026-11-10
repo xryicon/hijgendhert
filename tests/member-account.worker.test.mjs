@@ -16,6 +16,7 @@ const bundle = await build({ stdin: { contents: `
   import { discordAuthRoute } from './lib/discord-auth.ts';
   import { memberProfileRoute } from './lib/member-profile.ts';
   import { clanMemberRoute } from './lib/clan-member-route.ts';
+  import { eventLeaderboardRoute } from './lib/event-leaderboard-route.ts';
   export default { async fetch(request, env) {
     // Test-only RPC access exercises the durable race guard; absent from production.
     if (new URL(request.url).pathname === '/__test/account') {
@@ -27,7 +28,7 @@ const bundle = await build({ stdin: { contents: `
         : await store.saveAccountSnapshot(body.snapshot, body.revision);
       return Response.json({ result, state: await store.getAccount() });
     }
-    return await clanMemberRoute(request, env) || await discordAuthRoute(request, env) || await memberProfileRoute(request, env) || new Response('Not found', {status:404});
+    return await eventLeaderboardRoute(request, env) || await clanMemberRoute(request, env) || await discordAuthRoute(request, env) || await memberProfileRoute(request, env) || new Response('Not found', {status:404});
   }};`, resolveDir: root, loader: 'ts', sourcefile: 'member-account-test-worker.ts' }, bundle: true, write: false, platform: 'neutral', format: 'esm', target: 'es2022', external: ['cloudflare:workers', 'node:crypto'] });
 const env = { APP_ORIGIN: 'https://clan.example', DISCORD_CLIENT_ID: '123456789012345678', DISCORD_CLIENT_SECRET: 'account-tests-only', DISCORD_GUILD_ID: '1073630238115897455', DISCORD_MEMBER_ROLE_IDS: '1326459850837987430,1197327572720169030,1408990525180084265', DISCORD_SESSION_SECRET: randomBytes(32).toString('base64url') };
 const users = {
@@ -53,13 +54,15 @@ function runtime(options = {}) {
           return Response.json({ access_token: `account-test-access-${code}`, refresh_token: `account-test-refresh-${code}`, token_type: 'Bearer', expires_in: 604800, scope: 'identify guilds.members.read' });
         }
         const key = request.headers.get('Authorization')?.endsWith('-b') ? 'b' : 'a';
-        const user = users[key];
+        const user = { ...users[key], ...(options.avatar ? { avatar: 'a'.repeat(32) } : {}) };
         if (url.pathname.endsWith('/users/@me')) return Response.json(user);
-        if (url.pathname.endsWith('/member')) return options.discordOffline ? Response.json({}, { status: 503 }) : Response.json({ user, nick: `Discord ${key.toUpperCase()}`, roles: options.roles || ['1326459850837987430'], joined_at: null });
+        if (url.pathname.endsWith('/member')) return options.discordOffline ? Response.json({}, { status: 503 }) : Response.json({ user, nick: options.nick || `Discord ${key.toUpperCase()}`, roles: options.roles || ['1326459850837987430'], joined_at: null });
       }
       assert.equal(url.origin, 'https://api.wiseoldman.net');
       if (options.womOffline) return Response.json({}, { status: 503 });
       if (url.pathname === '/v2/groups/7059') return Response.json({ id: 7059, memberships: players.filter(p => p.id !== options.excludePlayer).map(player => ({ role: 'recruit', player })) });
+      if (url.pathname === '/v2/groups/7059/competitions') return Response.json([{ ...event, type: 'classic' }]);
+      if (url.pathname === '/v2/competitions/41') return Response.json({ ...event, type: 'classic', participations: players.map((player, i) => ({ player, deltas: [{ metric: 'vorkath', values: { gained: i ? 50 : 100 } }] })) });
       const player = players.find(p => ['', '/competitions', '/snapshots'].some(suffix => decodeURIComponent(url.pathname) === `/v2/players/${p.username}${suffix}`));
       assert.ok(player, `Unexpected upstream path ${url.pathname}`);
       if (url.pathname.endsWith('/snapshots')) return Response.json([
@@ -231,4 +234,50 @@ test('a late snapshot cannot overwrite an account switch or bypass its revision'
     const mismatched = await (await call({ op: 'snapshot', snapshot, revision: switched.state.revision })).json();
     assert.equal(mismatched.state.playerId, 702); assert.equal(mismatched.state.snapshot, null);
   } finally { await mf.dispose(); }
+});
+
+
+test('public avatars persist without exposing Discord identities and only match current clan names', async () => {
+  await withPersistentRuntime(async start => {
+    let { mf } = await start({ avatar: true, nick: 'Ander Hert' });
+    const session = await login(mf);
+    const check = await mf.dispatchFetch(env.APP_ORIGIN + '/api/auth/session', { headers: { Cookie: session } });
+    assert.equal(check.status, 200);
+    assert.match((await check.json()).member.avatarUrl, /cdn.discordapp.com/);
+    ({ mf } = await start());
+    const response = await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/avatars');
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.deepEqual(Object.keys(body), ['avatars']); assert.deepEqual(Object.keys(body.avatars), ['702']);
+    assert.equal(JSON.stringify(body).includes('discord-user-a'), false);
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/avatars', { method: 'POST', body: '{}' })).status, 405);
+    ({ mf } = await start({ excludePlayer: 702 }));
+    assert.deepEqual((await (await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/avatars')).json()).avatars, {});
+  });
+});
+
+test('space-containing names resolve through the public profile and activity APIs', async () => {
+  const { mf } = runtime();
+  try {
+    const profile = await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/member?username=ander%20hert');
+    assert.equal(profile.status, 200); assert.equal((await profile.json()).player.id, 702);
+    const activity = await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/member/activity?username=ander%20hert');
+    assert.equal(activity.status, 200); assert.ok((await activity.json()).activities.length);
+  } finally { await mf.dispose(); }
+});
+
+test('event leaderboard persists final results, avoids refetching and filters departed members', async () => {
+  await withPersistentRuntime(async start => {
+    let { mf, calls } = await start();
+    const first = await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/leaderboard');
+    assert.equal(first.status, 200); const board = await first.json();
+    assert.equal(board.complete, true); assert.equal(board.loadedEvents, 1);
+    assert.deepEqual(board.rows.map(r => [r.playerId, r.events, r.averagePlace, r.position]), [[701, 1, 1, 1], [702, 1, 2, 2]]);
+    assert.equal(calls.filter(p => p === '/v2/competitions/41').length, 1);
+    ({ mf, calls } = await start({ excludePlayer: 701 }));
+    const next = await (await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/leaderboard')).json();
+    assert.deepEqual(next.rows.map(r => [r.playerId, r.averagePlace, r.position]), [[702, 2, 1]]);
+    assert.equal(calls.includes('/v2/competitions/41'), false);
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/leaderboard', { method: 'POST' })).status, 405);
+  });
 });

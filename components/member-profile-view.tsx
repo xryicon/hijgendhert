@@ -12,6 +12,7 @@ import ProfileUnavailable from './profile-unavailable';
 import MemberActivityFeed from './member-activity';
 import ProfileRankAdmin from './profile-rank-admin';
 import MetricImage from './metric-image';
+import MemberAvatar from './member-avatar';
 import RankIcon from './rank-icon';
 
 const number = (value: number) => new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 0 }).format(value);
@@ -85,7 +86,7 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
   return <div className="profile-shell">
     <div className="profile-breadcrumb"><Link prefetch={false} href="/">Hijgend Hert</Link><span>/</span><span>Mijn profiel</span></div>
     <section className="profile-identity" aria-labelledby="profile-title">
-      <div className="profile-avatar" aria-hidden="true"><img src="/clan-logo.png" alt=""/><ShieldCheck size={19}/></div>
+      <div className="profile-avatar"><MemberAvatar src={session.member?.avatarUrl ?? member.avatarUrl} name={member.displayName}/><ShieldCheck size={19} aria-hidden="true"/></div>
       <div className="profile-heading"><p className="member-eyebrow">HIJGEND HERT · CLANGENOOT</p><h1 id="profile-title">{member.displayName}</h1><p className="profile-discord"><span>@{member.username}</span>{profile?.clanRank && <span className="profile-role" title={`Clanrang van ${profile.player?.displayName} via Wise Old Man`}><RankIcon rank={profile.clanRank.id} size={18}/>{profile.clanRank.name}</span>}</p>{member.joinedAt && <p className="profile-since">Bij de Discord sinds {day(member.joinedAt)}</p>}</div>
       <Link prefetch={false} className="profile-agenda" href="/events#kalender"><CalendarDays size={17}/><span>Clanagenda</span><ArrowUpRight size={15}/></Link>
       <img className="profile-watermark" src="/clan-logo.png" alt=""/>
@@ -98,7 +99,7 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
         <div className="profile-section-label"><Swords size={17}/><span>IN GIELINOR</span></div><h2 id="character-title">Jouw RuneScape-account</h2>
         {loading && !profile ? <p className="profile-muted" role="status">Clanlijst wordt opgehaald…</p> : error ? <div className="profile-error" role="status"><p>{error}</p><button onClick={() => void load()}><RefreshCw size={14}/> Opnieuw proberen</button></div> : <>
           {profile?.player && !editing ? <>
-            <div className="profile-player-name"><img src="/clan-logo.png" alt=""/><div><strong>{profile.player.displayName}</strong><span>{({ regular: 'Main account', ironman: 'Ironman', hardcore: 'Hardcore Ironman', ultimate: 'Ultimate Ironman' } as Record<string, string>)[profile.player.type] || 'RuneScape-account'}</span></div></div>
+            <div className="profile-player-name"><MemberAvatar playerId={profile.player.id} name={profile.player.displayName}/><div><strong>{profile.player.displayName}</strong><span>{({ regular: 'Main account', ironman: 'Ironman', hardcore: 'Hardcore Ironman', ultimate: 'Ultimate Ironman' } as Record<string, string>)[profile.player.type] || 'RuneScape-account'}</span></div></div>
             <dl className="profile-player-stats"><div><dt>Totale XP</dt><dd>{profile.player.exp !== null ? number(profile.player.exp) : '—'}</dd></div><div><dt>EHP</dt><dd>{profile.player.ehp !== null ? number(profile.player.ehp) : '—'}</dd></div><div><dt>EHB</dt><dd>{profile.player.ehb !== null ? number(profile.player.ehb) : '—'}</dd></div></dl>
             <Link prefetch={false} className="profile-wom-link" href={`/leden/${encodeURIComponent(profile.player.username)}`}>Mijn ledenprofiel <ArrowUpRight size={13}/></Link>
             <a className="profile-wom-link" href={`https://wiseoldman.net/players/${encodeURIComponent(profile.player.username)}`} target="_blank" rel="noreferrer">Bekijk op Wise Old Man <ExternalLink size={13}/></a>

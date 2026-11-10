@@ -5,6 +5,7 @@ import { Check, ChevronDown, Search, Shield, Users } from 'lucide-react';
 import { z } from 'zod';
 import { raffleNameKey } from '@/lib/raffle-types';
 import { WOM_FAILURE_RETRY_SECONDS } from '@/lib/wom-refresh';
+import MemberAvatar from './member-avatar';
 
 const playerSchema = z.object({ id: z.number().int().positive(), username: z.string().min(1).max(30), displayName: z.string().min(1).max(30), type: z.string().max(40).optional() });
 const groupSchema = z.object({ id: z.literal(7059), memberships: z.array(z.object({ player: playerSchema })).max(2000) });
@@ -94,7 +95,7 @@ export function RafflePlayerPicker({ name, index, players, loading, usedNames, o
         else if (event.key === 'Enter' && open) { event.preventDefault(); if (results[active]) choose(results[active]); else setOpen(false); }
       }}/>{selected ? <Check size={15} className="raffle-player-check" aria-label="Naam uit Wise Old Man"/> : <ChevronDown size={14} aria-hidden="true"/>}</div>
     {open && <div className="raffle-player-menu"><div className="raffle-player-menu-title">HIJGEND HERT · WISE OLD MAN</div><ul ref={list} id={`${id}-list`} role="listbox" aria-label="Clanleden">{results.map((player, option) => <li id={`${id}-option-${option}`} key={player.id} role="option" aria-selected={active === option} onPointerDown={event => event.preventDefault()} onClick={() => choose(player)}>
-      <span className="raffle-player-avatar">{player.type && player.type !== 'regular' ? <Shield size={14}/> : <Users size={14}/>}</span><span><strong>{player.displayName}</strong><small>{player.type && player.type !== 'regular' ? 'Ironman' : 'Clanspeler'}</small></span>{selected?.id === player.id && <Check size={14}/>}
+      <MemberAvatar playerId={player.id} name={player.displayName} className="raffle-player-avatar" fallback={player.type && player.type !== 'regular' ? <Shield size={14}/> : <Users size={14}/>}/><span><strong>{player.displayName}</strong><small>{player.type && player.type !== 'regular' ? 'Ironman' : 'Clanspeler'}</small></span>{selected?.id === player.id && <Check size={14}/>}
     </li>)}</ul>{!results.length && <p>{loading ? 'De clanlijst wordt opgehaald…' : players.length ? 'Geen ander clanlid gevonden. Controleer de naam of vul hem handmatig in.' : 'Vul de RuneScape-naam handmatig in zolang de clanlijst niet beschikbaar is.'}</p>}</div>}
   </div>;
 }

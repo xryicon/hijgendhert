@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import SessionProvider from '@/components/session-provider';
 import NotificationProvider from '@/components/notification-center';
+import { MemberAvatarProvider } from '@/components/member-avatar';
 import "./globals.css";
 import "./professional.css";
 import "./community.css";
@@ -18,6 +19,8 @@ import './clan-raffle.css';
 import './notifications.css';
 import './osrs-metrics.css';
 import './account-access.css';
+import './member-avatars.css';
+import './member-leaderboard.css';
 
 export const metadata: Metadata = {
   title: "Hijgend Hert — Samen op avontuur in Gielinor",
@@ -37,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="nl">
-      <body className="antialiased"><SessionProvider><NotificationProvider>{children}</NotificationProvider></SessionProvider></body>
+      <body className="antialiased"><SessionProvider><MemberAvatarProvider><NotificationProvider>{children}</NotificationProvider></MemberAvatarProvider></SessionProvider></body>
     </html>
   );
 }

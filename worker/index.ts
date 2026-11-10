@@ -8,6 +8,7 @@ import { profileProgressRoute } from "../lib/profile-progress-route";
 import { clanMemberRoute } from "../lib/clan-member-route";
 import { siteAccessRoute } from "../lib/site-access";
 import { notificationRoute } from "../lib/notification-route";
+import { eventLeaderboardRoute } from '../lib/event-leaderboard-route';
 export { ClanRaffle } from './clan-raffle';
 export { ClanProgress } from './clan-progress';
 export { WomCache } from './wom-cache';
@@ -23,6 +24,8 @@ const application = {
     }
     const memberResponse = await clanMemberRoute(request, env);
     if (memberResponse) return memberResponse;
+    const leaderboardResponse = await eventLeaderboardRoute(request, env);
+    if (leaderboardResponse) return leaderboardResponse;
     const raffleResponse = await raffleRoute(request, env);
     if (raffleResponse) return raffleResponse;
     const authResponse = await discordAuthRoute(request, env);

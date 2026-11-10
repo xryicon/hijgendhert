@@ -1,0 +1,60 @@
+"use client";
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, RefreshCw, Trophy } from 'lucide-react';
+import type { EventLeaderboard } from '@/lib/event-leaderboard';
+import Link from './site-link';
+import MemberAvatar from './member-avatar';
+
+type Member = { player: { id: number; username: string; displayName: string; type: string } };
+export default function MemberLeaderboard({ members, query, account }: { members: Member[]; query: string; account: string }) {
+  const [data, setData] = useState<EventLeaderboard | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
+  const [page, setPage] = useState(0);
+  const [retryAt, setRetryAt] = useState(0);
+  const [clock, setClock] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    async function load() {
+      if (document.hidden) { timer = setTimeout(load, 15_000); return; }
+      setLoading(true);
+      try {
+        const response = await fetch('/api/clan/leaderboard', { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(90_000)]), cache: 'no-store' });
+        const body = await response.json() as EventLeaderboard & { error?: string };
+        if (!response.ok) { setRetryAt(Date.now() + Math.max(60, Number(response.headers.get('Retry-After')) || 60) * 1000); throw new Error(body.error || 'De uitslagen zijn even niet beschikbaar.'); }
+        if (!Array.isArray(body.rows)) throw new Error('De uitslagen konden niet worden gelezen.');
+        if (controller.signal.aborted) return;
+        setData(body); setError(''); setRetryAt(0);
+        timer = setTimeout(load, Math.max(10, body.retryAfter) * 1000);
+      } catch (error) {
+        if (!controller.signal.aborted) { setError(error instanceof Error ? error.message : 'De uitslagen zijn even niet beschikbaar.'); setRetryAt(old => old || Date.now() + 60_000); }
+      } finally { if (!controller.signal.aborted) setLoading(false); }
+    }
+    void load();
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [attempt]);
+  useEffect(() => { setPage(0); }, [query, account]);
+  useEffect(() => { if (!retryAt) return; setClock(Date.now()); const timer = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(timer); }, [retryAt]);
+  const rows = useMemo(() => {
+    const byId = new Map(members.map(member => [member.player.id, member.player]));
+    return (data?.rows || []).flatMap(row => { const player = byId.get(row.playerId); return player ? [{ ...row, player }] : []; }).filter(({ player }) =>
+      [player.username, player.displayName].some(name => name.toLowerCase().includes(query.trim().toLowerCase())) &&
+      (account === 'all' || (account === 'ironman' ? ['ironman', 'hardcore', 'ultimate'].includes(player.type) : player.type === 'regular')));
+  }, [members, data, query, account]);
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(rows.length / 10) - 1));
+  return <section className="member-leaderboard panel" aria-labelledby="event-leaderboard-title">
+    <div className="leaderboard-heading"><div><p className="eyebrow"><Trophy size={14}/> OP HET PODIUM</p><h2 id="event-leaderboard-title">Eventleaderboard</h2><p>Elke deelname telt. Ontdek wie gemiddeld het hoogst eindigt.</p></div><span>{data ? `${data.loadedEvents} / ${data.totalEvents} events` : 'Uitslagen ophalen…'}</span></div>
+    <p className="leaderboard-rule">Beste gemiddelde eindplaats eerst; bij gelijk gemiddelde gaat het lid met meer deelnames voor. Gelijke scores delen hun plaats. Dit klassement staat los van je clanrang.</p>
+    {error && <div className="leaderboard-status" role="status">{error} <button className="text-link" disabled={loading || clock < retryAt} onClick={() => { setRetryAt(0); setAttempt(n => n + 1); }}><RefreshCw size={14}/> {clock < retryAt ? 'Even wachten…' : 'Opnieuw proberen'}</button></div>}
+    {data && !data.complete && <div className="leaderboard-status" role="status">We verzamelen de historie: {data.loadedEvents} van {data.totalEvents} afgeronde events verwerkt. De cijfers zijn voorlopig; de clanpositie verschijnt wanneer alle uitslagen binnen zijn.</div>}
+    {data?.stale && data.complete && <p className="leaderboard-status">Je ziet de laatst beschikbare uitslagen. Wise Old Man wordt later opnieuw gecontroleerd.</p>}
+    {!data && loading ? <div className="leaderboard-empty" role="status"><RefreshCw size={25}/><p>De clanresultaten worden opgehaald…</p></div> : data && <>
+      <div className="table-scroll"><table><caption className="sr-only">Eventklassement van huidige clanleden op gemiddelde eindplaats</caption><thead><tr><th>POSITIE</th><th>CLANSPELER</th><th>EVENTS MEEGEDAAN</th><th>GEM. EINDPLAATS</th></tr></thead><tbody>{rows.slice(currentPage * 10, currentPage * 10 + 10).map(row => <tr key={row.playerId}><td><span className={`leaderboard-position${row.position && row.position <= 3 ? ' is-podium' : ''}`}>{row.position ? `#${row.position}` : '—'}</span></td><td><Link className="member-name" prefetch={false} href={`/leden/${encodeURIComponent(row.player.username)}`}><MemberAvatar playerId={row.playerId} name={row.player.displayName}/>{row.player.displayName}</Link></td><td className="numeric">{row.events}{!data.complete && row.events ? '+' : ''}</td><td className="numeric">{row.averagePlace === null ? 'Nog geen uitslag' : `#${new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 2 }).format(row.averagePlace)}`}</td></tr>)}</tbody></table></div>
+      {!rows.length && <p className="leaderboard-empty">Geen clanleden gevonden voor deze selectie.</p>}
+      {rows.length > 10 && <div className="member-pagination"><span>{currentPage * 10 + 1}–{Math.min((currentPage + 1) * 10, rows.length)} van {rows.length} clanleden</span><div><button aria-label="Vorige leaderboardpagina" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}><ChevronLeft size={16}/></button><span>{currentPage + 1} / {Math.ceil(rows.length / 10)}</span><button aria-label="Volgende leaderboardpagina" disabled={(currentPage + 1) * 10 >= rows.length} onClick={() => setPage(currentPage + 1)}><ChevronRight size={16}/></button></div></div>}
+    </>}
+    <p className="leaderboard-footnote">Alleen afgeronde individuele Hijgend Hert-competities in Wise Old Man met positieve voortgang. Alleen inschrijven telt niet mee. Een lid zonder uitslagen krijgt nog geen positie.</p>
+  </section>;
+}

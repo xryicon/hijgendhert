@@ -3,6 +3,8 @@ import { DEFAULT_RANK_RULES, EMPTY_PLAYER_PROGRESS, memberRankSchema, rankRulesS
 import type { MemberEvent } from '../lib/member-types';
 import { EMPTY_MEMBER_ACCOUNT, type SavedMemberAccount, type SavedMemberSnapshot, type SavedMemberActivity } from '../lib/member-account';
 import { updateNotificationFeed, visibleNotifications, type NotificationFeedState, type NotificationSourceUpdates } from '../lib/notifications';
+import { rememberAvatar, matchMemberAvatars, type AvatarIdentity, type AvatarPlayer, type StoredAvatar } from '../lib/member-avatars';
+import type { LeaderboardEvent } from '../lib/event-leaderboard';
 import { fetchDiscordMembership } from '../lib/discord-auth';
 import { DiscordMembershipCache } from '../lib/discord-membership-cache';
 
@@ -40,6 +42,27 @@ export class ClanProgress extends DurableObject<Cloudflare.Env> {
   }
   clearDiscordMembership() { this.#discordChecks.clear(); }
   getAccount(): SavedMemberAccount { return this.#read('account', EMPTY_MEMBER_ACCOUNT); }
+  getLeaderboardEvents(): LeaderboardEvent[] {
+    return this.ctx.storage.sql.exec<{ value: string }>("SELECT value FROM profile_settings WHERE key LIKE 'leaderboard-event:%' LIMIT 2000").toArray().map(row => JSON.parse(row.value) as LeaderboardEvent);
+  }
+  saveLeaderboardEvent(event: LeaderboardEvent) {
+    const key = `leaderboard-event:${event.id}`;
+    const old = this.#read<LeaderboardEvent | null>(key, null);
+    if (!old || Date.parse(old.fetchedAt) <= Date.parse(event.fetchedAt)) this.#save(key, event);
+  }
+  claimLeaderboardRefresh() {
+    if (this.#read<number>('leaderboard-retry-at', 0) > Date.now()) return false;
+    this.#save('leaderboard-retry-at', Date.now() + 180_000);
+    return true;
+  }
+  releaseLeaderboardRefresh(seconds: number) { this.#save('leaderboard-retry-at', Date.now() + Math.max(10, seconds) * 1000); }
+  leaderboardRetryAfter() { return Math.max(10, Math.ceil((this.#read<number>('leaderboard-retry-at', 0) - Date.now()) / 1000)); }
+  rememberMemberAvatar(member: AvatarIdentity) {
+    this.#save('member-avatars', rememberAvatar(this.#read<StoredAvatar[]>('member-avatars', []), member));
+  }
+  getMemberAvatars(players: AvatarPlayer[]) {
+    return matchMemberAvatars(this.#read<StoredAvatar[]>('member-avatars', []), players.slice(0, 2000));
+  }
   selectAccount(playerId: number | null, revision: number) {
     const saved = this.getAccount();
     if (saved.revision !== revision || (playerId !== null && (!Number.isSafeInteger(playerId) || playerId <= 0))) return false;

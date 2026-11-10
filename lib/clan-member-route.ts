@@ -8,11 +8,12 @@ import type { ClanPlayer, PublicMemberProfile } from './member-types';
 
 export async function clanMemberRoute(request: Request, env: WomEnv & { PROGRESS?: DurableObjectNamespace<ClanProgress> }, fetcher: typeof fetch = fetch): Promise<Response | null> {
   const url = new URL(request.url);
-  if (!['/api/clan/member', '/api/clan/member/activity'].includes(url.pathname)) return null;
+  if (!['/api/clan/member', '/api/clan/member/activity', '/api/clan/avatars'].includes(url.pathname)) return null;
+  const avatars = url.pathname === '/api/clan/avatars';
   const json = (body: unknown, status = 200, headers: Record<string, string> = {}) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers } });
   if (request.method !== 'GET') return json({ error: 'Ongeldig verzoek.' }, 405, { Allow: 'GET' });
   const username = url.searchParams.get('username')?.trim() || '';
-  if (!/^[a-zA-Z0-9 _-]{1,30}$/.test(username)) return json({ error: 'Ongeldige spelersnaam.' }, 400);
+  if (!avatars && !/^[a-zA-Z0-9 _-]{1,30}$/.test(username)) return json({ error: 'Ongeldige spelersnaam.' }, 400);
   let stale = false, fetchedAt = new Date().toISOString();
   const readWom = async (path: string) => {
     const value = await readWiseOldMan<unknown>(path, url.origin, { fetcher, ...womConnection(env) });
@@ -23,6 +24,11 @@ export async function clanMemberRoute(request: Request, env: WomEnv & { PROGRESS
   try {
     // Validate membership before making any per-player request. No arbitrary WOM search proxy.
     const group = z.object({ id: z.literal(7059), memberships: z.array(z.object({ player: playerSchema, role: z.string().max(80).nullish() })).max(2000) }).parse(await readWom('/groups/7059'));
+    if (avatars) {
+      const photos = await env.PROGRESS?.getByName('clan:7059:avatars').getMemberAvatars(group.memberships.map(({ player }) => ({ id: player.id, username: player.username, displayName: player.displayName }))) || {};
+      // Only public player ids and pictures, never the underlying Discord identity directory.
+      return json({ avatars: photos });
+    }
     const matches = group.memberships.filter(({ player }) => [player.username, player.displayName].some(name => normalizePlayerName(name) === normalizePlayerName(username)));
     if (matches.length !== 1) return json({ error: 'Dit account staat niet in de ledenlijst van Hijgend Hert.' }, 404);
     const { player: p, role } = matches[0];

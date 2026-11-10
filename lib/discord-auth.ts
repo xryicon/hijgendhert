@@ -1,6 +1,8 @@
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { DiscordMember } from './member-types';
+import { discordAvatarUrl } from './member-avatars';
+
 import type { ClanProgress } from '../worker/clan-progress';
 
 export type DiscordEnv = {
@@ -114,8 +116,9 @@ async function unseal(config: DiscordConfig, purpose: 'state' | 'session' | 'pro
 const stateSchema = z.object({ nonce: z.string().length(43), verifier: z.string().length(43), expiresAt: z.number().int() }).strict();
 const sessionSchema = z.object({ accessToken: z.string().min(10).max(512), refreshToken: z.string().min(10).max(512).optional(), accessExpiresAt: z.number().int().optional(), userId: snowflake, expiresAt: z.number().int() }).strict();
 const tokenSchema = z.object({ access_token: z.string().min(10).max(512), refresh_token: z.string().min(10).max(512).optional(), token_type: z.literal('Bearer'), expires_in: z.number().int().positive(), scope: z.string() });
-const userSchema = z.object({ id: snowflake, username: z.string().min(1).max(100), global_name: z.string().max(100).nullable().optional() });
-const memberSchema = z.object({ roles: z.array(snowflake).max(500), pending: z.boolean().optional(), nick: z.string().max(100).nullable().optional(), joined_at: z.string().max(50).nullish(), user: userSchema.optional() });
+const avatarHash = z.string().regex(/^(?:a_)?[a-f0-9]{32}$/).nullish().catch(null);
+const userSchema = z.object({ id: snowflake, username: z.string().min(1).max(100), global_name: z.string().max(100).nullable().optional(), avatar: avatarHash });
+const memberSchema = z.object({ roles: z.array(snowflake).max(500), pending: z.boolean().optional(), nick: z.string().max(100).nullable().optional(), joined_at: z.string().max(50).nullish(), user: userSchema.optional(), avatar: avatarHash });
 export type DiscordGuildMember = z.infer<typeof memberSchema>;
 export type DiscordMembershipResult = { member: DiscordGuildMember; cooldownSeconds: number };
 export type DiscordMembershipOutcome = { ok: true; member: DiscordGuildMember } | { ok: false; code: AccessCode; detail?: string; retryAfter?: number };
@@ -212,6 +215,7 @@ export async function authorizeMember(request: Request, config: DiscordConfig, f
   return {
     id: member.user.id, displayName: member.nick || member.user.global_name || member.user.username,
     username: member.user.username,
+    avatarUrl: discordAvatarUrl(member.user, config.guildId, member.avatar),
     clanRole: member.roles.includes('1197327572720169030') ? 'Admin' : member.roles.includes('1408990525180084265') ? 'Staff team' : 'Member',
     joinedAt: member.joined_at && Number.isFinite(Date.parse(member.joined_at)) ? member.joined_at : null,
     expiresAt: parsed.data.expiresAt,
@@ -379,6 +383,9 @@ export async function discordAuthRoute(request: Request, env: DiscordEnv, fetche
     const renewed = await renewSession(request, config, fetcher);
     renewedCookie = renewed.renewedCookie;
     const member = await authorizeMember(renewed.request, config, fetcher);
+    // Reuse the existing identity check. No additional Discord requests or credentials are saved.
+    try { await env.PROGRESS?.getByName('clan:7059:avatars').rememberMemberAvatar(member); }
+    catch { /* An unavailable picture directory must never interrupt sign-in. */ }
     return json({ authenticated: true, member }, 200, renewedCookie ? [renewedCookie] : []);
   }
   catch (error) {
