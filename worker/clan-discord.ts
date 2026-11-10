@@ -3,6 +3,7 @@ import { EMPTY_SYNC_SETTINGS, discordId, eventInputSchema, syncSettingsSchema, e
 import { DeliveryError, discordBotRequest, validateDiscordChannels } from '../lib/discord-delivery';
 import { eventResultSchema, progressFor, type EventResultInput } from '../lib/clan-event-rules';
 import { DEFAULT_SITE_APPEARANCE, siteAppearanceInput, type SiteAppearance } from '../lib/site-appearance';
+import { DEFAULT_WELCOME, welcomeInput, type WelcomeContent } from '../lib/welcome';
 
 type Job = { key: string; kind: SyncKind; data: string; version: number; delivered: number; next_at: number; attempts: number; channel_id: string; message_id: string; error: string; created_at: number };
 const fail = (status: number, error: string) => ({ ok: false as const, status, error });
@@ -13,6 +14,7 @@ export class ClanDiscord extends DurableObject<Cloudflare.Env> {
     super(ctx, env);
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS sync_settings (id INTEGER PRIMARY KEY, data TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS site_appearance (id INTEGER PRIMARY KEY, data TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at INTEGER NOT NULL)');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS site_welcome (id INTEGER PRIMARY KEY, data TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at INTEGER NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS clan_events (id TEXT PRIMARY KEY, starts_at INTEGER NOT NULL, data TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS event_signups (event_id TEXT NOT NULL, user_id TEXT NOT NULL, name TEXT NOT NULL, joined_at TEXT NOT NULL, PRIMARY KEY(event_id, user_id))');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS event_results (event_id TEXT NOT NULL, user_id TEXT NOT NULL, revision INTEGER NOT NULL, gained INTEGER, updated_at TEXT NOT NULL, PRIMARY KEY(event_id, user_id))');
@@ -37,6 +39,18 @@ export class ClanDiscord extends DurableObject<Cloudflare.Env> {
     const appearance = { christmasEnabled: parsed.data.christmasEnabled, revision: current.revision + 1 };
     this.ctx.storage.sql.exec('INSERT INTO site_appearance VALUES (1, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_by = excluded.updated_by, updated_at = excluded.updated_at', JSON.stringify(appearance), actor, Date.now());
     return { ok: true as const, appearance };
+  }
+  getWelcome(): WelcomeContent {
+    const row = this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM site_welcome WHERE id = 1').toArray()[0];
+    return row ? JSON.parse(row.data) : DEFAULT_WELCOME;
+  }
+  saveWelcome(input: unknown, actor: string) {
+    const parsed = welcomeInput.safeParse(input);
+    if (!parsed.success) return fail(400, parsed.error.issues[0].message);
+    if (parsed.data.revision !== this.getWelcome().revision) return fail(409, 'De welkomstpagina is door een andere beheerder gewijzigd. Laad de actuele inhoud voordat je opslaat.');
+    const welcome = { ...parsed.data, revision: parsed.data.revision + 1 };
+    this.ctx.storage.sql.exec('INSERT INTO site_welcome VALUES (1, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_by = excluded.updated_by, updated_at = excluded.updated_at', JSON.stringify(welcome), actor, Date.now());
+    return { ok: true as const, welcome };
   }
   #ready(kind: SyncKind, settings = this.#settings()) { return Boolean(settings[`${kind}Enabled`] && settings[`${kind}Channel`] && this.env.DISCORD_BOT_TOKEN && this.env.APP_ORIGIN); }
   getSettings() {
@@ -74,7 +88,7 @@ export class ClanDiscord extends DurableObject<Cloudflare.Env> {
   }
   #event(id: string): ClanEvent | null {
     const row = this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM clan_events WHERE id = ?', id).toArray()[0];
-    return row ? { minimum: null, ...JSON.parse(row.data) } : null;
+    return row ? { minimum: null, beginnerFriendly: false, experience: '', gear: '', ...JSON.parse(row.data) } : null;
   }
   #view(event: ClanEvent, userId?: string, privateView = false): EventView {
     const rows = this.ctx.storage.sql.exec<{ user_id: string; name: string; joined_at: string }>('SELECT user_id, name, joined_at FROM event_signups WHERE event_id = ? ORDER BY joined_at, user_id', event.id).toArray();
@@ -84,7 +98,7 @@ export class ClanDiscord extends DurableObject<Cloudflare.Env> {
       const result = resultsByUser.get(row.user_id);
       return { userId: row.user_id, name: row.name, joinedAt: row.joined_at, progress: progressFor(event.minimum, result ? { revision: result.revision, gained: result.gained, updatedAt: result.updated_at } : undefined) };
     });
-    return { ...event, minimum: event.minimum || null, participantCount: rows.length, qualifiedCount: participants.filter(p => p.progress.qualified === true).length, joined: rows.some(row => row.user_id === userId), myProgress: participants.find(p => p.userId === userId)?.progress || null, ...(privateView ? { participants } : {}) };
+    return { ...event, beginnerFriendly: event.beginnerFriendly ?? false, experience: event.experience || '', gear: event.gear || '', minimum: event.minimum || null, participantCount: rows.length, qualifiedCount: participants.filter(p => p.progress.qualified === true).length, joined: rows.some(row => row.user_id === userId), myProgress: participants.find(p => p.userId === userId)?.progress || null, ...(privateView ? { participants } : {}) };
   }
   listEvents(userId?: string, privateView = false): EventView[] {
     return this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM clan_events ORDER BY starts_at DESC LIMIT 200').toArray().map(row => this.#view(JSON.parse(row.data), userId, privateView));

@@ -18,6 +18,8 @@ import ClanRaffle from '@/components/clan-raffle';
 import RankIcon from './rank-icon';
 import MemberAvatar from './member-avatar';
 import MemberLeaderboard from './member-leaderboard';
+import { WelcomeSections } from './welcome-experience';
+import { DEFAULT_WELCOME, type WelcomeContent } from '@/lib/welcome';
 import { useMemberSession } from './session-provider';
 import { rankLabel as roleLabel } from '@/lib/osrs-ranks';
 
@@ -86,7 +88,7 @@ function LoadError({ message, retry }: { message: string; retry: () => void }) {
 }
 function Skeleton({ lines = 3 }: { lines?: number }) { return <div className="skeletons" aria-label="Gegevens worden geladen" role="status">{Array.from({ length: lines }, (_, i) => <div className="skeleton" key={i}/>)}</div>; }
 
-export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | 'events' }) {
+export default function ClanSite({ view = 'home', welcome = DEFAULT_WELCOME }: { view?: 'home' | 'clan' | 'events'; welcome?: WelcomeContent }) {
   const session = useMemberSession();
   const group = useWom<Group>("resource=group", 0, view !== 'events', WOM_REFRESH_MS);
   const competitions = useWom<Competition[]>("resource=competitions", 400, view === 'events', WOM_REFRESH_MS);
@@ -138,13 +140,14 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
         <div className="hero-pattern" aria-hidden="true"/>
         <div className="hero-shade" aria-hidden="true"/>
         <div className="container hero-inner"><div className="hero-copy hero-poem">
-          <h1>Waarom join je<br/><em>Hijgend Hert?</em></h1>
+          <p className="eyebrow welcome-hero-eyebrow">OLD SCHOOL RUNESCAPE · NL / BE</p><h1>Jouw volgende avontuur<br/>begint bij <em>Hijgend Hert.</em></h1>
           <div className="poem-rule" aria-hidden="true"><span/>◆<span/></div>
-          <p className="clan-rhyme"><span>Omdat je daar pas echt een legend wordt!</span><span>Van raids tot PK, we strijden zij aan zij,</span><span>bij Hijgend Hert hoor jij erbij!</span></p>
-          {!session.member && session.status !== 'loading' && <a className="poem-discord" href={DISCORD} target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={15}/></a>}
+          <p className="clan-rhyme">Samen op pad, nieuwe bosses leren en je volgende mijlpaal vieren.</p><p className="welcome-hero-requirement"><Shield size={14}/> Lid worden vanaf <strong>{welcome.minimumTotal.toLocaleString('nl-NL')} total level</strong></p>
+          <div className="welcome-hero-actions">{!session.member && session.status !== 'loading' && <a className="poem-discord" href={DISCORD} target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={15}/></a>}{session.member && <Link className="poem-discord" href="/events#kalender">Bekijk de agenda <CalendarDays size={15}/></Link>}<Link href="/nieuw-hier" className="welcome-secondary">Ontdek de clan <ArrowRight size={16}/></Link></div>
         </div><div className="hero-identity"><div className="emblem-ring"/><BreathingCrest/></div></div>
       </section>
       <ClanStats memberCount={group.result?.data.memberCount ?? null} totalXp={group.result ? totals.exp : null} homeWorld={group.result?.data.homeworld || null} fetchedAt={group.result?.fetchedAt ?? null} loading={group.loading} error={group.error} stale={!!group.result?.stale} onRetry={group.reload}/>
+      <WelcomeSections content={welcome} mode="home"/>
       </>}
       {view === 'events' && eventView === 'overview' && <EventsOverview competitions={events} loading={competitions.loading} error={competitions.error} onRetry={competitions.reload} stale={competitions.result?.stale} onNavigate={changeEventView}/>}
       {view === 'events' && (eventView === 'skill' || eventView === 'boss') && <WeeklyEvent key={eventView} category={eventView} competitions={events} loading={competitions.loading} error={competitions.error} onRetry={competitions.reload} stale={competitions.result?.stale} onNavigate={changeEventView}/>}

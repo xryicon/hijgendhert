@@ -11,21 +11,22 @@ export function useClanEvents() {
   const session = useMemberSession();
   const [events, setEvents] = useState<EventView[]>([]);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
   const authenticated = session.status === 'authenticated';
   const refresh = useCallback(async (signal?: AbortSignal) => {
-    const response = await fetch(authenticated ? '/api/members/clan-events' : '/api/clan-events', { cache: 'no-store', signal });
+    const response = await fetch(authenticated ? '/api/members/clan-events' : '/api/clan-events', { cache: 'no-store', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(25000)]) : AbortSignal.timeout(25000) });
     const data = await response.json() as { events: EventView[]; error?: string };
     if (!response.ok) { if (response.status === 401 || response.status === 403) setEvents([]); throw new Error(data.error || 'Clanactiviteiten konden niet worden geladen.'); }
-    setEvents(data.events); setError('');
+    if (!signal?.aborted) { setEvents(data.events); setError(''); setLoading(false); }
   }, [authenticated]);
   useEffect(() => {
     const controller = new AbortController();
-    const load = () => { if (!document.hidden) void refresh(controller.signal).catch(e => { if (!controller.signal.aborted) setError(e.message); }); };
+    const load = () => { if (!document.hidden) void refresh(controller.signal).catch(e => { if (!controller.signal.aborted) { setError(e.message); setLoading(false); } }); };
     load(); const interval = window.setInterval(load, 60000);
     return () => { controller.abort(); window.clearInterval(interval); };
   }, [refresh]);
   const visibleEvents = authenticated ? events : events.map(({ participants: _participants, ...event }) => ({ ...event, joined: false, myProgress: null }));
-  return { events: visibleEvents, error, refresh, authenticated };
+  return { events: visibleEvents, error, refresh, authenticated, loading };
 }
 
 export function MyClanSignups() {

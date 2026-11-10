@@ -1,0 +1,32 @@
+'use client';
+import { useEffect, useState, type FormEvent } from 'react';
+import { ArrowUpRight, Camera, Check, Plus, Sprout, Trash2, Users } from 'lucide-react';
+import Link from './site-link';
+import { welcomeInput, type WelcomeContent } from '@/lib/welcome';
+
+export default function AdminWelcome() {
+  const [draft, setDraft] = useState<WelcomeContent | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState(''), [saved, setSaved] = useState(false);
+  async function load(signal?: AbortSignal) {
+    const response = await fetch('/api/admin/welcome', { cache: 'no-store', signal });
+    const data = await response.json() as { welcome: WelcomeContent; error?: string };
+    if (!response.ok) throw new Error(data.error || 'De welkomstpagina kon niet worden geladen.');
+    if (!signal?.aborted) { setDraft(data.welcome); setError(''); setSaved(false); }
+  }
+  useEffect(() => { const controller = new AbortController(); void load(controller.signal).catch(e => { if (!controller.signal.aborted) setError(e.message); }); return () => controller.abort(); }, []);
+  async function save(event: FormEvent) {
+    event.preventDefault(); const parsed = welcomeInput.safeParse(draft); setSaved(false);
+    if (!parsed.success) { setError(parsed.error.issues[0].message); return; }
+    setBusy(true); setError('');
+    try {
+      const response = await fetch('/api/admin/welcome', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsed.data) });
+      const data = await response.json() as { welcome: WelcomeContent; error?: string };
+      if (!response.ok) throw new Error(data.error || 'Opslaan is niet gelukt.');
+      setDraft(data.welcome); setSaved(true);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Probeer opnieuw.'); } finally { setBusy(false); }
+  }
+  const update = (value: Partial<WelcomeContent>) => { setDraft(old => old ? { ...old, ...value } : old); setSaved(false); };
+  return <section className="clan-admin-panel welcome-editor"><div className="clan-admin-section-title"><Sprout size={25}/><div><h2>Een warm welkom</h2><p>Beheer de toelatingseis, contactinformatie, clanscreenshots en voorstellen op de homepage en Nieuw hier?.</p></div><Link href="/nieuw-hier" className="text-link">Bekijk de pagina <ArrowUpRight size={15}/></Link></div>{!draft && !error && <p role="status">Welkomstpagina laden…</p>}{error && <p className="clan-admin-feedback error" role="alert">{error} <button className="text-link" disabled={busy} onClick={() => void load().catch(e => setError(e.message))}>Actuele inhoud laden</button></p>}{draft && <form onSubmit={save}><fieldset disabled={busy}><div className="clan-event-form-grid"><label>Minimaal total level<input type="number" required min={1} max={10000} value={draft.minimumTotal || ''} onChange={e => update({ minimumTotal: Number(e.target.value) })}/></label><label className="wide">Bij wie kunnen nieuwe leden terecht?<textarea rows={3} required minLength={3} maxLength={350} value={draft.contact} onChange={e => update({ contact: e.target.value })}/></label></div>
+    <div className="welcome-editor-heading"><div><h3><Camera size={19}/> Echte clanmomenten</h3><p>Voeg maximaal zes screenshots toe met een directe afbeeldingslink. Zonder screenshots blijft dit blok verborgen.</p></div><button type="button" className="button outline" disabled={draft.photos.length >= 6} onClick={() => update({ photos: [...draft.photos, { imageUrl: '', caption: '' }] })}><Plus size={15}/> Screenshot toevoegen</button></div>{draft.photos.map((photo, index) => <div className="welcome-editor-item" key={index}><div className="clan-event-form-grid"><label>Afbeeldingslink<input required placeholder="https://…/clanavond.jpg" maxLength={1500} value={photo.imageUrl} onChange={e => update({ photos: draft.photos.map((item, i) => i === index ? { ...item, imageUrl: e.target.value } : item) })}/></label><label>Wat is er op het screenshot te zien?<input required minLength={3} maxLength={180} placeholder="Bijvoorbeeld: Samen na onze clanraid" value={photo.caption} onChange={e => update({ photos: draft.photos.map((item, i) => i === index ? { ...item, caption: e.target.value } : item) })}/></label></div><button type="button" className="text-link" aria-label={`Screenshot ${index + 1} uit concept verwijderen`} onClick={() => update({ photos: draft.photos.filter((_, i) => i !== index) })}><Trash2 size={15}/> Uit concept verwijderen</button></div>)}
+    <div className="welcome-editor-heading"><div><h3><Users size={19}/> Maak kennis met de leden</h3><p>Laat maximaal zes leden zichzelf voorstellen: wat spelen ze en waarmee kunnen anderen bij hen terecht?</p></div><button type="button" className="button outline" disabled={draft.members.length >= 6} onClick={() => update({ members: [...draft.members, { name: '', introduction: '', rsName: '', avatarUrl: '' }] })}><Plus size={15}/> Lid voorstellen</button></div>{draft.members.map((member, index) => { const change = (value: Partial<typeof member>) => update({ members: draft.members.map((item, i) => i === index ? { ...item, ...value } : item) }); return <div className="welcome-editor-item" key={index}><div className="clan-event-form-grid"><label>Naam<input required maxLength={60} value={member.name} onChange={e => change({ name: e.target.value })}/></label><label>RuneScape-naam voor profiellink (optioneel)<input maxLength={30} value={member.rsName} onChange={e => change({ rsName: e.target.value })}/></label><label className="wide">Kort voorstel<textarea required minLength={3} maxLength={300} rows={3} value={member.introduction} onChange={e => change({ introduction: e.target.value })}/></label><label className="wide">Profielfoto-link (optioneel)<input placeholder="https://…" maxLength={1500} value={member.avatarUrl} onChange={e => change({ avatarUrl: e.target.value })}/></label></div><button type="button" className="text-link" aria-label={`Voorstel ${index + 1} uit concept verwijderen`} onClick={() => update({ members: draft.members.filter((_, i) => i !== index) })}><Trash2 size={15}/> Uit concept verwijderen</button></div>; })}
+    <div className="clan-admin-actions"><button className="button gold" type="submit">{busy ? 'Opslaan…' : 'Welkomstpagina opslaan'}</button><span>De opgeslagen inhoud is zichtbaar voor websitebezoekers.</span></div></fieldset></form>}{saved && <p className="clan-admin-feedback" role="status"><Check size={16}/> Welkomstpagina opgeslagen.</p>}</section>;
+}

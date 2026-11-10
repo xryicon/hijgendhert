@@ -28,6 +28,7 @@ import './member-leaderboard.css';
 import './clan-admin.css';
 import './clan-admin-woodland.css';
 import './pk.css';
+import './welcome.css';
 
 export const metadata: Metadata = {
   title: "Hijgend Hert — Samen op avontuur in Gielinor",

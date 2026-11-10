@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
 import Link from '@/components/site-link';
-import { ArrowUpRight, ChevronDown, CalendarDays, LogOut, Menu, Shield, Swords, UserRound, Users, X } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, CalendarDays, LogOut, Menu, Shield, Sprout, Swords, UserRound, Users, X } from 'lucide-react';
 import { useMemberSession, VerifiedMemberSession } from './session-provider';
 import { NotificationBell } from './notification-center';
 import type { DiscordMember } from '@/lib/member-types';
@@ -10,11 +10,12 @@ import ClanCrest from './clan-crest';
 import PkAccessLink from './pk-access-link';
 
 const navigation = [
+  { id: 'welcome', label: 'Nieuw hier?', href: '/nieuw-hier', icon: Sprout },
   { id: 'clan', label: 'Leden', href: '/leden', icon: Users },
   { id: 'events', label: 'Events', href: '/events', icon: Swords },
 ];
 
-export default function SiteHeader({ view, initialMember }: { view: 'home' | 'clan' | 'events' | 'member'; initialMember?: DiscordMember }) {
+export default function SiteHeader({ view, initialMember }: { view: 'home' | 'clan' | 'events' | 'member' | 'welcome'; initialMember?: DiscordMember }) {
   const [menu, setMenu] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const account = useRef<HTMLDivElement>(null);

@@ -16,9 +16,13 @@ export const eventInputSchema = z.object({
   title: z.string().trim().min(3).max(100), description: z.string().trim().min(3).max(1200),
   category: z.enum(['raid', 'boss', 'social', 'skill', 'bingo', 'other']),
   minimum: minimumSchema.nullable().default(null),
+  beginnerFriendly: z.boolean().default(false),
+  experience: z.string().trim().max(300).default(''),
+  gear: z.string().trim().max(500).default(''),
   startsAt: z.string().datetime({ offset: true }), endsAt: z.string().datetime({ offset: true }),
   status: z.enum(['scheduled', 'cancelled']),
-}).strict().refine(e => Date.parse(e.endsAt) > Date.parse(e.startsAt), 'De eindtijd moet na de begintijd liggen.');
+}).strict().refine(e => Date.parse(e.endsAt) > Date.parse(e.startsAt), 'De eindtijd moet na de begintijd liggen.')
+  .refine(e => !e.beginnerFriendly || (e.experience.length >= 3 && e.gear.length >= 3), 'Vul bij een beginnersvriendelijk event de ervaring en benodigde gear in.');
 export type ClanEventInput = z.infer<typeof eventInputSchema>;
 export type ClanEvent = ClanEventInput & { host: string; createdAt: string; updatedAt: string };
 export type EventParticipant = { userId: string; name: string; joinedAt: string; progress: EventProgress };

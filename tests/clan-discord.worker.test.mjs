@@ -65,6 +65,47 @@ function runtime(options = {}) {
 }
 const cookie = (response, name) => response.headers.getSetCookie().find(v => v.startsWith(name + '='))?.split(';')[0];
 
+test('welcome content is public, writable only by staff, revision protected and durable', async () => {
+  const persist = await mkdtemp(path.join(tmpdir(), 'hh-welcome-')); let instance = runtime({ noBot: true, persist });
+  try {
+    const original = (await (await get(instance.mf, '/api/site/welcome')).json()).welcome;
+    assert.equal(original.minimumTotal, 1250); assert.deepEqual(original.photos, []); assert.deepEqual(original.members, []);
+    const admin = await login(instance.mf), member = await login(instance.mf, 'b');
+    assert.equal((await post(instance.mf, '/api/site/welcome', original)).status, 405);
+    assert.equal((await post(instance.mf, '/api/admin/welcome', original)).status, 401);
+    assert.equal((await get(instance.mf, '/api/admin/welcome', member)).status, 403);
+    assert.equal((await post(instance.mf, '/api/admin/welcome', original, member)).status, 403);
+    assert.equal((await post(instance.mf, '/api/admin/welcome', original, admin, { Origin: 'https://evil.example' })).status, 403);
+    assert.equal((await post(instance.mf, '/api/admin/welcome', { ...original, minimumTotal: -1 }, admin)).status, 400);
+    const input = { ...original, contact: 'Vraag naar de clanleiding in Discord.', photos: [{ imageUrl: '/moments/test.webp', caption: 'Fictief testmoment' }], members: [{ name: 'Testhert', introduction: 'Een fictief voorstel voor deze test.', rsName: 'test hert', avatarUrl: '' }] };
+    const response = await post(instance.mf, '/api/admin/welcome', input, admin); assert.equal(response.status, 200);
+    const saved = (await response.json()).welcome; assert.equal(saved.revision, 1);
+    assert.equal((await post(instance.mf, '/api/admin/welcome', input, admin)).status, 409);
+    assert.deepEqual((await (await get(instance.mf, '/api/site/welcome')).json()).welcome, saved);
+    assert.deepEqual((await flush(instance.mf)).jobs, []);
+    await instance.mf.dispose(); instance = runtime({ noBot: true, persist });
+    assert.deepEqual((await (await get(instance.mf, '/api/site/welcome')).json()).welcome, saved);
+  } finally { await instance.mf.dispose(); assert.ok(path.basename(persist).startsWith('hh-welcome-')); await rm(persist, { recursive: true, force: true }); }
+});
+
+test('beginner events require preparation details, preserve legacy events and publish no participant identities', async () => {
+  const { mf } = runtime({ noBot: true });
+  try {
+    const admin = await login(mf), member = await login(mf, 'b');
+    const ordinary = await create(mf, admin); assert.equal(ordinary.beginnerFriendly, false); assert.equal(ordinary.gear, '');
+    const input = { ...eventInput(), beginnerFriendly: true, experience: 'Geen boss-ervaring nodig.', gear: 'Neem eten en melee-gear mee.' };
+    assert.equal((await post(mf, '/api/admin/clan-events', input, member)).status, 403);
+    assert.equal((await post(mf, '/api/admin/clan-events', { ...input, gear: '' }, admin)).status, 400);
+    assert.equal((await post(mf, '/api/admin/clan-events', { ...input, experience: '' }, admin)).status, 400);
+    let event = await create(mf, admin, input);
+    await post(mf, '/api/members/clan-events/register', { id: event.id, action: 'join' }, member);
+    const publicEvent = (await (await get(mf, '/api/clan-events')).json()).events.find(e => e.id === event.id);
+    assert.equal(publicEvent.beginnerFriendly, true); assert.equal(publicEvent.gear, input.gear); assert.equal(publicEvent.experience, input.experience);
+    assert.equal(publicEvent.participants, undefined); assert.equal(publicEvent.joined, false);
+    event = await create(mf, admin, { ...input, revision: event.revision, beginnerFriendly: false }); assert.equal(event.beginnerFriendly, false);
+  } finally { await mf.dispose(); }
+});
+
 test('site appearance is public to read but only current staff may change it, independently of Discord notices', async () => {
   const options = { noBot: true }; const { mf, deliveries } = runtime(options);
   try {
