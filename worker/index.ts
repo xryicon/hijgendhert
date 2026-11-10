@@ -7,6 +7,7 @@ import { raffleRoute } from "../lib/raffle-route";
 import { profileProgressRoute } from "../lib/profile-progress-route";
 import { clanMemberRoute } from "../lib/clan-member-route";
 import { siteAccessRoute } from "../lib/site-access";
+import { notificationRoute } from "../lib/notification-route";
 export { ClanRaffle } from './clan-raffle';
 export { ClanProgress } from './clan-progress';
 export { WomCache } from './wom-cache';
@@ -26,6 +27,8 @@ const application = {
     if (raffleResponse) return raffleResponse;
     const authResponse = await discordAuthRoute(request, env);
     if (authResponse) return authResponse;
+    const notificationResponse = await notificationRoute(request, env);
+    if (notificationResponse) return notificationResponse;
     const progressResponse = await profileProgressRoute(request, env);
     if (progressResponse) return progressResponse;
     const profileResponse = await memberProfileRoute(request, env);

@@ -20,6 +20,8 @@ export default function SiteLink({ href, replace = false, scroll = true, prefetc
       || anchor.hasAttribute('download') || (anchor.target && anchor.target !== '_self')) return;
     const destination = new URL(anchor.href, window.location.href);
     if (destination.origin !== window.location.origin || !['http:', 'https:'].includes(destination.protocol)) return;
+    // Native fragment changes notify the event tabs without remounting the app.
+    if (destination.hash && destination.pathname === window.location.pathname && destination.search === window.location.search) return;
     event.preventDefault();
     const path = `${destination.pathname}${destination.search}${destination.hash}`;
     if (replace) router.replace(path, { scroll });

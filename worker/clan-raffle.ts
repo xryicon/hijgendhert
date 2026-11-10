@@ -115,6 +115,13 @@ export class ClanRaffle extends DurableObject<Cloudflare.Env> {
       throw new Error('Raffle draw will retry');
     }
   }
+  getNotificationRounds() {
+    // Announcements never expose participant details, draw seeds or creator IDs.
+    return this.ctx.storage.sql.exec<Row>('SELECT * FROM raffle_rounds ORDER BY created_at DESC, id DESC LIMIT 20').toArray().map(row => {
+      const round = JSON.parse(row.data) as StoredRound;
+      return { id: round.id, title: round.title, prize: round.prize, createdAt: round.createdAt, drawAt: round.drawAt, status: round.status };
+    });
+  }
   async getPublic(id?: string): Promise<RaffleState> {
     // A read also recovers an overdue draw after an alarm/platform interruption.
     await this.#completeDue();

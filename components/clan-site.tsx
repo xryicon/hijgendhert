@@ -1,5 +1,6 @@
 "use client";
 import Link from '@/components/site-link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, Check, Copy, ExternalLink, Flame, Globe2, Menu, Search, Shield, Sparkles, Swords, Target, Trophy, Users, X, RefreshCw, Clock3, Sprout, CalendarDays } from "lucide-react";
 import SiteHeader from "@/components/site-header";
@@ -90,6 +91,7 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
   const [account, setAccount] = useState("all");
   const [memberPage, setMemberPage] = useState(0);
   const [eventView, setEventView] = useState<EventView>("overview");
+  const calendarDay = useSearchParams().get('dag');
   useEffect(() => {
     if (view !== "events") return;
     const syncView = () => {
@@ -100,7 +102,7 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
     window.addEventListener("hashchange", syncView);
     window.addEventListener("popstate", syncView);
     return () => { window.removeEventListener("hashchange", syncView); window.removeEventListener("popstate", syncView); };
-  }, [view]);
+  }, [view, calendarDay]);
   function changeEventView(next: EventView) {
     setEventView(next);
     const href = '/events' + eventHash[next];

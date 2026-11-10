@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from '@/components/site-link';
 import { ArrowUpRight, ChevronDown, CalendarDays, LogOut, Menu, Shield, Swords, UserRound, Users, X } from 'lucide-react';
 import { useMemberSession, VerifiedMemberSession } from './session-provider';
+import { NotificationBell } from './notification-center';
 import type { DiscordMember } from '@/lib/member-types';
 
 const navigation = [
@@ -42,6 +43,7 @@ export default function SiteHeader({ view, initialMember }: { view: 'home' | 'cl
           {navigation.map(item => <Link key={item.id} href={item.href} prefetch={false} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => setMenu(false)}><item.icon size={15} strokeWidth={1.6} aria-hidden="true"/><span>{item.label}</span></Link>)}
         </nav>
         <div className="nav-actions">
+          <NotificationBell onOpen={() => setAccountOpen(false)}/>
           {member ? <div className="nav-account" ref={account}>
             <button ref={accountButton} type="button" className={`button gold nav-login nav-account-button${view === 'member' ? ' active' : ''}`} onClick={() => setAccountOpen(!accountOpen)} aria-expanded={accountOpen} aria-controls="account-links" aria-label={`Account van ${member.displayName}`}>
               <span className="nav-account-initial" aria-hidden="true">{Array.from(member.displayName)[0]}</span><span className="nav-account-name">{member.displayName}</span><ChevronDown size={13}/>

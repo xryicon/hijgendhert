@@ -2,6 +2,10 @@ import { DurableObject } from 'cloudflare:workers';
 import { DEFAULT_RANK_RULES, EMPTY_PLAYER_PROGRESS, memberRankSchema, rankRulesSchema, type PlayerProgressState, type RankRules } from '../lib/profile-progress';
 import type { MemberEvent } from '../lib/member-types';
 import { EMPTY_MEMBER_ACCOUNT, type SavedMemberAccount, type SavedMemberSnapshot, type SavedMemberActivity } from '../lib/member-account';
+import { updateNotificationFeed, visibleNotifications, type NotificationFeedState, type NotificationSourceUpdates } from '../lib/notifications';
+
+type NotificationSources = Partial<Record<keyof NotificationSourceUpdates, number>>;
+type StoredNotifications = { state: NotificationFeedState | null; checkedAt: NotificationSources };
 
 // Separate object names isolate the clan policy from each player's event record.
 export class ClanProgress extends DurableObject<Cloudflare.Env> {
@@ -44,6 +48,30 @@ export class ClanProgress extends DurableObject<Cloudflare.Env> {
     return true;
   }
   getActivities(): SavedMemberActivity | null { return this.#read('activities', null); }
+  syncNotifications(updates: NotificationSourceUpdates = {}, checkedAt: NotificationSources = {}) {
+    const previous = this.#read<StoredNotifications>('notification-feed', { state: null, checkedAt: {} });
+    const accepted: NotificationSourceUpdates = {};
+    const times = { ...previous.checkedAt };
+    for (const key of ['competitions', 'calendar', 'raffles'] as const) {
+      const timestamp = checkedAt[key];
+      // A slow request must not restore an older schedule over a newer one.
+      if (Array.isArray(updates[key]) && timestamp !== undefined && Number.isFinite(timestamp)
+        && timestamp >= (times[key] || 0) && timestamp <= Date.now() + 60_000) {
+        accepted[key] = updates[key]; times[key] = timestamp;
+      }
+    }
+    const state = updateNotificationFeed(previous.state, accepted);
+    const next = { state, checkedAt: times };
+    if (JSON.stringify(next) !== JSON.stringify(previous)) this.#save('notification-feed', next);
+    return visibleNotifications(state);
+  }
+  getNotificationReads(): string[] { return this.#read('notification-reads', []); }
+  markNotificationsRead(ids: string[]) {
+    const safe = ids.filter(id => typeof id === 'string' && id.length > 0 && id.length <= 200).slice(0, 50);
+    const readIds = [...new Set([...this.getNotificationReads(), ...safe])].slice(-500);
+    this.#save('notification-reads', readIds);
+    return readIds;
+  }
   saveActivities(input: SavedMemberActivity) {
     if (!Number.isFinite(Date.parse(input.fetchedAt)) || input.activities.length > 10) return;
     const saved = this.getActivities();

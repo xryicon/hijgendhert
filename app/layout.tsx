@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import SessionProvider from '@/components/session-provider';
+import NotificationProvider from '@/components/notification-center';
 import "./globals.css";
 import "./professional.css";
 import "./community.css";
@@ -14,6 +15,7 @@ import "./events-overview.css";
 import "./brass-controls.css";
 import "./clan-calendar.css";
 import './clan-raffle.css';
+import './notifications.css';
 import './osrs-metrics.css';
 
 export const metadata: Metadata = {
@@ -34,7 +36,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="nl">
-      <body className="antialiased"><SessionProvider>{children}</SessionProvider></body>
+      <body className="antialiased"><SessionProvider><NotificationProvider>{children}</NotificationProvider></SessionProvider></body>
     </html>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 import Link from '@/components/site-link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, Clock3, Swords, Trophy, Users } from 'lucide-react';
 import { activities } from '@/content/clan-life';
@@ -17,7 +18,15 @@ export default function ClanCalendar({ competitions, loading, error, onRetry, st
   const [today, setToday] = useState('');
   const [day, setDay] = useState('');
   const [expanded, setExpanded] = useState(false);
-  useEffect(() => { const date = localDay(Date.now()); setToday(date); setMonth(date.slice(0, 7)); setDay(date); }, []);
+  const requestedDay = useSearchParams().get('dag');
+  useEffect(() => {
+    const current = localDay(Date.now());
+    const valid = requestedDay && /^20\d{2}-\d{2}-\d{2}$/.test(requestedDay)
+      && Number.isFinite(Date.parse(`${requestedDay}T12:00:00Z`))
+      && new Date(`${requestedDay}T12:00:00Z`).toISOString().slice(0, 10) === requestedDay;
+    const selected = valid ? requestedDay : current;
+    setToday(current); setMonth(selected.slice(0, 7)); setDay(selected); setExpanded(false);
+  }, [requestedDay]);
   const entries = useMemo<AgendaEntry[]>(() => [
     ...activities.map(e => ({ ...e, source: 'clan' as const, url: e.discordUrl })),
     ...competitions.map(e => ({ id: `wom-${e.id}`, title: e.title, startsAt: e.startsAt, endsAt: e.endsAt, category: 'competition', metric: e.metric, source: 'wom' as const, url: `https://wiseoldman.net/competitions/${e.id}`, description: `${e.participantCount} geregistreerde deelnemers · ${e.metric.replaceAll('_', ' ')}` })),
