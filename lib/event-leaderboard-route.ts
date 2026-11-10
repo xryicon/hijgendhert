@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { readWiseOldMan, womConnection, womRetryAfter, type WomEnv } from './wise-old-man';
-import { eventLeaderboardRows, eventRevision, leaderboardEventSchema, leaderboardRounds, summarizeLeaderboardRounds, summarizeLeaderboardEvent, type LeaderboardEvent, type EventLeaderboard } from './event-leaderboard';
+import { eventLeaderboardRows, eventRevision, leaderboardEventSchema, leaderboardRounds, summarizeLeaderboardRounds, summarizeLeaderboardEvent, LEADERBOARD_MIN_EVENTS, type LeaderboardEvent, type EventLeaderboard } from './event-leaderboard';
 import type { ClanProgress } from '../worker/clan-progress';
 
 export async function eventLeaderboardRoute(request: Request, env: WomEnv & { PROGRESS?: DurableObjectNamespace<ClanProgress> }, fetcher: typeof fetch = fetch): Promise<Response | null> {
@@ -47,7 +47,7 @@ export async function eventLeaderboardRoute(request: Request, env: WomEnv & { PR
     });
     const summaries = summarizeLeaderboardRounds(rounds, saved);
     const complete = summaries.length === rounds.length;
-    const data: EventLeaderboard = { rows: eventLeaderboardRows(group.memberships.map(m => m.player.id), summaries, complete), totalEvents: rounds.length, loadedEvents: summaries.length, totalCompetitions: finished.length, loadedCompetitions: results.length, complete, stale, fetchedAt, retryAfter: complete ? 3600 : retryAfter };
+    const data: EventLeaderboard = { rows: eventLeaderboardRows(group.memberships.map(m => m.player.id), summaries, complete), minimumEvents: LEADERBOARD_MIN_EVENTS, totalEvents: rounds.length, loadedEvents: summaries.length, totalCompetitions: finished.length, loadedCompetitions: results.length, complete, stale, fetchedAt, retryAfter: complete ? 3600 : retryAfter };
     return json(data);
   } catch (error) { return json({ error: 'Het eventklassement kan nu niet worden bijgewerkt. Probeer het later opnieuw.' }, 503, { 'Retry-After': womRetryAfter(error) }); }
 }

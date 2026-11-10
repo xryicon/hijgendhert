@@ -42,12 +42,23 @@ test('average placement includes only actual participation; roster filtering doe
   const a = summarize(event([[1, 50], [2, 100], [3, 100], [4, 0]]), new Date(now).toISOString(), 'v1', now);
   const b = summarize(event([[1, 100], [2, 50]], { id: 42 }), new Date(now).toISOString(), 'v1', now);
   const board = rows([1, 2, 4], [a, b, a], true);
-  assert.deepEqual(board.map(r => [r.playerId, r.events, r.averagePlace, r.position]), [[2, 2, 1.5, 1], [1, 2, 2, 2], [4, 0, null, null]]);
+  assert.deepEqual(board.map(r => [r.playerId, r.events, r.averagePlace, r.position]), [[2, 2, 1.5, null], [1, 2, 2, null], [4, 0, null, null]]);
   assert.ok(rows([1, 2], [a], false).every(r => r.position === null));
 });
 test('leaderboard positions are consecutive and unique, even with identical averages', () => {
-  const board = rows([1, 2, 3], [{ id: 1, results: [{ playerId: 1, place: 1 }, { playerId: 2, place: 1 }, { playerId: 3, place: 1 }] }, { id: 2, results: [{ playerId: 2, place: 1 }, { playerId: 3, place: 1 }] }], true);
+  const events = Array.from({ length: 5 }, (_, id) => ({ id: id + 1, results: [1, 2, 3].map(playerId => ({ playerId, place: 1 })) }));
+  const board = rows([1, 2, 3], [...events, { id: 6, results: [{ playerId: 2, place: 1 }, { playerId: 3, place: 1 }] }], true);
   assert.deepEqual(board.map(r => [r.playerId, r.position]), [[2, 1], [3, 2], [1, 3]]);
+});
+
+test('five completed event weeks qualify; one-time winners remain visible below ranked members', () => {
+  const counts = [0, 1, 4, 5, 6];
+  const events = Array.from({ length: 6 }, (_, index) => ({ id: index + 1,
+    results: counts.flatMap((count, playerId) => index < count ? [{ playerId, place: playerId + 1 }] : []) }));
+  const board = rows([0, 1, 2, 3, 4], events, true);
+  assert.deepEqual(board.map(r => [r.playerId, r.events, r.position]), [[3, 5, 1], [4, 6, 2], [1, 1, null], [2, 4, null], [0, 0, null]]);
+  assert.ok(rows([0, 1, 2, 3, 4], events, false).every(r => r.position === null));
+  assert.deepEqual(rows([0, 1, 2, 3, 4], [...events, events[0]], true), board, 'Duplicate summaries cannot satisfy the threshold');
 });
 test('foreign, ongoing, invalid-team, duplicate or pre-finish snapshots cannot become final results', () => {
   const fetched = new Date(now).toISOString();
@@ -68,7 +79,7 @@ test('one event week counts once across bosses, exact duplicates and different e
   assert.equal(grouped.flat().length, 3, 'The duplicate metric is excluded');
   const saved = new Map(catalogue.map(e => [e.id, summarize(e, new Date(now).toISOString(), eventRevision(e), now)]));
   const board = rows([1, 2, 3], roundSummaries(grouped, saved), true);
-  assert.deepEqual(board.map(r => [r.playerId, r.events, r.averagePlace, r.position]), [[1, 2, 1.25, 1], [2, 1, 1.5, 2], [3, 0, null, null]]);
+  assert.deepEqual(board.map(r => [r.playerId, r.events, r.averagePlace, r.position]), [[1, 2, 1.25, null], [2, 1, 1.5, null], [3, 0, null, null]]);
   saved.delete(42);
   assert.equal(roundSummaries(grouped, saved).length, 1, 'Incomplete multi-part events are not counted yet');
 });
@@ -82,6 +93,7 @@ test('team results use total team progress and only active members qualify', () 
 });
 
 test('fractional averages determine consecutive positions without rounding collisions', () => {
-  const result = rows([1,2,3,4], [{ id: 1, results: [{playerId: 1, place: 3.75}, {playerId: 2, place: 3.5}, {playerId: 3, place: 1}, {playerId: 4, place: 2}] }], true);
+  const events = Array.from({ length: 5 }, (_, id) => ({ id: id + 1, results: [{playerId: 1, place: 3.75}, {playerId: 2, place: 3.5}, {playerId: 3, place: 1}, {playerId: 4, place: 2}] }));
+  const result = rows([1,2,3,4], events, true);
   assert.deepEqual(result.map(r=>[r.playerId,r.position]), [[3,1],[4,2],[2,3],[1,4]]);
 });

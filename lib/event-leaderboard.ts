@@ -10,7 +10,8 @@ const detailSchema = leaderboardEventSchema.extend({ participations: z.array(z.o
 })).max(5000) });
 export type LeaderboardEvent = { id: number; sourceRevision: string; fetchedAt: string; results: { playerId: number; place: number }[] };
 export type LeaderboardRow = { playerId: number; events: number; averagePlace: number | null; position: number | null };
-export type EventLeaderboard = { rows: LeaderboardRow[]; totalEvents: number; loadedEvents: number; totalCompetitions?: number; loadedCompetitions?: number; complete: boolean; stale: boolean; retryAfter: number; fetchedAt: string };
+export const LEADERBOARD_MIN_EVENTS = 5;
+export type EventLeaderboard = { rows: LeaderboardRow[]; minimumEvents: number; totalEvents: number; loadedEvents: number; totalCompetitions?: number; loadedCompetitions?: number; complete: boolean; stale: boolean; retryAfter: number; fetchedAt: string };
 type Competition = z.infer<typeof leaderboardEventSchema>;
 export function leaderboardRoundKey(event: Competition) {
   const family = event.type === 'team' ? 'team' : SKILLS.has(event.metric) ? 'skill' : ['ehp', 'ehb'].includes(event.metric) ? event.metric : 'boss';
@@ -81,9 +82,10 @@ export function eventLeaderboardRows(playerIds: number[], events: LeaderboardEve
     if (value) { value.count++; value.sum += result.place; }
   }
   const rows = [...sums].map(([playerId, value]) => ({ playerId, events: value.count, averagePlace: value.count ? value.sum / value.count : null, position: null as number | null }))
-    .sort((a, b) => (a.averagePlace ?? Infinity) - (b.averagePlace ?? Infinity) || b.events - a.events || a.playerId - b.playerId);
+    .sort((a, b) => Number(b.events >= LEADERBOARD_MIN_EVENTS) - Number(a.events >= LEADERBOARD_MIN_EVENTS)
+      || (a.averagePlace ?? Infinity) - (b.averagePlace ?? Infinity) || b.events - a.events || a.playerId - b.playerId);
   rows.forEach((row, index) => {
-    if (!row.events || !complete) return;
+    if (row.events < LEADERBOARD_MIN_EVENTS || !complete) return;
     row.position = index + 1;
   });
   return rows;

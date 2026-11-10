@@ -276,11 +276,13 @@ test('event leaderboard persists final results, avoids refetching and filters de
     const first = await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/leaderboard');
     assert.equal(first.status, 200); const board = await first.json();
     assert.equal(board.complete, true); assert.equal(board.loadedEvents, 1);
-    assert.deepEqual(board.rows.map(r => [r.playerId, r.events, r.averagePlace, r.position]), [[701, 1, 1, 1], [702, 1, 2, 2]]);
+    assert.equal(board.minimumEvents, 5);
+    assert.deepEqual(board.rows.map(r => [r.playerId, r.events, r.averagePlace, r.position]), [[701, 1, 1, null], [702, 1, 2, null]]);
     assert.equal(calls.filter(p => p === '/v2/competitions/41').length, 1);
     ({ mf, calls } = await start({ excludePlayer: 701 }));
     const next = await (await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/leaderboard')).json();
-    assert.deepEqual(next.rows.map(r => [r.playerId, r.averagePlace, r.position]), [[702, 2, 1]]);
+    assert.equal(next.minimumEvents, 5);
+    assert.deepEqual(next.rows.map(r => [r.playerId, r.averagePlace, r.position]), [[702, 2, null]]);
     assert.equal(calls.includes('/v2/competitions/41'), false);
     assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/leaderboard', { method: 'POST' })).status, 405);
   });
@@ -296,7 +298,8 @@ test('leaderboard route counts a multi-boss week once and includes a separate te
     const board = await response.json();
     assert.equal(board.totalEvents, 2); assert.equal(board.loadedEvents, 2);
     assert.equal(board.totalCompetitions, 3); assert.equal(board.complete, true);
-    assert.deepEqual(board.rows.map(r => [r.playerId, r.events, r.averagePlace, r.position]), [[701,2,1.25,1],[702,1,1.5,2]]);
+    assert.equal(board.minimumEvents, 5);
+    assert.deepEqual(board.rows.map(r => [r.playerId, r.events, r.averagePlace, r.position]), [[701,2,1.25,null],[702,1,1.5,null]]);
     assert.equal(calls.includes('/v2/competitions/43'), false, 'Duplicate trackers are not requested');
   } finally { await mf.dispose(); }
 });

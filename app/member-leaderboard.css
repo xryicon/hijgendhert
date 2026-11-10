@@ -15,6 +15,7 @@
 .member-leaderboard td:nth-child(2) { min-width:190px; }
 .leaderboard-position { color:#af9f83; font:500 16px Cinzel,Georgia,serif; }
 .leaderboard-position.is-podium { color:#efcb78; }
+.leaderboard-qualifying { display:block; color:#ae9b77; font-size:9px; line-height:1.5; margin:2px 0 8px 39px; white-space:normal; }
 body .clan-page .member-leaderboard table { min-width:0; }
 .leaderboard-explanation { border-top:1px solid #75552e55; padding:17px 25px; color:#b7aa90; font-size:11px; line-height:1.8; }
 .leaderboard-explanation summary { cursor:pointer; color:#d3b779; width:fit-content; }
