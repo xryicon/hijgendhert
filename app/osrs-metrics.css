@@ -1,0 +1,30 @@
+.metric-image { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; flex: 0 0 auto; color: #c9a464; }
+.metric-image > img { display: block; width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 2px 2px #0008); }
+.rank-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; vertical-align: middle; color: #c9a464; }.rank-icon-image { display: block; image-rendering: pixelated; overflow: visible; filter: drop-shadow(0 1px 1px #0008); }.public-member-rank { display: flex; align-items: center; gap: 8px; }
+.weekly-card-current-title { display: flex; align-items: center; gap: 11px; min-height: 34px; }
+.weekly-card-current-title > span:last-child { min-width: 0; }
+.weekly-round-images { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-top: 14px; }
+.weekly-round-images > span { display: inline-flex; padding: 7px; border: 1px solid #98713a55; border-radius: 3px; background: #15110bd9; }
+.weekly-round-images > .weekly-round-more { font-size: 10px; color: #bea578; height: 40px; align-items: center; }
+.weekly-metric-selection { margin-top: 27px; text-align: center; }
+.weekly-metric-selection > p { color: #b09b76; font-size: 11px; margin-bottom: 13px; }
+.weekly-metric-options { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.weekly-metric-option { display: flex; align-items: center; gap: 13px; min-height: 65px; min-width: 160px; max-width: 290px; padding: 12px 17px; border: 1px solid #8a663a88; border-radius: 4px; background: linear-gradient(145deg,#302416,#18130e); color: #cbb28a; box-shadow: inset 0 1px 0 #ebc78413,0 3px 10px #0003; text-align: left; transition: border-color .2s,background .2s,transform .2s; }
+.weekly-metric-option > span:last-child { font: 600 12px/1.5 Cinzel,Georgia,serif; }
+.weekly-metric-option:hover { border-color: #c59a54; background: linear-gradient(145deg,#49331a,#21190f); transform: translateY(-2px); }
+.weekly-metric-option.selected { color: #f3d59a; border-color: #d5a653; background: linear-gradient(145deg,#50391e,#261b10); box-shadow: inset 0 0 0 2px #0e0b0766,0 0 14px #ba82221a; }
+.weekly-metric-option:focus-visible { outline: 2px solid #dfb86d; outline-offset: 4px; }
+.active-event-title { display: flex; justify-content: center; align-items: center; gap: 17px; margin: 22px auto 0; max-width: 850px; }
+.active-event-title > .metric-image { padding: 8px; border: 1px solid #a17a4070; background: radial-gradient(circle,#8d612c2b,#14100ce8); border-radius: 4px; box-shadow: inset 0 1px 0 #f4d69b16,0 3px 12px #0004; }
+.active-event-intro .active-event-title h2 { margin: 0; }
+.profile-boss-top .metric-image { margin-right: 2px; }
+.profile-boss-name { display: flex; align-items: center; gap: 8px; }.profile-boss-name > span { min-width: 0; overflow-wrap: anywhere; }
+.profile-boss-emblem > .metric-image > img { width: 100%; height: 100%; }
+.profile-event-icon > .metric-image, .activity-icon > .metric-image { margin: auto; }
+.calendar-days > button.metric-day { display: grid; grid-template-columns: 1fr auto; column-gap: 4px; align-items: center; }
+.calendar-days > button.metric-day .calendar-day-number { justify-self: start; }
+.calendar-days > button.metric-day .calendar-day-metric { justify-self: end; }
+.calendar-days > button.metric-day .calendar-day-events, .calendar-days > button.metric-day .calendar-markers { grid-column: 1 / -1; }
+.agenda-icon .metric-image { max-width: 100%; max-height: 100%; }
+@media(max-width:600px) { .weekly-metric-options { gap: 8px; }.weekly-metric-option { min-width: 0; flex: 1 1 140px; padding: 10px 12px; gap: 10px; }.weekly-metric-option > span:last-child { font-size: 10px; }.active-event-title { gap: 12px; }.active-event-title > .metric-image { width: 48px!important; height: 48px!important; padding: 7px; }.active-event-title h2 { min-width: 0; }.calendar-days > button.metric-day { display: flex; }.calendar-days > button.metric-day .calendar-day-metric { display: none; } }
+@media(prefers-reduced-motion:reduce) { .weekly-metric-option { transition: none; }.weekly-metric-option:hover { transform: none; } }

@@ -2,10 +2,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, Clock3, RefreshCw } from "lucide-react";
 import EventPodium from "@/components/event-podium";
+import MetricImage from '@/components/metric-image';
 import { WOM_REFRESH_MS } from "@/lib/wom-refresh";
 
 type Participant = { rank: number; player: { id: number; username: string; displayName: string; updatedAt: string }; gained: number | null };
-type EventData = { competition: { id: number; title: string; startsAt: string; endsAt: string; unit: string; participants: Participant[] } | null };
+type EventData = { competition: { id: number; title: string; metric: string; startsAt: string; endsAt: string; unit: string; participants: Participant[] } | null };
 
 export default function CurrentEvent({ competitionId, category = 'all' }: { competitionId?: number; category?: 'all' | 'skill' | 'boss' }) {
   const [data, setData] = useState<EventData | null>(null);
@@ -66,7 +67,7 @@ export default function CurrentEvent({ competitionId, category = 'all' }: { comp
           <span className="timer-label">{upcoming ? "Start over" : "Nog te gaan"}</span>
           <div className="active-timer-units" aria-hidden="true"><span><strong>{String(days).padStart(2, "0")}</strong><small>dagen</small></span><i>:</i><span><strong>{String(hours).padStart(2, "0")}</strong><small>uren</small></span><i>:</i><span><strong>{String(mins).padStart(2, "0")}</strong><small>minuten</small></span></div>
         </div>}
-        <h2>{event.title}</h2>
+        <div className="active-event-title"><MetricImage metric={event.metric} size={60}/><h2>{event.title}</h2></div>
         {stale && <p className="community-fallback" role="status">Wise Old Man is even druk. Laatst bevestigde stand{fetchedAt ? `: ${new Date(fetchedAt).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' })}` : ''}.</p>}
       </div>
       <div className="panel current-event-panel">{upcoming ? <div className="event-upcoming-note"><p>De competitie begint binnenkort. De eerste scores verschijnen hier zodra het event start.</p><a className="text-link" href={`https://wiseoldman.net/competitions/${event.id}`} target="_blank" rel="noreferrer">Bekijk op Wise Old Man <ArrowUpRight size={14}/></a></div> : <EventPodium participants={event.participants} unit={event.unit} finished={finished}/>}</div>

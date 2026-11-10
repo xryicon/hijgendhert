@@ -14,6 +14,7 @@ import "./events-overview.css";
 import "./brass-controls.css";
 import "./clan-calendar.css";
 import './clan-raffle.css';
+import './osrs-metrics.css';
 
 export const metadata: Metadata = {
   title: "Hijgend Hert — Samen op avontuur in Gielinor",

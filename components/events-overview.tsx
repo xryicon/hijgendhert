@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, CalendarDays, Clock3, RefreshCw } from "lucide-react";
 import CurrentEvent from "@/components/current-event";
 import WeeklyWheelArt from "@/components/weekly-wheel-art";
+import MetricImage from '@/components/metric-image';
+import { metricLabel } from '@/lib/osrs-metrics';
 import { RaffleCard } from '@/components/clan-raffle';
 import { weeklyRound, type Competition, type WeeklyCategory } from "@/lib/community";
 
@@ -13,7 +15,7 @@ type Props = { competitions: Competition[]; loading: boolean; error: string; onR
 const names = { skill: "Skill of the Week", boss: "Boss of the Week" };
 const stateLabels = { active: "Nu bezig", upcoming: "Binnenkort", past: "Laatste ronde", empty: "Nog niet gepland" };
 const date = (value: string) => new Date(value).toLocaleDateString("nl-NL", { day: "numeric", month: "short", timeZone: "Europe/Amsterdam" });
-const metricName = (value: string) => value.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
+const metricName = metricLabel;
 function useEventTime() {
   const [now, setNow] = useState(0);
   useEffect(() => { setNow(Date.now()); const timer = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(timer); }, []);
@@ -45,7 +47,8 @@ export default function EventsOverview({ competitions, loading, error, onRetry, 
             <h2>{names[category]}</h2>
             <p className="weekly-card-description">{category === "skill" ? "Samen trainen, XP pakken en strijden om de eerste plaats. Wie zet deze week de hoogste score neer?" : "Tijd voor een nieuwe jacht. Verzamel kills, daag je clanmates uit en pak een plek op het podium."}</p>
             <div className="weekly-card-current" aria-busy={busy}>
-              <span>{busy ? "Competitie ophalen…" : error ? "Bekijk de competities zodra de verbinding terug is." : event ? round.events.length > 1 ? `${round.events.length} ${category === 'boss' ? 'bosses' : 'skills'} in deze ronde` : metricName(event.metric) : "De volgende ronde wordt hier aangekondigd."}</span>
+              <span className="weekly-card-current-title">{!busy && !error && event && round.events.length === 1 && <MetricImage metric={event.metric} size={32}/>}<span>{busy ? "Competitie ophalen…" : error ? "Bekijk de competities zodra de verbinding terug is." : event ? round.events.length > 1 ? `${round.events.length} ${category === 'boss' ? 'bosses' : 'skills'} in deze ronde` : metricName(event.metric) : "De volgende ronde wordt hier aangekondigd."}</span></span>
+              {!busy && !error && round.events.length > 1 && <div className="weekly-round-images" aria-label="Deze ronde">{round.events.slice(0, 6).map(item => <span key={item.id} title={metricName(item.metric)}><MetricImage metric={item.metric} size={26} decorative={false}/></span>)}{round.events.length > 6 && <span className="weekly-round-more">+{round.events.length - 6}</span>}</div>}
               {!busy && !error && event && <small><Clock3 size={12}/>{date(event.startsAt)} — {date(event.endsAt)}{round.state === 'past' ? ' · Afgelopen' : ''}</small>}
             </div>
             <a className="weekly-card-link" href={eventHash[category]} onClick={e => { e.preventDefault(); onNavigate(category); }}>Naar {category === 'skill' ? 'SOTW' : 'BOTW'} <ArrowRight size={18}/></a>
@@ -70,7 +73,7 @@ export function WeeklyEvent({ category, competitions, loading, error, onRetry, o
       <h2>{names[category]}</h2>
       <p>{category === 'skill' ? 'De skillcompetitie van Hijgend Hert.' : 'De bosscompetitie van Hijgend Hert.'}</p>
       {stale && <p role="status">Laatst bekende ronde. <button className="text-link" onClick={onRetry}>Ververs</button></p>}
-      {!busy && !error && round.events.length > 1 && <label className="weekly-selection"><span>{category === 'boss' ? 'Kies een boss' : 'Kies een skill'}</span><select value={event.id} onChange={e => setSelected(Number(e.target.value))}>{round.events.map(e => <option key={e.id} value={e.id}>{metricName(e.metric)}</option>)}</select></label>}
+      {!busy && !error && round.events.length > 1 && <div className="weekly-metric-selection"><p>{category === 'boss' ? 'Kies een boss' : 'Kies een skill'}</p><div className="weekly-metric-options" role="group" aria-label={category === 'boss' ? 'Kies een bosscompetitie' : 'Kies een skillcompetitie'}>{round.events.map(item => <button type="button" key={item.id} aria-pressed={item.id === event.id} className={`weekly-metric-option${item.id === event.id ? ' selected' : ''}`} onClick={() => setSelected(item.id)}><MetricImage metric={item.metric} size={36}/><span>{metricName(item.metric)}</span></button>)}</div></div>}
     </div>
     {busy ? <div className="container weekly-loading skeletons" role="status" aria-label="Weekcompetitie laden"><div className="skeleton"/><div className="skeleton"/></div> : error ? <div className="container load-error" role="status"><p>{error}</p><button className="text-link" onClick={onRetry}><RefreshCw size={14}/> Opnieuw proberen</button></div> : event ? <CurrentEvent key={event.id} competitionId={event.id} category={category}/> : <div className="container weekly-empty"><CalendarDays size={30}/><h3>Er staat nog geen {category === 'skill' ? 'SOTW' : 'BOTW'} klaar.</h3><p>Zodra de clan een competitie op Wise Old Man aanmaakt, verschijnt die hier.</p><a className="button gold" href="#kalender" onClick={e => { e.preventDefault(); onNavigate('calendar'); }}>Open agenda <ArrowRight size={16}/></a></div>}
   </div>;

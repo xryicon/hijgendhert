@@ -11,6 +11,7 @@ import ProfileHighlights from './profile-highlights';
 import ProfileUnavailable from './profile-unavailable';
 import MemberActivityFeed from './member-activity';
 import ProfileRankAdmin from './profile-rank-admin';
+import MetricImage from './metric-image';
 
 const number = (value: number) => new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 0 }).format(value);
 const day = (value: string) => new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Amsterdam' }).format(new Date(value));
@@ -130,7 +131,7 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
               const podium = event.status === 'finished' && event.rank !== null && event.rank <= 3 && event.gained !== null && event.gained > 0;
               const Icon = podium ? Crown : SKILLS.has(event.metric) ? Sprout : Swords;
               return <div className={`profile-event-row${podium ? ' is-podium' : ''}`} key={event.id}>
-                <span className="profile-event-icon"><Icon size={20}/></span><div className="profile-event-title"><a href={`https://wiseoldman.net/competitions/${event.id}`} target="_blank" rel="noreferrer"><strong>{event.title}</strong><ArrowUpRight size={12}/></a><span>{day(event.startsAt)} – {day(event.endsAt)}</span></div>
+                <span className="profile-event-icon"><MetricImage metric={event.metric} size={24} fallback={<Icon size={20}/>}/></span><div className="profile-event-title"><a href={`https://wiseoldman.net/competitions/${event.id}`} target="_blank" rel="noreferrer"><strong>{event.title}</strong><ArrowUpRight size={12}/></a><span>{day(event.startsAt)} – {day(event.endsAt)}</span></div>
                 <div className="profile-event-result">{event.gained !== null ? <strong>+{number(Math.max(0, event.gained))} <small>{event.unit}</small></strong> : <button type="button" disabled={results[event.id] === 'loading' || results[event.id] === 'loaded'} onClick={() => void loadResult(event.id)} aria-label={`Bekijk resultaat: ${event.title}`}>{results[event.id] === 'loading' ? 'Laden…' : results[event.id] === 'error' ? 'Opnieuw proberen' : results[event.id] === 'loaded' ? 'Stand onbekend' : 'Bekijk resultaat'}</button>}<span>{event.status === 'active' ? 'Nu bezig' : event.status === 'upcoming' ? 'Binnenkort' : event.gained === null ? 'Afgelopen' : event.gained > 0 ? 'Meegedaan' : 'Ingeschreven'}</span></div>
                 <span className={`profile-event-rank${podium ? ' podium-rank' : ''}`}>{event.rank && event.gained !== null && event.gained > 0 ? `#${event.rank}` : '—'}</span><span className="profile-event-arrow"/>
               </div>;
