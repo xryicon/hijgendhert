@@ -14,6 +14,7 @@ import ClanStats from "@/components/clan-stats";
 import { WOM_REFRESH_MS } from "@/lib/wom-refresh";
 import ClanRaffle from '@/components/clan-raffle';
 import RankIcon from './rank-icon';
+import { rankLabel as roleLabel } from '@/lib/osrs-ranks';
 
 const WOM = "https://wiseoldman.net/groups/7059";
 const DISCORD = "https://discord.gg/KFNqA6bnZ4";
@@ -26,8 +27,6 @@ type Result<T> = { data: T; fetchedAt: string; stale?: boolean };
 const number = (v: number, digits = 0) => new Intl.NumberFormat("nl-NL", { maximumFractionDigits: digits }).format(v);
 const compact = (v: number) => v >= 1e9 ? `${number(v / 1e9, 2)} mld` : v >= 1e6 ? `${number(v / 1e6, 1)} mln` : number(v);
 const date = (v: string) => new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "short", timeZone: "Europe/Amsterdam" }).format(new Date(v));
-const roles: Record<string, string> = { owner: "Clanleider", deputy_owner: "Deputy owner", general: "Generaal", captain: "Kapitein", lieutenant: "Luitenant", sergeant: "Sergeant", corporal: "Korporaal", recruit: "Rekruut", member: "Lid" };
-const roleLabel = (role: string) => roles[role] || role.replaceAll("_", " ");
 const playerUrl = (p: Player) => `/leden/${encodeURIComponent(p.username)}`;
 
 function Stag({ className = "" }: { className?: string }) {

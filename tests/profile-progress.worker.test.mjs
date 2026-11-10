@@ -13,6 +13,8 @@ const { build } = requireWrangler('esbuild');
 const root = fileURLToPath(new URL('../', import.meta.url));
 const utilityBundle = await build({ entryPoints: [path.join(root, 'lib/profile-progress.ts')], bundle: true, write: false, platform: 'node', format: 'esm' });
 const { bossProfile, rankProgress, rankRulesSchema, DEFAULT_RANK_RULES, EMPTY_PLAYER_PROGRESS } = await import(`data:text/javascript;base64,${Buffer.from(utilityBundle.outputFiles[0].text).toString('base64')}`);
+const rankBundle = await build({ entryPoints: [path.join(root, 'lib/osrs-ranks.ts')], bundle: true, write: false, platform: 'node', format: 'esm' });
+const { clanRank, rankSymbol } = await import(`data:text/javascript;base64,${Buffer.from(rankBundle.outputFiles[0].text).toString('base64')}`);
 const bundle = await build({ stdin: { contents: `
   export { ClanProgress } from './worker/clan-progress.ts';
   export { WomCache } from './worker/wom-cache.ts';
@@ -43,10 +45,10 @@ function runtime(options = {}) {
       }
       assert.equal(url.origin, 'https://api.wiseoldman.net');
       if (options.womOffline) return Response.json({}, { status: 503 });
-      if (url.pathname === '/v2/groups/7059') return Response.json({ id: 7059, memberships: [{ role: 'recruit', player }, { role: 'sergeant', player: { ...player, id: 702, username: 'ander hert', displayName: 'Ander Hert' } }] });
+      if (url.pathname === '/v2/groups/7059') return Response.json({ id: 7059, memberships: [{ role: options.womRole === undefined ? 'recruit' : options.womRole, player }, { role: 'sergeant', player: { ...player, id: 702, username: 'ander hert', displayName: 'Ander Hert' } }] });
       if (url.pathname === '/v2/players/hert/snapshots') return Response.json([{ playerId: 701, createdAt: '2026-11-01T00:00:00Z', data: { skills: { attack: { level: 85 } }, bosses: { vorkath: { kills: 3500 } } } }, { playerId: 701, createdAt: '2026-11-02T00:00:00Z', data: { skills: { attack: { level: 86 } }, bosses: { vorkath: { kills: 3521 } } } }]);
       if (url.pathname === '/v2/players/hert') return options.bossOffline ? Response.json({}, { status: 404 }) : Response.json(bossData);
-      if (url.pathname === '/v2/players/hert/competitions') return Response.json([participation(1, null), participation(2, null), participation(3, null), participation(4, null), participation(5, null, 1, { endsAt: '2099-01-01T00:00:00Z' }), participation(6, 100, 1, { groupId: 999 }), { ...participation(7, 100), playerId: 999 }]);
+      if (url.pathname === '/v2/players/hert/competitions') return options.historyOffline ? Response.json({}, { status: 404 }) : Response.json([participation(1, null), participation(2, null), participation(3, null), participation(4, null), participation(5, null, 1, { endsAt: '2099-01-01T00:00:00Z' }), participation(6, 100, 1, { groupId: 999 }), { ...participation(7, 100), playerId: 999 }]);
       assert.equal(url.pathname.endsWith('/competitions/standings'), false, 'Do not call the broken aggregate endpoint');
       if (/^\/v2\/competitions\/[1-4]$/.test(url.pathname)) {
         if (options.eventsOffline) return Response.json({}, { status: 404 });
@@ -90,12 +92,54 @@ test('rank progress counts only unique completed positive events and clamps corr
 test('rank rules reject duplicates, nonzero first step, and nonincreasing thresholds', () => {
   for (const steps of [[{ id: 'a', name: 'A', events: 1 }, { id: 'b', name: 'B', events: 5 }], [{ id: 'a', name: 'A', events: 0 }, { id: 'a', name: 'B', events: 5 }], [{ id: 'a', name: 'A', events: 0 }, { id: 'b', name: 'B', events: 0 }]]) assert.equal(rankRulesSchema.safeParse({ revision: 0, steps }).success, false);
 });
+
+test('WOM membership wins over legacy overrides and renamed goals, with matching OSRS icons', () => {
+  const roles = { owner: 'Owner', deputy_owner: 'Deputy Owner', general: 'General', hellcat: 'Hellcat', administrator: 'Administrator', elite: 'Elite', onyx: 'Onyx', dragonstone: 'Dragonstone', diamond: 'Diamond', ruby: 'Ruby', emerald: 'Emerald', sapphire: 'Sapphire', red_topaz: 'Red Topaz', jade: 'Jade', opal: 'Opal' };
+  for (const [role, name] of Object.entries(roles)) {
+    const rules = { ...DEFAULT_RANK_RULES, configured: true, steps: [{ id: role, name: 'Wrong local name', events: 0 }, { id: 'other', name: 'Other', events: 5 }] };
+    const progress = rankProgress(role, [], { ...EMPTY_PLAYER_PROGRESS, rankOverride: 'captain' }, rules);
+    assert.deepEqual(progress.current, { id: role, name });
+    assert.deepEqual(clanRank(role), progress.current);
+    assert.equal(progress.source, 'wise-old-man');
+    assert.equal(rankSymbol(role), `#rank-${role}`);
+  }
+  assert.deepEqual(clanRank('member'), { id: 'member', name: 'Member' });
+  assert.equal(rankSymbol('member'), null);
+  assert.equal(rankProgress('member', [], EMPTY_PLAYER_PROGRESS, DEFAULT_RANK_RULES).next, null);
+  assert.equal(clanRank(null), null);
+});
+
+test('private and public profiles retain the WOM rank when event history fails', async () => {
+  const { mf } = runtime({ womRole: 'red_topaz', historyOffline: true });
+  try {
+    const session = await login(mf);
+    for (const response of [await read(mf, session), await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/member?username=hert')]) {
+      assert.equal(response.status, 200);
+      const body = await response.json();
+      assert.deepEqual(body.clanRank, { id: 'red_topaz', name: 'Red Topaz' });
+      assert.equal(body.progression, null);
+      assert.ok(body.eventsError);
+    }
+  } finally { await mf.dispose(); }
+});
+
+test('a missing WOM role does not fabricate a rank or break a valid member profile', async () => {
+  const { mf } = runtime({ womRole: null });
+  try {
+    const response = await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/member?username=hert');
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.clanRank, null);
+    assert.deepEqual(body.progression.current, { id: '', name: 'Rang onbekend' });
+  } finally { await mf.dispose(); }
+});
 test('profile combines boss data, WOM rank and confirmed event participation; registrations give no credit', async () => {
   const { mf } = runtime({ coordinator: true });
   try {
     const session = await login(mf); const response = await read(mf, session); const body = await response.json();
     assert.equal(response.status, 200); assert.match(response.headers.get('Cache-Control'), /no-store/);
     assert.equal(body.bosses.favourite.kills, 3521); assert.equal(body.progression.current.id, 'recruit');
+    assert.deepEqual(body.clanRank, { id: 'recruit', name: 'Recruit' });
     assert.equal(body.progression.confirmedEvents, 2); assert.equal(body.progression.pendingEvents, 1); assert.equal(body.progression.remaining, 3);
     assert.equal(body.events.length, 5); assert.equal(body.events.filter(e => e.rank === 1 && e.gained > 0).length, 1);
     assert.equal(JSON.stringify(body).includes('test-access'), false);
@@ -110,23 +154,25 @@ test('regular members cannot edit rules or overrides; admin mutations require sa
       assert.equal(response.status, roles[0] === '1326459850837987430' ? 403 : 200);
       if (roles[0] === '1326459850837987430') assert.equal((await read(mf, session, '/api/members/progress/admin?playerId=701')).status, 403);
       assert.equal((await post(mf, session, 'rules', {}, { Origin: 'https://evil.invalid' })).status, 403);
-      assert.equal((await post(mf, session, 'member', { playerId: 701, revision: 0, rankOverride: 'owner', eventAdjustment: 50, reason: 'Test events' })).status, roles[0] === '1326459850837987430' ? 403 : 200);
+      assert.equal((await post(mf, session, 'member', { playerId: 701, revision: 0, rankOverride: null, eventAdjustment: 50, reason: 'Test events' })).status, roles[0] === '1326459850837987430' ? 403 : 200);
+      assert.equal((await post(mf, session, 'member', { playerId: 701, revision: 1, rankOverride: 'owner', eventAdjustment: 50, reason: 'Test events' })).status, roles[0] === '1326459850837987430' ? 403 : 400);
       assert.equal((await read(mf, '', '/api/members/progress/admin')).status, 401);
     } finally { await mf.dispose(); }
   }
 });
-test('admin edits persist, revisions reject stale writes, and profile ranks grant no Discord permissions', async () => {
+test('event corrections persist, stale writes are rejected, and renamed goals cannot change WOM rank', async () => {
   const { mf } = runtime();
   try {
     const session = await login(mf);
     const rules = { revision: 0, steps: [{ id: 'recruit', name: 'Nieuw hert', events: 0 }, { id: 'corporal', name: 'Clanhert', events: 3 }] };
     assert.equal((await post(mf, session, 'rules', rules)).status, 200);
     assert.equal((await post(mf, session, 'rules', rules)).status, 409);
-    const change = { playerId: 701, revision: 0, rankOverride: 'recruit', eventAdjustment: 1, reason: 'Extra clan raid' };
+    const change = { playerId: 701, revision: 0, rankOverride: null, eventAdjustment: 1, reason: 'Extra clan raid' };
     assert.equal((await post(mf, session, 'member', change)).status, 200);
     assert.equal((await post(mf, session, 'member', change)).status, 409);
     const profile = await (await read(mf, session)).json();
-    assert.equal(profile.progression.current.name, 'Nieuw hert'); assert.equal(profile.progression.source, 'admin');
+    assert.equal(profile.progression.current.name, 'Recruit'); assert.equal(profile.progression.source, 'wise-old-man');
+    assert.deepEqual(profile.clanRank, profile.progression.current);
     assert.equal(profile.progression.totalEvents, 3); assert.equal(profile.progression.ready, true); assert.equal(profile.progression.percent, 100);
     const other = await (await read(mf, session, '/api/members/progress/admin?playerId=702')).json(); assert.equal(other.state.eventAdjustment, 0);
     assert.equal((await post(mf, session, 'member', { ...change, revision: 1, playerId: 999 })).status, 400);
@@ -158,10 +204,10 @@ test('durable rules and admin corrections survive a runtime restart', async () =
   try {
     ({ mf } = runtime({ persist })); const session = await login(mf);
     await post(mf, session, 'rules', { revision: 0, steps: DEFAULT_RANK_RULES.steps });
-    await post(mf, session, 'member', { playerId: 701, revision: 0, rankOverride: 'sergeant', eventAdjustment: 7, reason: 'Recorded raid nights' });
+    await post(mf, session, 'member', { playerId: 701, revision: 0, rankOverride: null, eventAdjustment: 7, reason: 'Recorded raid nights' });
     await read(mf, session); await mf.dispose(); mf = null;
     ({ mf } = runtime({ persist })); const state = await (await read(mf, session, '/api/members/progress/admin?playerId=701')).json();
-    assert.equal(state.rules.revision, 1); assert.equal(state.state.eventAdjustment, 7); assert.equal(state.state.rankOverride, 'sergeant'); assert.equal(state.state.events.length, 3);
+    assert.equal(state.rules.revision, 1); assert.equal(state.state.eventAdjustment, 7); assert.equal(state.state.rankOverride, null); assert.equal(state.state.events.length, 3);
   } finally { if (mf) await mf.dispose(); await rm(persist, { recursive: true, force: true }); }
 });
 
@@ -169,11 +215,12 @@ test('public profiles accept only current clan members and omit private administ
   const { mf, calls } = runtime();
   try {
     const session = await login(mf);
-    await post(mf, session, 'member', { playerId: 701, revision: 0, rankOverride: 'sergeant', eventAdjustment: 7, reason: 'Private administrative note' });
+    await post(mf, session, 'member', { playerId: 701, revision: 0, rankOverride: null, eventAdjustment: 7, reason: 'Private administrative note' });
     const response = await mf.dispatchFetch(env.APP_ORIGIN + '/api/clan/member?username=HERT');
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.equal(body.player.id, 701); assert.equal(body.progression.current.id, 'sergeant');
+    assert.equal(body.player.id, 701); assert.equal(body.progression.current.id, 'recruit');
+    assert.deepEqual(body.clanRank, { id: 'recruit', name: 'Recruit' });
     assert.equal(body.progression.totalEvents, 9); assert.equal(body.bosses.favourite.metric, 'vorkath');
     for (const key of ['adjustmentReason', 'stateRevision', 'rankOverride', 'eventAdjustment']) assert.equal(key in body.progression, false);
     assert.equal('players' in body, false); assert.equal('selection' in body, false);

@@ -7,6 +7,7 @@ import { readWiseOldMan, womConnection, womErrorCode, womRetryAfter, type WomEnv
 import { bossProfile, mergeEventResults, rankProgress } from './profile-progress';
 import type { ClanProgress } from '../worker/clan-progress';
 import { currentEventStatuses, EMPTY_MEMBER_ACCOUNT, type SavedMemberSnapshot } from './member-account';
+import { clanRank } from './osrs-ranks';
 
 const groupId = 7059;
 const finite = z.number().finite();
@@ -14,7 +15,7 @@ export const playerSchema = z.object({
   id: z.number().int().positive(), username: z.string().min(1).max(30), displayName: z.string().min(1).max(30),
   type: z.string().max(40), exp: finite.nullish(), ehp: finite.nullish(), ehb: finite.nullish(),
 });
-const groupSchema = z.object({ id: z.literal(groupId), memberships: z.array(z.object({ player: playerSchema, role: z.string().max(80).optional() })).max(2000) });
+const groupSchema = z.object({ id: z.literal(groupId), memberships: z.array(z.object({ player: playerSchema, role: z.string().max(80).nullish() })).max(2000) });
 const eventSchema = z.object({
   playerId: z.number().int().positive(), rank: z.number().int().positive().nullish(),
   progress: z.object({ gained: finite.nullish() }).nullish(),
@@ -135,7 +136,7 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv & Wom
       if (env.PROGRESS) await env.PROGRESS.getByName(`clan:7059:player:${player.id}`).recordEvents([event]);
       return json({ event, stale });
     }
-    const role = group.memberships.find(p => p.player.id === player?.id)?.role || 'member';
+    const role = group.memberships.find(p => p.player.id === player?.id)?.role || '';
     const highlights = await loadPlayerHighlights(player, role, env, readWom);
     const old = account.snapshot?.player.id === player?.id ? account.snapshot : null;
     if (player && old && env.PROGRESS && (highlights.eventsError || highlights.bossesError)) {
@@ -161,10 +162,10 @@ export async function memberProfileRoute(request: Request, env: DiscordEnv & Wom
 async function savedHighlights(snapshot: SavedMemberSnapshot, storage: DurableObjectNamespace<ClanProgress>) {
   const [state, rules] = await Promise.all([storage.getByName(`clan:7059:player:${snapshot.player.id}`).getPlayer(), storage.getByName('clan:7059:rules').getRules()]);
   const events = mergeEventResults(currentEventStatuses(snapshot.events), state.events);
-  return { events, eventsError: null, progression: rankProgress(snapshot.role, events, state, rules), progressionError: null };
+  return { clanRank: clanRank(snapshot.role), events, eventsError: null, progression: rankProgress(snapshot.role, events, state, rules), progressionError: null };
 }
 
-export async function loadPlayerHighlights(player: ClanPlayer | null, role: string, env: { PROGRESS?: DurableObjectNamespace<ClanProgress> }, readWom: (path: string) => Promise<unknown>): Promise<Pick<MemberProfile, 'events' | 'eventsError' | 'bosses' | 'bossesError' | 'progression' | 'progressionError'>> {
+export async function loadPlayerHighlights(player: ClanPlayer | null, role: string, env: { PROGRESS?: DurableObjectNamespace<ClanProgress> }, readWom: (path: string) => Promise<unknown>): Promise<Pick<MemberProfile, 'clanRank' | 'events' | 'eventsError' | 'bosses' | 'bossesError' | 'progression' | 'progressionError'>> {
     let events: MemberEvent[] = []; let eventsError: string | null = null;
     if (player) {
       try {
@@ -205,5 +206,5 @@ export async function loadPlayerHighlights(player: ClanPlayer | null, role: stri
       })(),
     ]);
 
-  return { events, eventsError, bosses, bossesError, progression, progressionError };
+  return { clanRank: player ? clanRank(role) : null, events, eventsError, bosses, bossesError, progression, progressionError };
 }

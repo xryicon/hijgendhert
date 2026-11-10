@@ -33,11 +33,11 @@ export default function ProfileRankAdmin({ players, selectedPlayer, onChanged }:
     if (kind === 'member' && (!state || loadedPlayer !== playerId)) return;
     setBusy(true); setMessage('');
     try {
-      const payload = kind === 'rules' ? { revision: rules.revision, steps: rules.steps } : { playerId, revision: state!.revision, rankOverride: state!.rankOverride, eventAdjustment: state!.eventAdjustment, reason: state!.reason || '' };
+      const payload = kind === 'rules' ? { revision: rules.revision, steps: rules.steps } : { playerId, revision: state!.revision, rankOverride: null, eventAdjustment: state!.eventAdjustment, reason: state!.reason || '' };
       const response = await fetch(`/api/members/progress/${kind}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(30_000) });
       const body = await response.json() as { error?: string };
       if (!response.ok) throw new Error(body.error || 'Opslaan is niet gelukt.');
-      setMessage(kind === 'rules' ? 'Rangdoelen opgeslagen voor de hele clan.' : 'Rang en eventcorrectie opgeslagen.');
+      setMessage(kind === 'rules' ? 'Rangdoelen opgeslagen voor de hele clan.' : 'Eventcorrectie opgeslagen.');
       setRefresh(n => n + 1); await onChanged();
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Opslaan is niet gelukt.'); }
     finally { setBusy(false); }
@@ -45,7 +45,7 @@ export default function ProfileRankAdmin({ players, selectedPlayer, onChanged }:
   return <details className="profile-admin" onToggle={event => setOpen(event.currentTarget.open)}>
     <summary><Settings2 size={18}/><span>Clanbeheer <small>Rangen & eventdeelname</small></span><span>Beheren</span></summary>
     {open && <div className="profile-admin-content">
-      <p>Stel het totale aantal eventdeelnames per rang in. Je kunt ook iemands getoonde rang aanpassen of deelname aan handmatig bijgehouden clanevents meetellen.</p>
+      <p>Stel eventdoelen in en tel handmatig bijgehouden clanevents mee. De huidige clanrang en het icoon komen automatisch uit Wise Old Man. Pas rangen daar aan.</p>
       {loading && <p role="status">Instellingen laden…</p>}
       {rules && <div className="profile-admin-grid">
         <form onSubmit={event => void save(event, 'rules')}><h3>Rangdoelen voor de clan</h3><fieldset disabled={busy || loading}>
@@ -62,7 +62,7 @@ export default function ProfileRankAdmin({ players, selectedPlayer, onChanged }:
         <form onSubmit={event => void save(event, 'member')}><h3>Een clanlid aanpassen</h3>
           <label htmlFor="rank-player">RuneScape-account</label><select id="rank-player" disabled={busy} value={playerId} onChange={event => { setPlayerId(Number(event.target.value)); setMessage(''); }}>{players.map(player => <option key={player.id} value={player.id}>{player.displayName}</option>)}</select>
           {state && loadedPlayer === playerId && <fieldset disabled={busy || loading}>
-            <label htmlFor="rank-override">Getoonde clanrang</label><select id="rank-override" value={state.rankOverride || ''} onChange={event => setState({ ...state, rankOverride: event.target.value || null })}><option value="">Volg Wise Old Man</option>{rules.steps.map(step => <option key={step.id} value={step.id}>{step.name}</option>)}<option value="deputy_owner">Deputy owner</option><option value="owner">Clanleider</option></select>
+            <p className="profile-feature-note">De clanrang volgt de rang van dit RuneScape-account in Wise Old Man.</p>
             <label htmlFor="rank-adjustment">Eventcorrectie (+ of −)</label><input id="rank-adjustment" type="number" min={-10000} max={10000} step={1} required value={state.eventAdjustment} onChange={event => setState({ ...state, eventAdjustment: event.target.valueAsNumber })}/>
             <p className="profile-feature-note">Deze correctie wordt bij gecontroleerde WOM-deelnames opgeteld. Gebruik bijvoorbeeld +2 voor twee apart bijgehouden events.</p>
             <label htmlFor="rank-reason">Reden voor de aanpassing</label><textarea id="rank-reason" minLength={5} maxLength={300} required rows={2} value={state.reason || ''} onChange={event => setState({ ...state, reason: event.target.value })} placeholder="Bijvoorbeeld: twee clanraids buiten WOM"/>
@@ -70,7 +70,7 @@ export default function ProfileRankAdmin({ players, selectedPlayer, onChanged }:
           </fieldset>}
         </form>
       </div>}
-      <p className="profile-feature-note">Een profielrang geeft geen extra beheerrechten. Rollen in Discord en in de game worden hierdoor niet gewijzigd.</p>
+      <p className="profile-feature-note">Eventdoelen geven geen extra beheerrechten. Toegang tot beheer blijft gekoppeld aan Discord.</p>
       {message && <p className="profile-admin-message" role="status">{message}</p>}
       <button className="profile-change" type="button" disabled={busy || loading} onClick={() => { setMessage(''); setRefresh(n => n + 1); }}>Instellingen opnieuw laden</button>
     </div>}

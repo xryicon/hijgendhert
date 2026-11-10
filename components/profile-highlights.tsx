@@ -11,6 +11,8 @@ export default function ProfileHighlights({ profile, reload, publicView = false 
   const [checking, setChecking] = useState(false);
   const boss = profile.bosses?.favourite;
   const progress = profile.progression;
+  const currentRank = profile.clanRank;
+  const hasRankPath = !!progress?.rules.configured && progress.rules.steps.some(step => step.id === currentRank?.id);
   const podiums = [1, 2, 3].map(place => profile.events.filter(e => e.status === 'finished' && e.rank === place && e.gained !== null && e.gained > 0).length);
   async function checkEvents() {
     if (!profile.player) return;
@@ -31,21 +33,20 @@ export default function ProfileHighlights({ profile, reload, publicView = false 
           <p className="profile-feature-note">Automatisch gekozen op basis van de hoogste KC op Wise Old Man.{profile.bosses?.updatedAt && ` Gemeten op ${new Date(profile.bosses.updatedAt).toLocaleDateString('nl-NL')}.`}</p>
         </> : <div className="profile-feature-empty"><Swords size={32}/><p>De eerste boss wacht.</p><span>Nog geen positieve bosskills zichtbaar op Wise Old Man.</span></div>}
       </section>
-      <section className={`profile-rank-card${progress?.ready ? ' is-ready' : ''}`} aria-labelledby="clan-rank-title">
+      <section className={`profile-rank-card${hasRankPath && progress?.ready ? ' is-ready' : ''}`} aria-labelledby="clan-rank-title">
         <p className="profile-section-label"><Shield size={15}/> {publicView ? 'PLEK IN DE CLAN' : 'JOUW PLEK IN DE CLAN'}</p><h2 id="clan-rank-title">Clanrang & voortgang</h2>
+        {currentRank ? <div className="profile-current-rank"><span className="profile-rank-emblem"><RankIcon rank={currentRank.id} size={32}/></span><div><span>Huidige rang</span><h3>{currentRank.name}</h3><small>Via Wise Old Man</small></div></div> : <p className="profile-feature-note">{profile.player ? 'Er staat nog geen rang bij dit account in Wise Old Man.' : 'Kies je RuneScape-account om je rang te zien.'}</p>}
         {progress ? <>
-          <div className="profile-current-rank"><span className="profile-rank-emblem"><RankIcon rank={progress.current.id} size={32}/></span><div><span>Huidige rang</span><h3>{progress.current.name}</h3><small>{progress.source === 'admin' ? 'Ingesteld door clanbeheer' : 'Via Wise Old Man'}</small></div></div>
-          {progress.next ? <>
+          {hasRankPath && progress.next ? <>
             <div className="profile-rank-target"><span>{progress.ready ? <Check size={15}/> : <Target size={15}/>} {progress.ready ? 'Klaar voor promotie' : `Op weg naar ${progress.next.name}`}</span><strong>{progress.percent}%</strong></div>
             <div className="profile-rank-meter" role="progressbar" aria-label={`Voortgang naar ${progress.next.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent ?? 0}><span style={{ width: `${progress.percent}%` }}/></div>
             <p className="profile-rank-count"><strong>{number(progress.totalEvents)}</strong> / {number(progress.next.events)} events <span>{progress.ready ? `Promotie naar ${progress.next.name} kan worden bevestigd.` : `Nog ${number(progress.remaining!)} bevestigde ${progress.remaining === 1 ? 'deelname' : 'deelnames'} nodig`}</span></p>
-          </> : <p className="profile-rank-count">{['owner', 'deputy_owner'].includes(progress.current.id) ? 'Een leidende rol binnen Hijgend Hert.' : progress.rules.steps.at(-1)?.id === progress.current.id ? 'De hoogste rang in dit rangpad is bereikt.' : 'Voor deze rang is nog geen promotiedoel ingesteld.'}<span>{number(progress.totalEvents)} bevestigde eventdeelnames</span></p>}
-          <div className="profile-rank-path" aria-label="Rangpad">{progress.rules.steps.map(step => <span key={step.id} className={step.id === progress.current.id || (progress.current.id === 'member' && step.events === 0) ? 'is-current' : ''} title={`${step.events} events`}><RankIcon rank={step.id} size={14}/>{step.name}<small>{step.events}</small></span>)}</div>
-          <p className="profile-feature-note">Elk afgerond clanevent met behaalde XP, kills of punten telt één keer. Promotie wordt door clanbeheer bevestigd.</p>
-          {!progress.rules.configured && <p className="profile-feature-note">Startdoelen: clanbeheer kan de aantallen en rangen aanpassen.</p>}
+          </> : <p className="profile-rank-count">{['owner', 'deputy_owner'].includes(currentRank?.id || '') ? 'Een leidende rol binnen Hijgend Hert.' : hasRankPath && progress.rules.steps.at(-1)?.id === currentRank?.id ? 'De hoogste rang in dit rangpad is bereikt.' : 'Jouw rang wordt overgenomen uit de Hijgend Hert-clanlijst.'}<span>{number(progress.totalEvents)} bevestigde eventdeelnames</span></p>}
+          {hasRankPath && <div className="profile-rank-path" aria-label="Rangpad">{progress.rules.steps.map(step => <span key={step.id} className={step.id === currentRank?.id ? 'is-current' : ''} title={`${step.events} events`}><RankIcon rank={step.id} size={14}/>{step.name}<small>{step.events}</small></span>)}</div>}
+          <p className="profile-feature-note">Elk afgerond clanevent met behaalde XP, kills of punten telt één keer.{hasRankPath && ' Een promotie verschijnt zodra de rang in Wise Old Man is bijgewerkt.'}</p>
           {!publicView && 'eventAdjustment' in progress && progress.eventAdjustment !== 0 && <p className="profile-feature-note">Beheercorrectie: {progress.eventAdjustment > 0 ? '+' : ''}{progress.eventAdjustment} events. {progress.adjustmentReason}</p>}
           {progress.pendingEvents > 0 && <div className="profile-pending"><span>{progress.pendingEvents} afgelopen events nog te controleren</span><button type="button" disabled={checking} onClick={() => void checkEvents()}><RefreshCw size={13}/>{checking ? 'Controleren…' : 'Controleer volgende events'}</button></div>}
-        </> : <p className="profile-feature-note" role="status">{profile.progressionError || 'Kies je RuneScape-account om je rang te zien.'}</p>}
+        </> : profile.progressionError && <p className="profile-feature-note" role="status">{profile.progressionError}</p>}
       </section>
     </div>
     <section className="profile-trophy-cabinet" aria-labelledby="profile-trophy-title">

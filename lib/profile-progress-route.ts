@@ -47,6 +47,7 @@ export async function profileProgressRoute(request: Request, env: ProgressEnv, f
     }
     const parsed = memberRankSchema.safeParse(body);
     if (!parsed.success) return json({ error: 'Controleer het gekozen lid en de ingevulde gegevens.' }, 400);
+    if (parsed.data.rankOverride !== null) return json({ error: 'De clanrang volgt Wise Old Man. Pas de rang daar aan.' }, 400);
     const { playerId } = parsed.data;
     const readWom = async (path: string) => (await readWiseOldMan<unknown>(path, config.origin, { fetcher, ...womConnection(env) })).data;
     const group = z.object({ id: z.literal(7059), memberships: z.array(z.object({ player: z.object({ id: z.number().int(), username: z.string().min(1).max(30) }) })).max(2000) }).parse(await readWom('/groups/7059'));
@@ -54,8 +55,6 @@ export async function profileProgressRoute(request: Request, env: ProgressEnv, f
     if (!player) return json({ error: 'Dit account staat niet in de clanlijst.' }, 400);
     const playerStore = env.PROGRESS.getByName(`clan:7059:player:${playerId}`);
     const value = parsed.data;
-    const rules = await rulesStore.getRules();
-    if (value.rankOverride && !rules.steps.some(s => s.id === value.rankOverride) && !['owner', 'deputy_owner'].includes(value.rankOverride)) return json({ error: 'Kies een bestaande rang.' }, 400);
     const result = await playerStore.savePlayer(value, member.id);
     return json(result, result.ok ? 200 : result.status);
   } catch (error) {

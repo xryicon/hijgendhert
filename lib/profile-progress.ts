@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { MemberEvent } from './member-types';
+import { clanRank, rankLabel, rankSymbol } from './osrs-ranks';
 
 export const rankStepSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9_]{0,31}$/),
@@ -30,7 +31,7 @@ export type PlayerProgressState = {
 export type BossRecord = { metric: string; name: string; kills: number; rank: number | null };
 export type BossProfile = { favourite: BossRecord | null; top: BossRecord[]; totalKills: number; trackedBosses: number; updatedAt: string | null };
 export type RankProgress = {
-  current: { id: string; name: string }; source: 'wise-old-man' | 'admin';
+  current: { id: string; name: string }; source: 'wise-old-man';
   next: RankStep | null; confirmedEvents: number; eventAdjustment: number; totalEvents: number;
   pendingEvents: number; remaining: number | null; percent: number | null; ready: boolean;
   rules: RankRules; stateRevision: number; rankOverride: string | null; adjustmentReason: string | null;
@@ -44,7 +45,6 @@ export const DEFAULT_RANK_RULES: RankRules = {
   ],
 };
 export const EMPTY_PLAYER_PROGRESS: PlayerProgressState = { revision: 0, rankOverride: null, eventAdjustment: 0, reason: null, updatedAt: null, events: [] };
-const rankNames: Record<string, string> = { owner: 'Clanleider', deputy_owner: 'Deputy owner', member: 'Lid', ...Object.fromEntries(DEFAULT_RANK_RULES.steps.map(s => [s.id, s.name])) };
 export const metricName = (metric: string) => ({ kreearra: "Kree'arra", kril_tsutsaroth: "K'ril Tsutsaroth", tzkal_zuk: 'TzKal-Zuk', tztok_jad: 'TzTok-Jad' } as Record<string, string>)[metric] || metric.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
 export function bossProfile(value: unknown, playerId: number): BossProfile {
@@ -66,15 +66,15 @@ export function mergeEventResults(events: MemberEvent[], saved: MemberEvent[]): 
   return events.map(e => e.gained === null && e.status === 'finished' && known.has(e.id) ? known.get(e.id)! : e);
 }
 export function rankProgress(role: string, events: MemberEvent[], state: PlayerProgressState, rules: RankRules): RankProgress {
-  const currentId = state.rankOverride || role;
-  // WOM's generic member role starts at the first configured rank for progression.
-  const index = currentId === 'member' ? 0 : rules.steps.findIndex(s => s.id === currentId);
-  const current = { id: currentId, name: rules.steps.find(s => s.id === currentId)?.name || rankNames[currentId] || metricName(currentId) };
+  // Old overrides remain in stored audit data, but never replace the WOM rank.
+  const current = clanRank(role) || { id: '', name: 'Rang onbekend' };
+  rules = { ...rules, steps: rules.steps.map(step => rankSymbol(step.id) ? { ...step, name: rankLabel(step.id) } : step) };
+  const index = rules.steps.findIndex(s => s.id === current.id);
   const next = index >= 0 ? rules.steps[index + 1] || null : null;
   const confirmedEvents = new Set(events.filter(e => e.status === 'finished' && e.gained !== null && e.gained > 0).map(e => e.id)).size;
   const totalEvents = Math.max(0, confirmedEvents + state.eventAdjustment);
   const floor = index >= 0 ? rules.steps[index].events : 0;
-  return { current, source: state.rankOverride ? 'admin' : 'wise-old-man', next, confirmedEvents,
+  return { current, source: 'wise-old-man', next, confirmedEvents,
     eventAdjustment: state.eventAdjustment, totalEvents,
     pendingEvents: events.filter(e => e.status === 'finished' && e.gained === null).length,
     remaining: next ? Math.max(0, next.events - totalEvents) : null,

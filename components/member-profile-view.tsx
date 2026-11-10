@@ -12,6 +12,7 @@ import ProfileUnavailable from './profile-unavailable';
 import MemberActivityFeed from './member-activity';
 import ProfileRankAdmin from './profile-rank-admin';
 import MetricImage from './metric-image';
+import RankIcon from './rank-icon';
 
 const number = (value: number) => new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 0 }).format(value);
 const day = (value: string) => new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Amsterdam' }).format(new Date(value));
@@ -85,7 +86,7 @@ export default function MemberProfileView({ member }: { member: DiscordMember })
     <div className="profile-breadcrumb"><Link prefetch={false} href="/">Hijgend Hert</Link><span>/</span><span>Mijn profiel</span></div>
     <section className="profile-identity" aria-labelledby="profile-title">
       <div className="profile-avatar" aria-hidden="true"><img src="/clan-logo.png" alt=""/><ShieldCheck size={19}/></div>
-      <div className="profile-heading"><p className="member-eyebrow">HIJGEND HERT · CLANGENOOT</p><h1 id="profile-title">{member.displayName}</h1><p className="profile-discord"><span>@{member.username}</span><span className="profile-role"><ShieldCheck size={13}/>{member.clanRole}</span></p>{member.joinedAt && <p className="profile-since">Bij de Discord sinds {day(member.joinedAt)}</p>}</div>
+      <div className="profile-heading"><p className="member-eyebrow">HIJGEND HERT · CLANGENOOT</p><h1 id="profile-title">{member.displayName}</h1><p className="profile-discord"><span>@{member.username}</span>{profile?.clanRank && <span className="profile-role" title={`Clanrang van ${profile.player?.displayName} via Wise Old Man`}><RankIcon rank={profile.clanRank.id} size={18}/>{profile.clanRank.name}</span>}</p>{member.joinedAt && <p className="profile-since">Bij de Discord sinds {day(member.joinedAt)}</p>}</div>
       <Link prefetch={false} className="profile-agenda" href="/events#kalender"><CalendarDays size={17}/><span>Clanagenda</span><ArrowUpRight size={15}/></Link>
       <img className="profile-watermark" src="/clan-logo.png" alt=""/>
     </section>

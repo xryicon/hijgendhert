@@ -22,10 +22,10 @@ export async function clanMemberRoute(request: Request, env: WomEnv & { PROGRESS
   };
   try {
     // Validate membership before making any per-player request. No arbitrary WOM search proxy.
-    const group = z.object({ id: z.literal(7059), memberships: z.array(z.object({ player: playerSchema, role: z.string().max(80).optional() })).max(2000) }).parse(await readWom('/groups/7059'));
+    const group = z.object({ id: z.literal(7059), memberships: z.array(z.object({ player: playerSchema, role: z.string().max(80).nullish() })).max(2000) }).parse(await readWom('/groups/7059'));
     const matches = group.memberships.filter(({ player }) => [player.username, player.displayName].some(name => normalizePlayerName(name) === normalizePlayerName(username)));
     if (matches.length !== 1) return json({ error: 'Dit account staat niet in de ledenlijst van Hijgend Hert.' }, 404);
-    const { player: p, role = 'member' } = matches[0];
+    const { player: p, role } = matches[0];
     const player: ClanPlayer = { ...p, exp: p.exp ?? null, ehp: p.ehp ?? null, ehb: p.ehb ?? null };
     if (url.pathname.endsWith('/activity')) {
       const playerStore = env.PROGRESS?.getByName(`clan:7059:player:${player.id}`);
@@ -42,7 +42,7 @@ export async function clanMemberRoute(request: Request, env: WomEnv & { PROGRESS
         throw error;
       }
     }
-    const highlights = await loadPlayerHighlights(player, role, env, readWom);
+    const highlights = await loadPlayerHighlights(player, role || '', env, readWom);
     // Administrative notes, revisions and Discord identity never leave the private profile API.
     const progress = highlights.progression;
     const progression = progress ? { current: progress.current, source: progress.source, next: progress.next,

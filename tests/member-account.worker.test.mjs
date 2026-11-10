@@ -151,6 +151,7 @@ test('WOM outage returns the saved game profile only after a valid Discord check
     assert.equal(body.player.id, 701); assert.equal(body.bosses.favourite.kills, 111);
     assert.equal(body.fetchedAt, good.fetchedAt); assert.equal(body.events[0].id, 41);
     assert.equal(body.progression.confirmedEvents, 1);
+    assert.deepEqual(body.clanRank, { id: 'recruit', name: 'Recruit' });
     assert.deepEqual(body.activitySnapshot.activities, activity.activities);
     assert.equal(body.activitySnapshot.fetchedAt, activity.fetchedAt);
     assert.equal(JSON.stringify(body).includes('account-test-access'), false);

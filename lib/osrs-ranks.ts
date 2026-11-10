@@ -281,8 +281,17 @@ export function rankSymbol(role?: string): string | null {
 }
 
 export function rankLabel(role?: string): string {
-  const value = (role || '').trim();
-  if (!value || rankKey(value) === 'member') return 'Lid';
-  const text = value.replace(/_/g, ' ');
-  return text.charAt(0).toUpperCase() + text.slice(1);
+  const key = rankKey(role);
+  if (!key) return 'Rang onbekend';
+  if (key === 'tzkal') return 'TzKal';
+  if (key === 'tztok') return 'TzTok';
+  return key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
+export type ClanRank = { id: string; name: string };
+
+// Name and icon use the same membership role; site settings cannot rename it.
+export function clanRank(role?: string | null): ClanRank | null {
+  const id = rankKey(role || undefined);
+  return id ? { id, name: rankLabel(id) } : null;
 }

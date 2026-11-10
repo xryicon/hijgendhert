@@ -5,9 +5,19 @@ Wise Old Man-snapshot, plus de top drie. Ontbrekende of niet gerangschikte kills
 worden niet als nul getoond. Bij gelijke killcounts bepaalt de metricnaam de
 vaste volgorde. Alleen de bossgegevens worden gebruikt, geen activities.
 
-De huidige clanrang komt uit de membership-rol van WOM-groep 7059, tenzij
-Admin of Staff team een profielrang heeft ingesteld. De Discord-toegangsrol
-blijft daarvan gescheiden. Deze functie schrijft geen Discord- of OSRS-rollen.
+De huidige clanrang komt uitsluitend uit de membership-rol van WOM-groep 7059,
+gekoppeld aan het gekozen RuneScape-player-ID. Naam en icoon gebruiken dezelfde
+rolcode, bijvoorbeeld `red_topaz` → Red Topaz. Dit volgt de
+[WOM-membershipdefinitie](https://docs.wiseoldman.net/api/groups/group-type-definitions).
+Oude profieloverrides en aangepaste rangdoelnamen veranderen de huidige rang niet.
+De Discord-toegangsrol blijft daarvan gescheiden. Deze functie schrijft geen
+Discord- of OSRS-rollen.
+
+`clanRank` staat los van eventvoortgang: bij uitval van events of voortgangsopslag
+blijft de opgehaalde WOM-rang zichtbaar. Een opgeslagen profiel gebruikt de laatst
+opgehaalde WOM-rol met de bestaande melding voor verouderde gegevens. Zonder rol
+wordt geen rang verzonnen. Het standaardrangpad wordt niet als clanbeleid getoond;
+alleen een ingesteld pad dat de huidige rang bevat is zichtbaar.
 
 ## Eventdeelname
 
@@ -34,7 +44,7 @@ Admin en Staff team zien `Clanbeheer → Rangen & eventdeelname`.
 1. Wijzig namen en oplopende eventdoelen, of voeg rangen toe. De eerste rang
    begint bij nul. De startdoelen zijn 0, 5, 10, 20, 35 en 50; het profiel noemt
    deze expliciet startdoelen totdat een beheerder ze heeft opgeslagen.
-2. Kies een clanlid. Volg de WOM-rol of stel een profielrang in.
+2. Kies een clanlid. De huidige rang wordt altijd in Wise Old Man beheerd.
 3. Voeg zo nodig een positieve of negatieve eventcorrectie met reden toe,
    bijvoorbeeld voor clanraids buiten WOM. De reden is zichtbaar op het profiel.
 4. Sla op. Gelijktijdige wijzigingen worden met een revisiecontrole geweigerd

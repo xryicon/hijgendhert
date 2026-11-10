@@ -17,6 +17,7 @@ export type MemberEvent = {
 };
 export type MemberProfile = {
   player: ClanPlayer | null;
+  clanRank: import('./osrs-ranks').ClanRank | null;
   selection: 'saved' | 'discord' | 'account' | null;
   players: Pick<ClanPlayer, 'id' | 'username' | 'displayName'>[];
   events: MemberEvent[];
