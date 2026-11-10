@@ -212,7 +212,7 @@ export async function authorizeMember(request: Request, config: DiscordConfig, f
 export async function authorizeMemberWithRoles(request: Request, config: DiscordConfig, fetcher: typeof fetch = fetch, now = Date.now()): Promise<{ member: DiscordMember; roles: string[] }> {
   const parsed = sessionSchema.safeParse(await unseal(config, 'session', readCookie(request, SESSION_COOKIE)));
   if (!parsed.success || parsed.data.expiresAt <= now || parsed.data.expiresAt > now + MAX_SESSION_SECONDS * 1000 || (parsed.data.accessExpiresAt !== undefined && parsed.data.accessExpiresAt <= now)) throw new DiscordAccessError('expired');
-  // Bundle a page's read requests for at most 15 seconds. Mutations and admin
+  // Reuse verified membership for reads for at most five minutes. Mutations and admin
   // reads require a fresh provider check; no roles are trusted from the cookie.
   const path = new URL(request.url).pathname;
   const sharedRead = request.method === 'GET' && ['/profiel', '/api/auth/session', '/api/members/profile', '/api/members/event', '/api/members/notifications', '/api/members/clan-events', '/pk', '/api/pk', '/api/pk/session', '/api/pk/access'].includes(path);

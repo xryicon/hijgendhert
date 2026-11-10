@@ -26,7 +26,7 @@ profiel op `/profiel`. De oude route `/ledenomgeving` verwijst naar het profiel.
   de gecombineerde WOM-standingsfeed gaf tijdens implementatie databasefouten.
   Alleen inschrijven wordt niet gepresenteerd als actieve deelname.
 - `/api/members/profile` en `/api/members/event` controleren de Discord-toegang.
-  Gelijktijdige leesaanvragen delen maximaal vijftien seconden een geslaagde
+  Leesaanvragen delen maximaal vijf minuten een geslaagde
   rolcontrole; profielantwoorden blijven private/no-store. Account wijzigen
   vereist een same-origin POST en een verse Discord-controle.
 
@@ -89,8 +89,8 @@ van de Sites-preview niet om de bot bereikbaar te maken.
 - Iedere beschermde serverpagina/API valideert de versleutelde sessie en de
   toegestane Discord-rollen. Login, profielpagina, sessie en bekende lees-API's
   delen een controle per gehashte app/guild/access-token via `PROGRESS`.
-  Een geslaagde controle blijft maximaal vijftien seconden in het objectgeheugen;
-  rolwijzigingen kunnen voor leesaanvragen dus maximaal vijftien seconden later
+  Een geslaagde controle blijft maximaal vijf minuten in de besloten objectopslag;
+  rolwijzigingen kunnen voor leesaanvragen dus maximaal vijf minuten later
   zichtbaar worden. Mutaties en beheer-API's gebruiken een verse of nog lopende
   Discord-controle. De OAuth-callback vraagt ook een verse controle. Opgeslagen
   sessierollen worden nooit als bewijs gebruikt. Een ontbrekende rol, vertrokken
@@ -104,9 +104,16 @@ van de Sites-preview niet om de bot bereikbaar te maken.
   maken een storing herkenbaar zonder geheime gegevens te tonen.
 - `HH-PAGE-HTTP429` betekent dat Discord de rolcontrole tijdelijk begrenst.
   `Retry-After` en uitgeputte quota worden gerespecteerd. Alleen een gehashte
-  identiteit en wachttijd worden duurzaam opgeslagen, geen OAuth-token of
-  lidprofiel. Een redirect naar Login neemt de deadline mee; de inlogpagina en
+  identiteit, wachttijd en kort geldige rol-/profielcontrole worden duurzaam
+  opgeslagen, nooit OAuth-tokens. Een alarm verwijdert de rol-/profielcontrole
+  na vijf minuten. De controle blijft daardoor beschikbaar na een herstart,
+  zonder de geldigheid te verlengen. Een redirect naar Login neemt de deadline mee; de inlogpagina en
   browser doen tijdens die pauze geen nieuwe controle en tonen een afteller.
+- De knop Account blijft altijd een link naar de inlog-/herstelscreen wanneer
+  de sessie nog wordt geladen of Discord tijdelijk niet bereikbaar is. Een
+  geslaagde servercontrole vervangt oudere lopende browsercontroles. De time-out
+  omvat ook het wachten op een ander tabblad. Mislukte browsercontroles tonen
+  hun veilige HH-code bij Details voor clanbeheer.
 - Nieuwe besloten serverpagina's/actions moeten `requireDiscordMember()` gebruiken.
   Nieuwe API-routes moeten `authorizeMember()` gebruiken vóór zij iets lezen of
   wijzigen; de navigatie of clientcomponent is nooit een autorisatiegrens.

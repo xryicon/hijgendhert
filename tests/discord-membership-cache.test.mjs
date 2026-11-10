@@ -9,11 +9,12 @@ const bundle = await build({ stdin: { contents: `export { DiscordMembershipCache
 const { DiscordMembershipCache, DISCORD_MEMBERSHIP_FRESH_MS, DiscordAccessError } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const member = { user: { id: '234567890123456789', username: 'Hert' }, roles: ['1326459850837987430'] };
 function setup() {
-  let now = 100_000, pause = null;
-  const recreate = () => new DiscordMembershipCache(() => pause, value => { pause = value; }, () => now);
+  let now = 100_000, pause = null, evidence = null;
+  const recreate = () => new DiscordMembershipCache(() => pause, value => { pause = value; }, () => now, { read: () => evidence, save: value => { evidence = value; } });
   return { cache: recreate(), recreate, advance: ms => { now += ms; }, pause: () => pause };
 }
-test('one page burst shares one request; successful role evidence expires after 15 seconds', async () => {
+test('page reads share one request and role evidence expires after five minutes', async () => {
+  assert.equal(DISCORD_MEMBERSHIP_FRESH_MS, 300_000);
   const state = setup(); let calls = 0, finish;
   const load = () => { calls++; return new Promise(resolve => { finish = resolve; }); };
   const requests = Array.from({ length: 12 }, () => state.cache.check('token-a', false, load));
@@ -49,14 +50,29 @@ test('Discord cooldown survives eviction and blocks forced attempts until Retry-
   assert.equal(calls, 2);
   assert.equal(state.pause(), null);
 });
-test('exhausted successful quota serves only recent evidence and defers new checks', async () => {
-  const state = setup(); const load = async () => ({ member, cooldownSeconds: 60 });
+test('successful quota exhaustion does not break the next page after 15 seconds or eviction', async () => {
+  const state = setup(); const load = async () => ({ member, cooldownSeconds: 360 });
   await state.cache.check('token-a', false, load);
   const forbidden = () => { throw Error('Provider bucket is exhausted'); };
   assert.equal((await state.cache.check('token-a', false, forbidden)).ok, true);
-  assert.equal((await state.cache.check('token-a', true, forbidden)).retryAfter, 60);
-  state.advance(DISCORD_MEMBERSHIP_FRESH_MS);
-  assert.equal((await state.cache.check('token-a', false, forbidden)).retryAfter, 45);
+  assert.equal((await state.cache.check('token-a', true, forbidden)).retryAfter, 360);
+  state.advance(15_000);
+  const restarted = state.recreate();
+  assert.equal((await restarted.check('token-a', false, forbidden)).ok, true);
+  state.advance(DISCORD_MEMBERSHIP_FRESH_MS - 15_000);
+  assert.equal((await restarted.check('token-a', false, forbidden)).retryAfter, 60);
+});
+
+test('fresh failures and logout invalidate persisted evidence across restarts', async () => {
+  const state = setup();
+  await state.cache.check('token-a', false, async () => ({ member, cooldownSeconds: 0 }));
+  await state.recreate().check('token-a', true, async () => { throw new DiscordAccessError('server'); });
+  let calls = 0;
+  await state.recreate().check('token-a', false, async () => { calls++; return { member, cooldownSeconds: 0 }; });
+  assert.equal(calls, 1);
+  state.recreate().clear();
+  await state.recreate().check('token-a', false, async () => { calls++; return { member, cooldownSeconds: 0 }; });
+  assert.equal(calls, 2);
 });
 test('different credential fingerprints cannot share membership or a provider pause', async () => {
   const { cache } = setup();

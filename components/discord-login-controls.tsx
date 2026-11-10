@@ -30,9 +30,11 @@ export default function DiscordLoginControls({ authUrl, enabled, initialRetryAt,
   const deadline = Math.max(initialRetryAt, session.retryAt);
   const clock = useRetryClock(deadline);
   const reconnecting = clock.waiting || session.status === 'unavailable' || (issue && session.status === 'loading');
+  const diagnostic = session.reference || reference;
+  const limited = issue === 'rate-limit' || diagnostic?.endsWith('HTTP429');
   return <>
-    {reconnecting && <div className="login-connection-note" role="status"><Hourglass size={19}/><div><strong>{issue === 'rate-limit' ? 'Even wachten op Discord' : 'Verbinding met Discord herstellen'}</strong><p>{issue === 'rate-limit' ? 'Discord vraagt om een korte pauze tussen de controles. Je bestaande login blijft bewaard.' : 'Je bestaande login blijft bewaard. We proberen de verbinding opnieuw zodra dat kan.'}</p></div></div>}
+    {reconnecting && <div className="login-connection-note" role="status"><Hourglass size={19}/><div><strong>{limited ? 'Even wachten op Discord' : 'Verbinding met Discord herstellen'}</strong><p>{limited ? 'Discord vraagt om een korte pauze tussen de controles. Je bestaande login blijft bewaard.' : 'Je bestaande login blijft bewaard. We proberen de verbinding opnieuw zodra dat kan.'}</p></div></div>}
     {reconnecting ? <SessionRetryButton retryAt={initialRetryAt}/> : enabled && authUrl ? <a className="member-login" href={authUrl}><MessageCircle size={21}/><span>Inloggen met Discord</span><ArrowRight size={18}/></a> : <button className="member-login" disabled><MessageCircle size={21}/><span>Inloggen met Discord</span><ArrowRight size={18}/></button>}
-    {issue && reference && <details className="login-diagnostics"><summary>Details voor clanbeheer</summary><p>Foutcode: {reference}</p></details>}
+    {reconnecting && diagnostic && <details className="login-diagnostics"><summary>Details voor clanbeheer</summary><p>Foutcode: {diagnostic}</p></details>}
   </>;
 }

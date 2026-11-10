@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 // Exercise the same workerd runtime and bundler shipped with our pinned Wrangler.
 // A mocked Node fetch alone cannot catch unsupported Worker Request options.
@@ -65,6 +68,7 @@ function runtime(options = {}) {
     compatibilityDate: '2026-05-15', compatibilityFlags: ['nodejs_compat'],
     bindings: { ...env, ...options.bindings },
     durableObjects: options.coordinator ? { PROGRESS: { className: 'ClanProgress', useSQLite: true } } : {},
+    ...(options.persist ? { durableObjectsPersist: options.persist } : {}),
     // Every outbound request is intercepted; no real accounts or network access.
     outboundService: async request => {
       const url = new URL(request.url);
@@ -166,6 +170,33 @@ test('Cloudflare shares a Discord 429 pause across profile and session without d
     assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/profiel', { headers: { Cookie: session } })).status, 503);
     assert.equal(calls.length, count, 'Limited requests must not contact Discord again');
   } finally { await mf.dispose(); }
+});
+
+test('verified login survives Worker restart; a new denial clears the saved role evidence', async () => {
+  const persist = await mkdtemp(path.join(tmpdir(), 'hh-discord-cache-'));
+  const options = { coordinator: true, persist };
+  let active = runtime(options);
+  try {
+    const { finish } = await login(active.mf);
+    const session = cookie(finish, '__Host-hh-member'); assert.ok(session);
+    await active.mf.dispose();
+    options.memberStatus = 403;
+    active = runtime(options);
+    const restored = await active.mf.dispatchFetch(env.APP_ORIGIN + '/api/auth/session', { headers: { Cookie: session } });
+    assert.equal(restored.status, 200);
+    assert.equal((await restored.json()).member.displayName, 'Hert');
+    assert.equal(active.calls.length, 0, 'A recent verified login needs no new Discord call');
+    const denied = await active.mf.dispatchFetch(env.APP_ORIGIN + '/__test/protected-write', { method: 'POST', headers: { Cookie: session } });
+    assert.equal(denied.status, 401);
+    await active.mf.dispose();
+    active = runtime(options);
+    assert.equal((await active.mf.dispatchFetch(env.APP_ORIGIN + '/profiel', { headers: { Cookie: session } })).status, 401);
+    assert.equal(active.calls.length, 1, 'Removed membership cannot return from persisted evidence');
+  } finally {
+    await active.mf.dispose();
+    assert.ok(path.resolve(persist).startsWith(path.resolve(tmpdir()) + path.sep + 'hh-discord-cache-'));
+    await rm(persist, { recursive: true, force: true });
+  }
 });
 
 test('Cloudflare logout invalidates the recent membership check', async () => {

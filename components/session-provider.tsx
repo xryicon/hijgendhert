@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import type { DiscordMember } from '@/lib/member-types';
 import { discordRetryDeadline } from '@/lib/discord-retry';
 
-type Session = { status: 'loading' | 'authenticated' | 'anonymous' | 'unavailable'; member: DiscordMember | null; reason: string; retryAt: number };
+type Session = { status: 'loading' | 'authenticated' | 'anonymous' | 'unavailable'; member: DiscordMember | null; reason: string; retryAt: number; reference?: string };
 const initial: Session = { status: 'loading', member: null, reason: '', retryAt: 0 };
 const cooldownKey = 'hh-session-retry-at';
 const routineCheckMs = 5 * 60_000;
@@ -29,6 +29,8 @@ export default function SessionProvider({ children }: { children: ReactNode }) {
   const retryAt = useRef(0);
   const failures = useRef(0);
   const acceptVerifiedMember = useCallback((member: DiscordMember) => {
+    // A page's newer server check wins over an older background request.
+    const controller = running.current; running.current = null; controller?.abort();
     checkedAt.current = Date.now();
     retryAt.current = 0; failures.current = 0;
     try { localStorage.removeItem(cooldownKey); } catch { /* Optional cross-tab backoff. */ }
@@ -45,23 +47,23 @@ export default function SessionProvider({ children }: { children: ReactNode }) {
       return;
     }
     const controller = new AbortController(); running.current = controller;
-    let timeout: number | undefined;
-    const pause = (response?: Response) => {
+    // Include time waiting for another tab's lock, not only the network request.
+    const timeout = window.setTimeout(() => controller.abort(), 25_000);
+    const pause = (response?: Response, reference?: string) => {
       failures.current += 1;
       const header = response?.headers.get('Retry-After');
       const providerWait = header && /^\d+(\.\d+)?$/.test(header) ? Number(header) * 1000 : header ? Date.parse(header) - Date.now() : 0;
       const backoff = Math.min(15 * 60_000, 60_000 * 2 ** Math.min(failures.current - 1, 4));
       retryAt.current = Math.max(sharedRetryAt(), Date.now() + Math.max(backoff, Number.isFinite(providerWait) ? providerWait : 0));
       try { localStorage.setItem(cooldownKey, String(retryAt.current)); } catch { /* In-memory backoff still applies. */ }
-      setSession(old => ({ ...old, status: 'unavailable', reason: 'unavailable', retryAt: retryAt.current }));
+      setSession(old => ({ ...old, status: 'unavailable', reason: 'unavailable', retryAt: retryAt.current, reference: reference && /^HH-SESSION-[A-Z0-9_]{2,40}$/.test(reference) ? reference : 'HH-SESSION-CONNECTION' }));
     };
     try {
       const check = async () => {
         // Another tab may have received a rate limit while this tab waited.
         if (Date.now() < sharedRetryAt()) return null;
-        timeout = window.setTimeout(() => controller.abort(), 25_000);
         const response = await fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal });
-        return { response, body: await response.json() as { authenticated?: boolean; member?: DiscordMember; reason?: string } };
+        return { response, body: await response.json() as { authenticated?: boolean; member?: DiscordMember; reason?: string; reference?: string } };
       };
       // Serialize cookie renewal across tabs. Credentials stay in HttpOnly cookies.
       const result = navigator.locks
@@ -79,7 +81,7 @@ export default function SessionProvider({ children }: { children: ReactNode }) {
         checkedAt.current = Date.now(); failures.current = 0; retryAt.current = 0;
         setSession({ status: 'anonymous', member: null, reason: body.reason || 'expired', retryAt: 0 });
       }
-      else pause(response);
+      else pause(response, body.reference);
     } catch {
       if (running.current === controller) pause();
     } finally {

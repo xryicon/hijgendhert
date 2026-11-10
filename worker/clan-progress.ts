@@ -6,14 +6,20 @@ import { updateNotificationFeed, visibleNotifications, type NotificationFeedStat
 import { rememberAvatar, matchMemberAvatars, type AvatarIdentity, type AvatarPlayer, type StoredAvatar } from '../lib/member-avatars';
 import type { LeaderboardEvent } from '../lib/event-leaderboard';
 import { fetchDiscordMembership } from '../lib/discord-auth';
-import { DiscordMembershipCache } from '../lib/discord-membership-cache';
+import { DiscordMembershipCache, DISCORD_MEMBERSHIP_FRESH_MS, type DiscordMembershipEvidence } from '../lib/discord-membership-cache';
 
 type NotificationSources = Partial<Record<keyof NotificationSourceUpdates, number>>;
 type StoredNotifications = { state: NotificationFeedState | null; checkedAt: NotificationSources };
 
 // Separate object names isolate the clan policy from each player's event record.
 export class ClanProgress extends DurableObject<Cloudflare.Env> {
-  #discordChecks = new DiscordMembershipCache(() => this.#read('discord-check-pause', null), pause => this.#save('discord-check-pause', pause));
+  #discordChecks = new DiscordMembershipCache(
+    () => this.#read('discord-check-pause', null), pause => this.#save('discord-check-pause', pause), Date.now,
+    { read: () => this.#read<DiscordMembershipEvidence | null>('discord-check-evidence', null), save: value => {
+      if (value) this.#save('discord-check-evidence', value);
+      else this.ctx.storage.sql.exec('DELETE FROM profile_settings WHERE key = ?', 'discord-check-evidence');
+    } },
+  );
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => {
@@ -38,9 +44,19 @@ export class ClanProgress extends DurableObject<Cloudflare.Env> {
   async checkDiscordMembership(guildId: string, accessToken: string, fresh: boolean) {
     const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${guildId}:${accessToken}`));
     const fingerprint = Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, '0')).join('');
-    return this.#discordChecks.check(fingerprint, fresh, () => fetchDiscordMembership(guildId, accessToken));
+    const result = await this.#discordChecks.check(fingerprint, fresh, () => fetchDiscordMembership(guildId, accessToken));
+    const evidence = this.#read<DiscordMembershipEvidence | null>('discord-check-evidence', null);
+    if (evidence) await this.ctx.storage.setAlarm(evidence.checkedAt + DISCORD_MEMBERSHIP_FRESH_MS);
+    return result;
   }
   clearDiscordMembership() { this.#discordChecks.clear(); }
+  async alarm() {
+    const evidence = this.#read<DiscordMembershipEvidence | null>('discord-check-evidence', null);
+    if (!evidence) return;
+    const expiresAt = evidence.checkedAt + DISCORD_MEMBERSHIP_FRESH_MS;
+    if (expiresAt <= Date.now()) this.#discordChecks.clear();
+    else await this.ctx.storage.setAlarm(expiresAt);
+  }
   getAccount(): SavedMemberAccount { return this.#read('account', EMPTY_MEMBER_ACCOUNT); }
   getLeaderboardEvents(): LeaderboardEvent[] {
     return this.ctx.storage.sql.exec<{ value: string }>("SELECT value FROM profile_settings WHERE key LIKE 'leaderboard-event:%' LIMIT 2000").toArray().map(row => JSON.parse(row.value) as LeaderboardEvent);
