@@ -17,6 +17,7 @@ import "./clan-calendar.css";
 import './clan-raffle.css';
 import './notifications.css';
 import './osrs-metrics.css';
+import './account-access.css';
 
 export const metadata: Metadata = {
   title: "Hijgend Hert — Samen op avontuur in Gielinor",

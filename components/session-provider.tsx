@@ -1,14 +1,17 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { DiscordMember } from '@/lib/member-types';
+import { discordRetryDeadline } from '@/lib/discord-retry';
 
-type Session = { status: 'loading' | 'authenticated' | 'anonymous' | 'unavailable'; member: DiscordMember | null; reason: string };
-const initial: Session = { status: 'loading', member: null, reason: '' };
+type Session = { status: 'loading' | 'authenticated' | 'anonymous' | 'unavailable'; member: DiscordMember | null; reason: string; retryAt: number };
+const initial: Session = { status: 'loading', member: null, reason: '', retryAt: 0 };
 const cooldownKey = 'hh-session-retry-at';
 const routineCheckMs = 5 * 60_000;
 // Only a retry deadline is shared, never identity, roles or credentials.
 function sharedRetryAt() {
-  try { const value = Number(localStorage.getItem(cooldownKey)); return Number.isFinite(value) && value > Date.now() ? value : 0; } catch { return 0; }
+  const fromPage = discordRetryDeadline(document.querySelector('[data-discord-retry-at]')?.getAttribute('data-discord-retry-at'));
+  const fromUrl = discordRetryDeadline(new URLSearchParams(window.location.search).get('retryAt'));
+  try { return Math.max(fromPage, fromUrl, discordRetryDeadline(localStorage.getItem(cooldownKey))); } catch { return Math.max(fromPage, fromUrl); }
 }
 const SessionContext = createContext<Session & { refresh: () => Promise<void>; acceptVerifiedMember: (member: DiscordMember) => void }>({ ...initial, refresh: async () => {}, acceptVerifiedMember: () => {} });
 export const useMemberSession = () => useContext(SessionContext);
@@ -29,14 +32,16 @@ export default function SessionProvider({ children }: { children: ReactNode }) {
     checkedAt.current = Date.now();
     retryAt.current = 0; failures.current = 0;
     try { localStorage.removeItem(cooldownKey); } catch { /* Optional cross-tab backoff. */ }
-    setSession({ status: 'authenticated', member, reason: '' });
+    setSession({ status: 'authenticated', member, reason: '', retryAt: 0 });
   }, []);
   const refresh = useCallback(async (force = true) => {
     if (!force && failures.current === 0 && Date.now() - checkedAt.current < routineCheckMs) return;
     if (running.current || document.hidden) return;
     if (Date.now() < Math.max(retryAt.current, sharedRetryAt())) {
       failures.current = Math.max(1, failures.current);
-      setSession(old => ({ ...old, status: 'unavailable', reason: 'unavailable' }));
+      retryAt.current = Math.max(retryAt.current, sharedRetryAt());
+      try { localStorage.setItem(cooldownKey, String(retryAt.current)); } catch { /* In-memory backoff still applies. */ }
+      setSession(old => ({ ...old, status: 'unavailable', reason: 'unavailable', retryAt: retryAt.current }));
       return;
     }
     const controller = new AbortController(); running.current = controller;
@@ -48,7 +53,7 @@ export default function SessionProvider({ children }: { children: ReactNode }) {
       const backoff = Math.min(15 * 60_000, 60_000 * 2 ** Math.min(failures.current - 1, 4));
       retryAt.current = Math.max(sharedRetryAt(), Date.now() + Math.max(backoff, Number.isFinite(providerWait) ? providerWait : 0));
       try { localStorage.setItem(cooldownKey, String(retryAt.current)); } catch { /* In-memory backoff still applies. */ }
-      setSession(old => ({ ...old, status: 'unavailable', reason: 'unavailable' }));
+      setSession(old => ({ ...old, status: 'unavailable', reason: 'unavailable', retryAt: retryAt.current }));
     };
     try {
       const check = async () => {
@@ -63,16 +68,16 @@ export default function SessionProvider({ children }: { children: ReactNode }) {
         ? await navigator.locks.request('hh-session-check', { signal: controller.signal }, check)
         : await check();
       if (running.current !== controller) return;
-      if (!result) { retryAt.current = sharedRetryAt(); failures.current = Math.max(1, failures.current); setSession(old => ({ ...old, status: 'unavailable', reason: 'unavailable' })); return; }
+      if (!result) { retryAt.current = sharedRetryAt(); failures.current = Math.max(1, failures.current); setSession(old => ({ ...old, status: 'unavailable', reason: 'unavailable', retryAt: retryAt.current })); return; }
       const { response, body } = result;
       if (response.ok && body.authenticated && body.member) {
         checkedAt.current = Date.now(); failures.current = 0; retryAt.current = 0;
         try { localStorage.removeItem(cooldownKey); } catch { /* Optional storage. */ }
-        setSession({ status: 'authenticated', member: body.member, reason: '' });
+        setSession({ status: 'authenticated', member: body.member, reason: '', retryAt: 0 });
       }
       else if (response.status === 401 || body.reason === 'setup') {
         checkedAt.current = Date.now(); failures.current = 0; retryAt.current = 0;
-        setSession({ status: 'anonymous', member: null, reason: body.reason || 'expired' });
+        setSession({ status: 'anonymous', member: null, reason: body.reason || 'expired', retryAt: 0 });
       }
       else pause(response);
     } catch {
@@ -93,7 +98,7 @@ export default function SessionProvider({ children }: { children: ReactNode }) {
       if (event.key === 'hh-signout') {
         const controller = running.current; running.current = null; controller?.abort();
         checkedAt.current = Date.now(); failures.current = 0;
-        setSession({ status: 'anonymous', member: null, reason: 'expired' });
+        setSession({ status: 'anonymous', member: null, reason: 'expired', retryAt: 0 });
       }
       if (event.key === cooldownKey) retryAt.current = sharedRetryAt();
     };

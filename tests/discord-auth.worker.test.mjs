@@ -12,7 +12,8 @@ const { build } = requireWrangler('esbuild');
 const root = fileURLToPath(new URL('../', import.meta.url));
 const bundle = await build({
   stdin: {
-    contents: `import { discordAuthRoute } from './lib/discord-auth.ts';
+    contents: `import { discordAuthRoute, authorizeMember, discordConfig } from './lib/discord-auth.ts';
+      export { ClanProgress } from './worker/clan-progress.ts';
       import { memberProfileRoute } from './lib/member-profile.ts';
       import { readWiseOldMan } from './lib/wise-old-man.ts';
       import { GET as clanData } from './app/api/clan/route.ts';
@@ -20,6 +21,10 @@ const bundle = await build({
       import { GET as hallData } from './app/api/hall-of-fame/route.ts';
       export default { async fetch(request, env) {
         const url = new URL(request.url);
+        if (url.pathname === '/profiel' || url.pathname === '/__test/protected-write') {
+          try { return Response.json(await authorizeMember(request, discordConfig(env))); }
+          catch (error) { return Response.json({ reason: error.code }, { status: error.code === 'unavailable' ? 503 : 401, headers: { 'Retry-After': String(error.retryAfter || 60) } }); }
+        }
         if (url.pathname === '/api/clan') return clanData(request);
         if (url.pathname === '/api/event') return eventData(request);
         if (url.pathname === '/api/hall-of-fame') return hallData(request);
@@ -59,6 +64,7 @@ function runtime(options = {}) {
     modules: true, script: bundle.outputFiles[0].text,
     compatibilityDate: '2026-05-15', compatibilityFlags: ['nodejs_compat'],
     bindings: { ...env, ...options.bindings },
+    durableObjects: options.coordinator ? { PROGRESS: { className: 'ClanProgress', useSQLite: true } } : {},
     // Every outbound request is intercepted; no real accounts or network access.
     outboundService: async request => {
       const url = new URL(request.url);
@@ -102,7 +108,7 @@ function runtime(options = {}) {
         scope: 'identify guilds.members.read',
       });
       if (url.pathname.endsWith('/member')) {
-        if (options.memberStatus) return Response.json({}, { status: options.memberStatus });
+        if (options.memberStatus) return Response.json({}, { status: options.memberStatus, headers: options.memberStatus === 429 ? { 'Retry-After': '65' } : {} });
         return Response.json({ user, roles: options.roles ?? [env.DISCORD_MEMBER_ROLE_IDS], nick: 'Hert', joined_at: options.nullJoinDate ? null : '2025-01-01T00:00:00Z' });
       }
       if (url.pathname.endsWith('/users/@me')) return Response.json(user);
@@ -124,6 +130,57 @@ async function login(mf) {
   });
   return { authUrl, finish };
 }
+
+test('Cloudflare bundles callback, profile and session checks while writes recheck live roles', async () => {
+  const options = { coordinator: true };
+  const { mf, calls } = runtime(options);
+  try {
+    const { finish } = await login(mf);
+    const session = cookie(finish, '__Host-hh-member'); assert.ok(session);
+    const requests = ['/profiel', '/api/auth/session', '/profiel', '/api/auth/session'];
+    const results = await Promise.all(requests.map(route => mf.dispatchFetch(env.APP_ORIGIN + route, { headers: { Cookie: session } })));
+    assert.ok(results.every(response => response.status === 200));
+    assert.equal(calls.filter(call => new URL(call.url).pathname.endsWith('/member')).length, 1);
+    options.roles = [];
+    const denied = await mf.dispatchFetch(env.APP_ORIGIN + '/__test/protected-write', { method: 'POST', headers: { Cookie: session } });
+    assert.equal(denied.status, 401); assert.equal((await denied.json()).reason, 'role');
+    assert.equal(calls.filter(call => new URL(call.url).pathname.endsWith('/member')).length, 2);
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/profiel', { headers: { Cookie: session } })).status, 401);
+  } finally { await mf.dispose(); }
+});
+
+test('Cloudflare shares a Discord 429 pause across profile and session without deleting the login', async () => {
+  const options = { coordinator: true };
+  const { mf, calls } = runtime(options);
+  try {
+    const { finish } = await login(mf);
+    const session = cookie(finish, '__Host-hh-member'); assert.ok(session);
+    options.memberStatus = 429;
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/__test/protected-write', { method: 'POST', headers: { Cookie: session } })).status, 503);
+    const count = calls.length;
+    const result = await mf.dispatchFetch(env.APP_ORIGIN + '/api/auth/session', { headers: { Cookie: session } });
+    assert.equal(result.status, 503);
+    assert.equal((await result.json()).reference, 'HH-SESSION-HTTP429');
+    assert.ok(Number(result.headers.get('Retry-After')) >= 64);
+    assert.equal(result.headers.getSetCookie().length, 0);
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/profiel', { headers: { Cookie: session } })).status, 503);
+    assert.equal(calls.length, count, 'Limited requests must not contact Discord again');
+  } finally { await mf.dispose(); }
+});
+
+test('Cloudflare logout invalidates the recent membership check', async () => {
+  const options = { coordinator: true };
+  const { mf, calls } = runtime(options);
+  try {
+    const { finish } = await login(mf);
+    const session = cookie(finish, '__Host-hh-member'); assert.ok(session);
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/profiel', { headers: { Cookie: session } })).status, 200);
+    await mf.dispatchFetch(env.APP_ORIGIN + '/api/auth/logout', { method: 'POST', redirect: 'manual', headers: { Cookie: session, Origin: env.APP_ORIGIN } });
+    options.memberStatus = 401;
+    assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/profiel', { headers: { Cookie: session } })).status, 401);
+    assert.equal(calls.filter(call => new URL(call.url).pathname.endsWith('/member')).length, 2);
+  } finally { await mf.dispose(); }
+});
 
 test('Cloudflare runtime completes Discord login, checks membership, and logs out', async () => {
   const { mf, calls } = runtime();

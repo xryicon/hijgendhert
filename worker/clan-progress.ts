@@ -3,12 +3,15 @@ import { DEFAULT_RANK_RULES, EMPTY_PLAYER_PROGRESS, memberRankSchema, rankRulesS
 import type { MemberEvent } from '../lib/member-types';
 import { EMPTY_MEMBER_ACCOUNT, type SavedMemberAccount, type SavedMemberSnapshot, type SavedMemberActivity } from '../lib/member-account';
 import { updateNotificationFeed, visibleNotifications, type NotificationFeedState, type NotificationSourceUpdates } from '../lib/notifications';
+import { fetchDiscordMembership } from '../lib/discord-auth';
+import { DiscordMembershipCache } from '../lib/discord-membership-cache';
 
 type NotificationSources = Partial<Record<keyof NotificationSourceUpdates, number>>;
 type StoredNotifications = { state: NotificationFeedState | null; checkedAt: NotificationSources };
 
 // Separate object names isolate the clan policy from each player's event record.
 export class ClanProgress extends DurableObject<Cloudflare.Env> {
+  #discordChecks = new DiscordMembershipCache(() => this.#read('discord-check-pause', null), pause => this.#save('discord-check-pause', pause));
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => {
@@ -30,6 +33,12 @@ export class ClanProgress extends DurableObject<Cloudflare.Env> {
   #save(key: string, value: unknown) {
     this.ctx.storage.sql.exec('INSERT INTO profile_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, JSON.stringify(value));
   }
+  async checkDiscordMembership(guildId: string, accessToken: string, fresh: boolean) {
+    const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${guildId}:${accessToken}`));
+    const fingerprint = Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, '0')).join('');
+    return this.#discordChecks.check(fingerprint, fresh, () => fetchDiscordMembership(guildId, accessToken));
+  }
+  clearDiscordMembership() { this.#discordChecks.clear(); }
   getAccount(): SavedMemberAccount { return this.#read('account', EMPTY_MEMBER_ACCOUNT); }
   selectAccount(playerId: number | null, revision: number) {
     const saved = this.getAccount();

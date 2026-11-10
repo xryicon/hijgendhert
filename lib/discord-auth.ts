@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { DiscordMember } from './member-types';
+import type { ClanProgress } from '../worker/clan-progress';
 
 export type DiscordEnv = {
   APP_ORIGIN?: string;
@@ -10,6 +11,7 @@ export type DiscordEnv = {
   DISCORD_MEMBER_ROLE_IDS?: string;
   DISCORD_PUBLIC_KEY?: string;
   DISCORD_SESSION_SECRET?: string;
+  PROGRESS?: DurableObjectNamespace<ClanProgress>;
 };
 
 const API = 'https://discord.com/api/v10';
@@ -26,6 +28,7 @@ const randomText = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32)))
 export type DiscordConfig = {
   origin: string; clientId: string; clientSecret: string; guildId: string;
   roleIds: string[]; sessionSecret: string;
+  membershipChecks?: DurableObjectNamespace<ClanProgress>;
 };
 export type AccessCode = 'setup' | 'expired' | 'role' | 'server' | 'pending' | 'unavailable' | 'state' | 'cancelled';
 export class DiscordAccessError extends Error {
@@ -51,7 +54,7 @@ export function discordConfig(env: DiscordEnv): DiscordConfig | null {
     const sessionSecret = env.DISCORD_SESSION_SECRET || '';
     if (!/^[A-Za-z0-9_-]{43}$/.test(sessionSecret) || Buffer.from(sessionSecret, 'base64url').length !== 32) return null;
     if (!env.DISCORD_CLIENT_SECRET || env.DISCORD_CLIENT_SECRET.length < 16) return null;
-    return { origin: origin.origin, clientId, guildId, roleIds, sessionSecret, clientSecret: env.DISCORD_CLIENT_SECRET };
+    return { origin: origin.origin, clientId, guildId, roleIds, sessionSecret, clientSecret: env.DISCORD_CLIENT_SECRET, membershipChecks: env.PROGRESS };
   } catch { return null; }
 }
 
@@ -113,6 +116,9 @@ const sessionSchema = z.object({ accessToken: z.string().min(10).max(512), refre
 const tokenSchema = z.object({ access_token: z.string().min(10).max(512), refresh_token: z.string().min(10).max(512).optional(), token_type: z.literal('Bearer'), expires_in: z.number().int().positive(), scope: z.string() });
 const userSchema = z.object({ id: snowflake, username: z.string().min(1).max(100), global_name: z.string().max(100).nullable().optional() });
 const memberSchema = z.object({ roles: z.array(snowflake).max(500), pending: z.boolean().optional(), nick: z.string().max(100).nullable().optional(), joined_at: z.string().max(50).nullish(), user: userSchema.optional() });
+export type DiscordGuildMember = z.infer<typeof memberSchema>;
+export type DiscordMembershipResult = { member: DiscordGuildMember; cooldownSeconds: number };
+export type DiscordMembershipOutcome = { ok: true; member: DiscordGuildMember } | { ok: false; code: AccessCode; detail?: string; retryAfter?: number };
 
 // A display preference, never proof of RuneScape account ownership. It survives
 // sign-out on this browser and is encrypted and bound to one Discord user.
@@ -158,23 +164,50 @@ async function readJson(response: Response): Promise<unknown> {
     return JSON.parse(Buffer.concat(parts).toString('utf8'));
   } catch { throw new DiscordAccessError('unavailable', 'JSON'); }
 }
-export async function checkMembership(config: DiscordConfig, token: string, fetcher: typeof fetch = fetch) {
-  const response = await discordFetch(`${API}/users/@me/guilds/${config.guildId}/member`, { headers: { Authorization: `Bearer ${token}` } }, fetcher);
+export async function fetchDiscordMembership(guildId: string, token: string, fetcher: typeof fetch = fetch): Promise<DiscordMembershipResult> {
+  if (!snowflake.safeParse(guildId).success || token.length < 10 || token.length > 512) throw new DiscordAccessError('expired');
+  const response = await discordFetch(`${API}/users/@me/guilds/${guildId}/member`, { headers: { Authorization: `Bearer ${token}` } }, fetcher);
   if (response.status === 401) throw new DiscordAccessError('expired');
   if (response.status === 403 || response.status === 404) throw new DiscordAccessError('server');
   if (!response.ok) throw new DiscordAccessError('unavailable', `HTTP${response.status}`);
   const parsed = memberSchema.safeParse(await readJson(response));
   if (!parsed.success) throw new DiscordAccessError('unavailable', 'DATA');
-  if (parsed.data.pending) throw new DiscordAccessError('pending');
-  if (!config.roleIds.some(id => parsed.data.roles.includes(id))) throw new DiscordAccessError('role');
-  return parsed.data;
+  const reset = Number(response.headers.get('X-RateLimit-Reset-After'));
+  const cooldownSeconds = response.headers.get('X-RateLimit-Remaining') === '0' && Number.isFinite(reset) && reset > 0 ? Math.ceil(reset) : 0;
+  return { member: parsed.data, cooldownSeconds };
+}
+
+export async function checkMembership(config: DiscordConfig, token: string, fetcher: typeof fetch = fetch, fresh = true) {
+  let member: DiscordGuildMember;
+  if (config.membershipChecks) {
+    // The object name contains only a hash, never an OAuth credential.
+    const digest = await crypto.subtle.digest('SHA-256', encoder.encode(`${config.origin}:${config.clientId}:${config.guildId}:${token}`));
+    const fingerprint = Buffer.from(digest).toString('hex');
+    let result: DiscordMembershipOutcome;
+    try { result = await config.membershipChecks.getByName(`discord-membership:${fingerprint}`).checkDiscordMembership(config.guildId, token, fresh); }
+    catch { throw new DiscordAccessError('unavailable', 'CHECK_SERVICE', 60); }
+    if (!result.ok) throw new DiscordAccessError(result.code, result.detail, result.retryAfter);
+    member = result.member;
+  } else member = (await fetchDiscordMembership(config.guildId, token, fetcher)).member;
+  // Policy is evaluated on every use, including changes to configured roles.
+  if (member.pending) throw new DiscordAccessError('pending');
+  if (!config.roleIds.some(id => member.roles.includes(id))) throw new DiscordAccessError('role');
+  return member;
+}
+
+async function clearMembershipCheck(config: DiscordConfig, token: string) {
+  if (!config.membershipChecks) return;
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(`${config.origin}:${config.clientId}:${config.guildId}:${token}`));
+  await config.membershipChecks.getByName(`discord-membership:${Buffer.from(digest).toString('hex')}`).clearDiscordMembership();
 }
 export async function authorizeMember(request: Request, config: DiscordConfig, fetcher: typeof fetch = fetch, now = Date.now()): Promise<DiscordMember> {
   const parsed = sessionSchema.safeParse(await unseal(config, 'session', readCookie(request, SESSION_COOKIE)));
   if (!parsed.success || parsed.data.expiresAt <= now || parsed.data.expiresAt > now + MAX_SESSION_SECONDS * 1000 || (parsed.data.accessExpiresAt !== undefined && parsed.data.accessExpiresAt <= now)) throw new DiscordAccessError('expired');
-  // Never use roles stored in a session. Removed roles and server departures
-  // are checked against Discord on every protected page or API request.
-  const member = await checkMembership(config, parsed.data.accessToken, fetcher);
+  // Bundle a page's read requests for at most 15 seconds. Mutations and admin
+  // reads require a fresh provider check; no roles are trusted from the cookie.
+  const path = new URL(request.url).pathname;
+  const sharedRead = request.method === 'GET' && ['/profiel', '/api/auth/session', '/api/members/profile', '/api/members/event', '/api/members/notifications'].includes(path);
+  const member = await checkMembership(config, parsed.data.accessToken, fetcher, !sharedRead);
   if (!member.user || member.user.id !== parsed.data.userId) throw new DiscordAccessError('expired');
   return {
     id: member.user.id, displayName: member.nick || member.user.global_name || member.user.username,
@@ -193,6 +226,7 @@ async function revoke(config: DiscordConfig, accessToken: string, fetcher: typeo
     }, fetcher);
     return response.ok;
   } catch { return false; }
+  finally { try { await clearMembershipCheck(config, accessToken); } catch { /* Coordinator failures already fail closed. */ } }
 }
 
 // Only the session endpoint renews credentials. Protected pages and data APIs
@@ -275,7 +309,8 @@ async function callback(request: Request, config: DiscordConfig, fetcher: typeof
     console.warn(JSON.stringify({ event: 'discord_login_failed', reason: code, reference }));
     // A temporary provider failure during a new sign-in must not erase an
     // existing browser session. Every use of that session still checks roles.
-    return redirect(`/login?error=${code}${code === 'unavailable' ? `&ref=${reference}` : ''}`, code === 'unavailable' ? [clearState()] : [clearState(), clearSession()]);
+    const retryAt = error instanceof DiscordAccessError && error.retryAfter ? Date.now() + error.retryAfter * 1000 : 0;
+    return redirect(`/login?error=${code}${code === 'unavailable' ? `&ref=${reference}` : ''}${retryAt ? `&retryAt=${retryAt}` : ''}`, code === 'unavailable' ? [clearState()] : [clearState(), clearSession()]);
   }
 }
 

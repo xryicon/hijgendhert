@@ -134,7 +134,7 @@ test('anonymous and cross-site notification requests never fetch clan sources', 
   } finally { await mf.dispose(); }
 });
 
-test('revoked Discord roles and provider outages cannot expose a saved notification feed', async () => {
+test('observed Discord revocations and provider outages invalidate the shared check before saved feeds are read', async () => {
   const options = {};
   const { mf, calls } = runtime(options);
   try {
@@ -142,12 +142,13 @@ test('revoked Discord roles and provider outages cannot expose a saved notificat
     assert.ok((await feed(mf, session)).notifications.length > 0);
     const count = womCalls(calls).length;
     options.roles = [];
-    assert.equal((await notifications(mf, session)).status, 401);
     assert.equal((await markRead(mf, session, ['arbitrary-id'])).status, 401);
+    assert.equal((await notifications(mf, session)).status, 401);
     options.roles = [env.DISCORD_MEMBER_ROLE_IDS]; options.discordOffline = true;
+    assert.equal((await markRead(mf, session, ['arbitrary-id'])).status, 503);
     const unavailable = await notifications(mf, session);
     assert.equal(unavailable.status, 503);
-    assert.equal(unavailable.headers.get('Retry-After'), '60');
+    assert.ok(Number(unavailable.headers.get('Retry-After')) > 0);
     assert.equal(unavailable.headers.get('Set-Cookie'), null);
     assert.equal(womCalls(calls).length, count);
   } finally { await mf.dispose(); }

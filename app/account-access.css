@@ -1,0 +1,62 @@
+/* The same woodland, worn brass and warm charcoal as the clan's main pages. */
+body:has(.login-page) { background: #100d09 url('/hijgend-hert-woodland.webp') center top / cover fixed; }
+body:has(.login-page) .header.header-member { background: linear-gradient(180deg, #100d09ef, #100d09bd); border-bottom-color: #a17a3c38; }
+body .login-page { display: flex; flex-direction: column; justify-content: center; min-height: calc(100svh - 82px); padding: 46px 20px 32px; background: linear-gradient(180deg, #0d0a0755, #100d09dd); }
+body .login-page::before { background: radial-gradient(ellipse at 50% 18%, #ad6b2326, transparent 58%); opacity: 1; }
+body .login-page .member-gate { width: 100%; max-width: 520px; padding: 28px 43px 32px; border: 1px solid #a17a3f; border-radius: 4px; background: radial-gradient(ellipse at 50% 0%, #7e542926, transparent 55%), linear-gradient(155deg, #231b12f5, #100d09fa 65%); box-shadow: inset 0 1px 0 #f1cf8330, inset 0 -3px 0 #070503aa, 0 24px 80px #0009; }
+body .login-page .member-gate::before { inset: 5px; border-color: #d2ad6230; border-radius: 1px; }
+body .login-page .member-gate::after { content: ''; position: absolute; top: -2px; left: 30%; right: 30%; height: 3px; background: linear-gradient(90deg, transparent, #dbb776, transparent); pointer-events: none; }
+body .login-page .member-back { margin: 0; color: #b2a082; font-size: 10px; }
+body .login-page .member-back:hover { color: #efd39c; }
+body .login-page .member-crest { width: 136px; height: 136px; margin: 14px auto 6px; filter: drop-shadow(0 5px 18px #b7782526); }
+body .login-page .member-eyebrow { color: #b99556; font-size: 9px; letter-spacing: 3px; margin-bottom: 13px; }
+body .login-page h1 { color: #f0e0bd; font-size: clamp(32px, 5vw, 42px); }
+body .login-page h1 em { color: #d3ac62; }
+body .login-page .member-intro { color: #b9aa90; margin: 17px 0 18px; }
+body .login-page .member-role { color: #c9b58e; border-color: #95713b45; background: #b48a3810; font-size: 10px; }
+body .login-page .member-role svg { color: #c6a265; }
+body .login-page .member-notice { color: #e0c396; background: #b0802e0f; border-color: #bb8e48; }
+body .login-page .member-help { color: #a99a7e; margin-bottom: 22px; }
+body .login-page .member-help a { color: #d2b479; }
+body .login-page .member-privacy { color: #a49880; border-color: #ad88412e; }
+body .login-page .member-privacy summary { color: #bdab89; }
+body .login-page .member-public-note { color: #a1957b; text-shadow: 0 1px 3px #000; }
+body .member-login { border-color: #a78243; background: linear-gradient(155deg, #574021, #302214 60%, #20170e); color: #f0d39b; box-shadow: inset 0 1px 0 #f4d39135, inset 0 -2px 0 #080603a0, 0 4px 14px #0005; }
+body .member-login::before { content: ''; position: absolute; inset: 4px; border: 1px solid #c7a46624; pointer-events: none; }
+body .member-login:not(:disabled):hover { border-color: #dfb868; background: linear-gradient(155deg, #674a26, #3b2916 65%, #291b0f); color: #ffe6b3; }
+body .member-login:disabled { opacity: .72; color: #bea77b; border-color: #74592e; background: linear-gradient(155deg, #302519, #1d170f); }
+.login-connection-note { display: flex; align-items: flex-start; gap: 12px; margin: 23px 0 -6px; padding: 15px; border: 1px solid #a27c3c45; border-left: 2px solid #b88b48; background: #a5752510; text-align: left; color: #d9bd83; }
+.login-connection-note > svg { flex-shrink: 0; margin-top: 2px; }
+.login-connection-note strong { display: block; font: 600 12px/1.6 Cinzel, Georgia, serif; }
+.login-connection-note p { color: #b9a98b; font-size: 11px; line-height: 1.75; margin-top: 6px; }
+.login-diagnostics { text-align: left; margin: 14px 0 0; color: #9d8b6a; font-size: 10px; }
+.login-diagnostics summary { cursor: pointer; }
+.login-diagnostics p { margin-top: 9px; overflow-wrap: anywhere; }
+body .member-connection { padding: 32px; border: 1px solid #8c6934; border-radius: 4px; background: linear-gradient(145deg, #261d13, #120f0a); box-shadow: inset 0 0 0 4px #0b080580, 0 18px 55px #0006; }
+body .member-connection p { color: #bcab8d; }
+body .member-connection .member-login { position: relative; font-size: 11px; margin-top: 24px; padding: 14px 16px; }
+
+body .nav-account-crest { width: 25px; height: 25px; margin-block: -4px; flex-shrink: 0; object-fit: contain; filter: drop-shadow(0 2px 3px #0008); }
+body .account-panel { width: min(310px, calc(100vw - 32px)); padding: 7px; overflow: hidden; border-color: #a17a3f; border-radius: 4px; background: radial-gradient(ellipse at top right, #6b492024, transparent 65%), linear-gradient(150deg, #251d13, #120e09 75%); box-shadow: 0 18px 50px #000b, inset 0 1px 0 #e5c18230, inset 0 0 0 4px #0b080755; }
+body .account-panel::before { content: ''; position: absolute; inset: 4px; border: 1px solid #b58d4833; pointer-events: none; }
+body .account-panel-heading { display: flex; align-items: center; gap: 12px; min-height: 106px; padding: 17px 13px; margin: 0 0 6px; border-bottom: 1px solid #b58b453b; background: linear-gradient(90deg, #171009eb, #171009a3), url('/hijgend-hert-woodland.webp') center 46% / cover; }
+body .account-panel-heading > img { flex-shrink: 0; width: 54px; height: 54px; object-fit: contain; filter: drop-shadow(0 3px 8px #000); }
+body .account-panel-heading > div { min-width: 0; }
+body .account-panel-heading small { color: #c0a16a; font-size: 7px; font-weight: 700; letter-spacing: 1.8px; }
+body .account-panel-heading strong { color: #f0dab1; font-size: 16px; line-height: 1.45; margin-top: 5px; }
+body .account-panel-heading span { color: #ab9878; font-size: 10px; margin-top: 4px; }
+body .account-panel > a { position: relative; gap: 11px; padding: 12px 10px; min-height: 65px; border: 1px solid transparent; color: #dac5a0; transition: background .18s, border-color .18s; }
+body .account-link-icon { display: grid; place-items: center; width: 36px; height: 38px; flex-shrink: 0; color: #ccaa6b; border: 1px solid #96713b66; border-radius: 3px; background: linear-gradient(145deg, #46331b, #23190f); box-shadow: inset 0 1px 0 #dbb26b1f; }
+body .account-link-copy { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+body .account-link-copy strong { color: #dfc79c; font: 600 12px/1.4 Cinzel, Georgia, serif; }
+body .account-link-copy small { color: #a89779; font-size: 10px; line-height: 1.5; }
+body .account-panel > a > svg { color: #b58d51; flex-shrink: 0; }
+body .account-panel > a:hover { background: #b1842e16; border-color: #96713b55; }
+body .account-panel > a:hover .account-link-copy strong { color: #f3d69c; }
+body .account-panel form { margin-top: 6px; padding-top: 7px; border-color: #ab844235; }
+body .account-panel form button { min-height: 42px; padding: 11px 14px; color: #b7a285; font-size: 11px; }
+body .account-panel form button:hover { color: #e0bb8e; background: #95632a15; }
+body .account-panel a:focus-visible, body .account-panel button:focus-visible { outline: 2px solid #e3bd73; outline-offset: -2px; }
+@media(max-width:700px) { body .account-panel { left: 12px; right: 12px; width: auto; max-height: calc(100dvh - 86px); overflow-y: auto; overscroll-behavior: contain; } body .nav-account-crest { width: 22px; height: 22px; } }
+@media(max-width:600px) { body .login-page { padding: 28px 14px; } body .login-page .member-gate { padding: 23px 25px 26px; } body .login-page .member-crest { width: 114px; height: 114px; } .login-connection-note { padding: 12px; gap: 9px; } body .member-connection { padding: 26px 20px; } }
+@media(prefers-reduced-motion:reduce) { body .account-panel > a { transition: none; } }

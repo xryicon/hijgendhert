@@ -44,15 +44,15 @@ export default function SiteHeader({ view, initialMember }: { view: 'home' | 'cl
         </nav>
         <div className="nav-actions">
           <NotificationBell onOpen={() => setAccountOpen(false)}/>
-          {member ? <div className="nav-account" ref={account}>
+          {member ? <div className="nav-account" ref={account} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setAccountOpen(false); }}>
             <button ref={accountButton} type="button" className={`button gold nav-login nav-account-button${view === 'member' ? ' active' : ''}`} onClick={() => setAccountOpen(!accountOpen)} aria-expanded={accountOpen} aria-controls="account-links" aria-label={`Account van ${member.displayName}`}>
-              <span className="nav-account-initial" aria-hidden="true">{Array.from(member.displayName)[0]}</span><span className="nav-account-name">{member.displayName}</span><ChevronDown size={13}/>
+              <img className="nav-account-crest" src="/clan-logo.png" alt="" width={24} height={24}/><span className="nav-account-name">{member.displayName}</span><ChevronDown size={13}/>
             </button>
-            {accountOpen && <div className="account-panel" id="account-links">
-              <div className="account-panel-heading"><strong>{member.displayName}</strong><span>{member.clanRole} · Hijgend Hert</span></div>
-              <Link href="/profiel" prefetch={false} onClick={() => setAccountOpen(false)}><UserRound size={16}/> Mijn profiel</Link>
-              <Link href="/profiel#events" prefetch={false} onClick={() => setAccountOpen(false)}><CalendarDays size={16}/> Mijn events</Link>
-              <form method="post" action="/api/auth/logout"><button type="submit"><LogOut size={16}/> Uitloggen</button></form>
+            {accountOpen && <div className="account-panel" id="account-links" aria-label="Mijn Hijgend Hert-account">
+              <div className="account-panel-heading"><img src="/clan-logo.png" alt="" width={54} height={54}/><div><small>MIJN HIJGEND HERT</small><strong>{member.displayName}</strong><span>Ingelogd via Discord</span></div></div>
+              <Link href="/profiel" prefetch={false} onClick={() => setAccountOpen(false)}><span className="account-link-icon"><UserRound size={18}/></span><span className="account-link-copy"><strong>Mijn profiel</strong><small>Je account en prestaties</small></span><ArrowUpRight size={14}/></Link>
+              <Link href="/profiel#events" prefetch={false} onClick={() => setAccountOpen(false)}><span className="account-link-icon"><CalendarDays size={18}/></span><span className="account-link-copy"><strong>Mijn events</strong><small>Deelnames en uitslagen</small></span><ArrowUpRight size={14}/></Link>
+              <form method="post" action="/api/auth/logout"><button type="submit"><LogOut size={16}/><span>Uitloggen</span></button></form>
             </div>}
           </div> : session.status === 'loading' ? <span className="button gold nav-login nav-session-loading" aria-label="Account controleren"><UserRound size={15}/><span>Account</span></span> : session.status === 'unavailable' ? <button type="button" className="button gold nav-login" onClick={() => void session.refresh()} title="Account opnieuw controleren"><UserRound size={15}/>Account</button> : <Link className={`button gold nav-login${view === 'member' ? ' active' : ''}`} href="/login" prefetch={false} aria-current={view === 'member' ? 'page' : undefined}><UserRound size={15} strokeWidth={1.6} aria-hidden="true"/>Login</Link>}
           <a className="button gold nav-join" href="https://discord.gg/KFNqA6bnZ4" target="_blank" rel="noreferrer">Join Discord <ArrowUpRight size={16}/></a>

@@ -13,7 +13,8 @@ profiel op `/profiel`. De oude route `/ledenomgeving` verwijst naar het profiel.
 - Een tijdelijke verbindingsstoring verbergt beschermde inhoud, bewaart de
   bestaande cookie en probeert automatisch opnieuw. Werkelijk verlopen toegang
   of een verwijderde rol stuurt het lid terug naar Login.
-- Het profiel toont de Discord-naam, clanrol en toetredingsdatum, indien aanwezig.
+- Het profiel toont de Discord-naam en toetredingsdatum, indien aanwezig, plus de
+  clanrang van het gekozen RuneScape-account via Wise Old Man.
   Een exacte match met een RuneScape-naam uit WOM-groep 7059 wordt voorgesteld.
   Leden kunnen ook zelf een account uit die clanlijst kiezen.
 - De accountkeuze is een versleutelde HttpOnly-cookie, gebonden aan het Discord-ID.
@@ -24,9 +25,10 @@ profiel op `/profiel`. De oude route `/ledenomgeving` verwijst naar het profiel.
   groep 7059. Resultaten worden op verzoek uit het afzonderlijke event gelezen;
   de gecombineerde WOM-standingsfeed gaf tijdens implementatie databasefouten.
   Alleen inschrijven wordt niet gepresenteerd als actieve deelname.
-- `/api/members/profile` en `/api/members/event` controleren altijd de actuele
-  Discord-toegang. Alleen openbare WOM-data wordt gecachet; profielantwoorden
-  blijven private/no-store. Account wijzigen vereist een same-origin POST.
+- `/api/members/profile` en `/api/members/event` controleren de Discord-toegang.
+  Gelijktijdige leesaanvragen delen maximaal vijftien seconden een geslaagde
+  rolcontrole; profielantwoorden blijven private/no-store. Account wijzigen
+  vereist een same-origin POST en een verse Discord-controle.
 
 De toegestane server is `{OSRS} Hijgend Hert` (`1073630238115897455`). De door de
 clanleiding opgegeven toegestane rollen zijn:
@@ -84,21 +86,33 @@ van de Sites-preview niet om de bot bereikbaar te maken.
   Slaagt vernieuwing maar is de aansluitende rolcontrole tijdelijk niet bereikbaar,
   dan bewaart de cookie de vernieuwde tokens voor de volgende poging. De website
   geeft pas weer toegang na een geslaagde, actuele rolcontrole.
-- Iedere beschermde serverpagina/API leest de actuele Discord-rollen. Een
-  ontbrekende rol, vertrokken lid of nog niet afgeronde toelating weigert toegang.
-  Bij een Discord-storing wordt geen toegang op basis van oude rollen verleend.
+- Iedere beschermde serverpagina/API valideert de versleutelde sessie en de
+  toegestane Discord-rollen. Login, profielpagina, sessie en bekende lees-API's
+  delen een controle per gehashte app/guild/access-token via `PROGRESS`.
+  Een geslaagde controle blijft maximaal vijftien seconden in het objectgeheugen;
+  rolwijzigingen kunnen voor leesaanvragen dus maximaal vijftien seconden later
+  zichtbaar worden. Mutaties en beheer-API's gebruiken een verse of nog lopende
+  Discord-controle. De OAuth-callback vraagt ook een verse controle. Opgeslagen
+  sessierollen worden nooit als bewijs gebruikt. Een ontbrekende rol, vertrokken
+  lid of nog niet afgeronde toelating weigert toegang. Zodra een nieuwe controle
+  mislukt, vervalt het eerdere resultaat; fouten gebruiken nooit oude toegang.
   De geopende pagina controleert de sessie maximaal elke vijf minuten en bij
-  terugkeer zodra die periode verstreken is. Beschermde serveraanvragen blijven
-  de actuele rol iedere keer controleren. Een tijdelijke storing wist de sessie
+  terugkeer zodra die periode verstreken is. Een tijdelijke storing wist de sessie
   niet: de browser wacht minimaal een minuut, oplopend tot vijftien minuten,
   of langer wanneer Discord dat via Retry-After vraagt. Tabbladen delen alleen
   deze wachttijd; geen identiteit, rollen of tokens. HH-PAGE- en HH-SESSION-codes
   maken een storing herkenbaar zonder geheime gegevens te tonen.
+- `HH-PAGE-HTTP429` betekent dat Discord de rolcontrole tijdelijk begrenst.
+  `Retry-After` en uitgeputte quota worden gerespecteerd. Alleen een gehashte
+  identiteit en wachttijd worden duurzaam opgeslagen, geen OAuth-token of
+  lidprofiel. Een redirect naar Login neemt de deadline mee; de inlogpagina en
+  browser doen tijdens die pauze geen nieuwe controle en tonen een afteller.
 - Nieuwe besloten serverpagina's/actions moeten `requireDiscordMember()` gebruiken.
   Nieuwe API-routes moeten `authorizeMember()` gebruiken vóór zij iets lezen of
   wijzigen; de navigatie of clientcomponent is nooit een autorisatiegrens.
   Beschermde routes krijgen `private, no-store` en mogen niet in een CDN-cache komen.
-- Uitloggen is een same-origin POST, wist de browsercookie en trekt het Discord
+- Uitloggen is een same-origin POST, wist de browsercookie en de korte gedeelde
+  rolcontrole, en trekt het Discord
   access token in. Bij een Discord-storing wordt de cookie alsnog verwijderd en
   krijgt het lid uitleg hoe de koppeling handmatig ingetrokken kan worden.
 - Discord-interacties vereisen een geldige Ed25519-handtekening over de originele
@@ -111,7 +125,8 @@ van de Sites-preview niet om de bot bereikbaar te maken.
   Foutreferenties bevatten uitsluitend vaste stapnamen en HTTP-statuscodes.
 - Openbare Wise Old Man-data deelt één edge-cache tussen clanpagina, events en
   profielen. Bij throttling wordt kort gewacht en kunnen maximaal 24 uur oude
-  gegevens met een melding worden getoond. Discord-rollen worden nooit gecachet.
+  gegevens met een melding worden getoond. De korte Discord-rolcontrole deelt
+  geen cache of termijnen met WOM.
 
 ## Controle
 
@@ -123,6 +138,11 @@ Wrangler-versie wordt geleverd. Discord wordt daarin nagebootst; er worden geen
 echte accounts of sleutels gebruikt. Deze test controleert ook dat omleidingen
 van Discord nooit worden gevolgd en geen inloggegevens kunnen doorsturen.
 Typecontrole: `node node_modules/typescript/bin/tsc --noEmit`.
+
+`node --test tests/discord-membership-cache.test.mjs` controleert de bundeling,
+exacte vervaltijd, credential-isolatie, persistente wachttijd, mislukte verse checks
+en het wissen bij uitloggen. De Worker-tests controleren dit ook via de echte
+Durable Object-RPC met nagebootste Discord-antwoorden.
 
 Controleer na de echte koppeling ook met een Member en een account zonder Member:
 login, `/website`, uitloggen, verwijderen van de rol terwijl de pagina openstaat,
