@@ -18,10 +18,12 @@ const managedLinux = readExecutionProfile() === "managed-linux";
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
-  durable_objects: { bindings: [{ name: 'RAFFLES', class_name: 'ClanRaffle' }, { name: 'WOM_CACHE', class_name: 'WomCache' }, { name: 'PROGRESS', class_name: 'ClanProgress' }] },
-  migrations: [{ tag: 'raffle-v1', new_sqlite_classes: ['ClanRaffle'] }, { tag: 'wom-cache-v1', new_sqlite_classes: ['WomCache'] }, { tag: 'profile-progress-v1', new_sqlite_classes: ['ClanProgress'] }],
+  assets: { binding: 'ASSETS', run_worker_first: true },
+  durable_objects: { bindings: [{ name: 'RAFFLES', class_name: 'ClanRaffle' }, { name: 'WOM_CACHE', class_name: 'WomCache' }, { name: 'PROGRESS', class_name: 'ClanProgress' }, { name: 'SITE_ACCESS_LIMITS', class_name: 'SiteAccessLimits' }] },
+  migrations: [{ tag: 'raffle-v1', new_sqlite_classes: ['ClanRaffle'] }, { tag: 'wom-cache-v1', new_sqlite_classes: ['WomCache'] }, { tag: 'profile-progress-v1', new_sqlite_classes: ['ClanProgress'] }, { tag: 'site-access-v1', new_sqlite_classes: ['SiteAccessLimits'] }],
   // Public Discord application metadata. Credentials are encrypted runtime secrets.
   vars: {
+    SITE_MAINTENANCE_MODE: "on",
     WOM_AUTH_MODE: "public",
     WOM_PUBLIC_PAUSE_UNTIL: "2026-11-10T10:49:08Z",
     APP_ORIGIN: "https://hijgendhert.xryicon.workers.dev",

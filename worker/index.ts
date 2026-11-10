@@ -6,12 +6,20 @@ import { memberProfileRoute } from "../lib/member-profile";
 import { raffleRoute } from "../lib/raffle-route";
 import { profileProgressRoute } from "../lib/profile-progress-route";
 import { clanMemberRoute } from "../lib/clan-member-route";
+import { siteAccessRoute } from "../lib/site-access";
 export { ClanRaffle } from './clan-raffle';
 export { ClanProgress } from './clan-progress';
 export { WomCache } from './wom-cache';
+export { SiteAccessLimits } from './site-access';
 
-const worker = {
+const application = {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+    const assetPath = new URL(request.url).pathname;
+    if (env.ASSETS && ['GET', 'HEAD'].includes(request.method) && !assetPath.startsWith('/api/') && /\.(?:js|mjs|css|png|webp|jpg|jpeg|svg|ico|woff2?|ttf|map|html)$/i.test(assetPath)) {
+      const asset = await env.ASSETS.fetch(request);
+      if (asset.status !== 404) return asset;
+      await asset.body?.cancel();
+    }
     const memberResponse = await clanMemberRoute(request, env);
     if (memberResponse) return memberResponse;
     const raffleResponse = await raffleRoute(request, env);
@@ -52,6 +60,20 @@ const worker = {
       return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
     }
     return response;
+  },
+};
+
+const worker = {
+  async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+    const access = await siteAccessRoute(request, env);
+    if (access) return access;
+    const response = await application.fetch(request, env, ctx);
+    if (env.SITE_MAINTENANCE_MODE === 'off') return response;
+    const headers = new Headers(response.headers);
+    headers.set('Cache-Control', 'private, no-store, max-age=0');
+    headers.set('Pragma', 'no-cache');
+    headers.append('Vary', 'Cookie');
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   },
 };
 
