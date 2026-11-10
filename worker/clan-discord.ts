@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { EMPTY_SYNC_SETTINGS, discordId, eventInputSchema, syncSettingsSchema, eventDiscordMessage, noticeDiscordMessage, type ClanEvent, type ClanEventInput, type EventParticipant, type EventView, type LoginNotice, type RaffleNotice, type SyncKind, type SyncSettings } from '../lib/clan-discord';
 import { DeliveryError, discordBotRequest, validateDiscordChannels } from '../lib/discord-delivery';
+import { eventResultSchema, progressFor, type EventResultInput } from '../lib/clan-event-rules';
 
 type Job = { key: string; kind: SyncKind; data: string; version: number; delivered: number; next_at: number; attempts: number; channel_id: string; message_id: string; error: string; created_at: number };
 const fail = (status: number, error: string) => ({ ok: false as const, status, error });
@@ -12,6 +13,8 @@ export class ClanDiscord extends DurableObject<Cloudflare.Env> {
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS sync_settings (id INTEGER PRIMARY KEY, data TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS clan_events (id TEXT PRIMARY KEY, starts_at INTEGER NOT NULL, data TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS event_signups (event_id TEXT NOT NULL, user_id TEXT NOT NULL, name TEXT NOT NULL, joined_at TEXT NOT NULL, PRIMARY KEY(event_id, user_id))');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS event_results (event_id TEXT NOT NULL, user_id TEXT NOT NULL, revision INTEGER NOT NULL, gained INTEGER, updated_at TEXT NOT NULL, PRIMARY KEY(event_id, user_id))');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS event_result_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL, user_id TEXT NOT NULL, actor TEXT NOT NULL, recorded_at TEXT NOT NULL, data TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS discord_jobs (key TEXT PRIMARY KEY, kind TEXT NOT NULL, data TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, delivered INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, channel_id TEXT NOT NULL DEFAULT \'\', message_id TEXT NOT NULL DEFAULT \'\', error TEXT NOT NULL DEFAULT \'\', created_at INTEGER NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS discord_interactions (id TEXT PRIMARY KEY, result TEXT NOT NULL, created_at INTEGER NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS discord_state (key TEXT PRIMARY KEY, value INTEGER NOT NULL)');
@@ -56,11 +59,17 @@ export class ClanDiscord extends DurableObject<Cloudflare.Env> {
   }
   #event(id: string): ClanEvent | null {
     const row = this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM clan_events WHERE id = ?', id).toArray()[0];
-    return row ? JSON.parse(row.data) : null;
+    return row ? { minimum: null, ...JSON.parse(row.data) } : null;
   }
   #view(event: ClanEvent, userId?: string, privateView = false): EventView {
     const rows = this.ctx.storage.sql.exec<{ user_id: string; name: string; joined_at: string }>('SELECT user_id, name, joined_at FROM event_signups WHERE event_id = ? ORDER BY joined_at, user_id', event.id).toArray();
-    return { ...event, participantCount: rows.length, joined: rows.some(row => row.user_id === userId), ...(privateView ? { participants: rows.map(row => ({ userId: row.user_id, name: row.name, joinedAt: row.joined_at })) } : {}) };
+    const results = this.ctx.storage.sql.exec<{ user_id: string; revision: number; gained: number | null; updated_at: string }>('SELECT user_id, revision, gained, updated_at FROM event_results WHERE event_id = ?', event.id).toArray();
+    const resultsByUser = new Map(results.map(result => [result.user_id, result]));
+    const participants = rows.map(row => {
+      const result = resultsByUser.get(row.user_id);
+      return { userId: row.user_id, name: row.name, joinedAt: row.joined_at, progress: progressFor(event.minimum, result ? { revision: result.revision, gained: result.gained, updatedAt: result.updated_at } : undefined) };
+    });
+    return { ...event, minimum: event.minimum || null, participantCount: rows.length, qualifiedCount: participants.filter(p => p.progress.qualified === true).length, joined: rows.some(row => row.user_id === userId), myProgress: participants.find(p => p.userId === userId)?.progress || null, ...(privateView ? { participants } : {}) };
   }
   listEvents(userId?: string, privateView = false): EventView[] {
     return this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM clan_events ORDER BY starts_at DESC LIMIT 200').toArray().map(row => this.#view(JSON.parse(row.data), userId, privateView));
@@ -106,6 +115,25 @@ export class ClanDiscord extends DurableObject<Cloudflare.Env> {
     });
     await this.#schedule();
     return result;
+  }
+  async recordResult(input: EventResultInput, actor: string) {
+    const parsed = eventResultSchema.safeParse(input);
+    if (!parsed.success || !discordId.safeParse(actor).success) return fail(400, 'Controleer het lid en de behaalde XP of KC.');
+    const value = parsed.data; const event = this.#event(value.eventId);
+    if (!event || event.status !== 'scheduled' || !event.minimum) return fail(409, 'Dit event heeft geen actief deelname-minimum.');
+    if (Date.parse(event.startsAt) > Date.now()) return fail(409, 'Resultaten kunnen pas vanaf het begin van het event worden vastgelegd.');
+    if (event.minimum.unit === 'kc' && value.gained !== null && value.gained > 10_000_000) return fail(400, 'Dit KC-aantal is te hoog.');
+    if (!this.ctx.storage.sql.exec('SELECT 1 FROM event_signups WHERE event_id = ? AND user_id = ?', value.eventId, value.userId).toArray().length) return fail(404, 'Dit lid is niet aangemeld voor het event.');
+    const previous = this.ctx.storage.sql.exec<{ revision: number; gained: number | null }>('SELECT revision, gained FROM event_results WHERE event_id = ? AND user_id = ?', value.eventId, value.userId).toArray()[0];
+    if ((previous?.revision || 0) !== value.revision) return fail(409, 'Het resultaat is gewijzigd. Laad de deelnemers opnieuw.');
+    const now = new Date().toISOString();
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec('INSERT INTO event_results VALUES (?, ?, ?, ?, ?) ON CONFLICT(event_id, user_id) DO UPDATE SET revision = excluded.revision, gained = excluded.gained, updated_at = excluded.updated_at', value.eventId, value.userId, value.revision + 1, value.gained, now);
+      this.ctx.storage.sql.exec('INSERT INTO event_result_audit (event_id, user_id, actor, recorded_at, data) VALUES (?, ?, ?, ?, ?)', value.eventId, value.userId, actor, now, JSON.stringify({ before: previous?.gained ?? null, after: value.gained, minimum: event.minimum }));
+      this.#queueEvent(event.id);
+    });
+    await this.#schedule();
+    return { ok: true as const, event: this.#view(event, actor, true) };
   }
   #job(key: string) { return this.ctx.storage.sql.exec<Job>('SELECT * FROM discord_jobs WHERE key = ?', key).toArray()[0]; }
   #queueEvent(id: string) {

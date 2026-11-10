@@ -1,9 +1,11 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Users } from 'lucide-react';
+import { Check, Users, Target } from 'lucide-react';
 import Link from './site-link';
 import { useMemberSession } from './session-provider';
 import type { EventView } from '@/lib/clan-discord';
+import { minimumLabel } from '@/lib/clan-event-rules';
+import MetricImage from './metric-image';
 
 export function useClanEvents() {
   const session = useMemberSession();
@@ -22,7 +24,7 @@ export function useClanEvents() {
     load(); const interval = window.setInterval(load, 60000);
     return () => { controller.abort(); window.clearInterval(interval); };
   }, [refresh]);
-  const visibleEvents = authenticated ? events : events.map(({ participants: _participants, ...event }) => ({ ...event, joined: false }));
+  const visibleEvents = authenticated ? events : events.map(({ participants: _participants, ...event }) => ({ ...event, joined: false, myProgress: null }));
   return { events: visibleEvents, error, refresh, authenticated };
 }
 
@@ -43,7 +45,7 @@ export function EventSignup({ event, onChange }: { event: EventView; onChange: (
       await onChange();
     } catch (e) { setError(e instanceof Error ? e.message : 'Probeer opnieuw.'); } finally { setBusy(false); }
   }
-  return <div className="event-signup"><p><Users size={14}/>{event.participantCount} deelnemers {event.joined && <strong><Check size={14}/> Jij doet mee</strong>}</p>
+  return <div className="event-signup">{event.minimum && <div className="event-participation-goal"><MetricImage metric={event.minimum.metric} size={24} fallback={<Target size={22}/>}/><div><small>MINIMUM TIJDENS HET EVENT</small><strong>{minimumLabel(event.minimum)}</strong><p>{event.qualifiedCount} minimum behaald · gecontroleerd door staff</p>{event.joined && <p className={event.myProgress?.qualified ? 'goal-complete' : ''}>{event.myProgress?.gained !== null && event.myProgress?.gained !== undefined ? `${event.myProgress.gained.toLocaleString('nl-NL')} / ${event.minimum.amount.toLocaleString('nl-NL')} ${event.minimum.unit.toUpperCase()} — ${event.myProgress.qualified ? 'minimum behaald' : 'minimum nog niet behaald'}` : 'Jouw resultaat is nog niet gecontroleerd.'}</p>}</div></div>}<p><Users size={14}/>{event.participantCount} aangemeld {event.joined && <strong><Check size={14}/> Jij bent aangemeld</strong>}</p>
     {event.participants && event.participants.length > 0 && <details><summary>Bekijk deelnemers</summary><ul>{event.participants.map(p => <li key={p.userId}>{p.name}</li>)}</ul></details>}
     {closed ? <span className="signup-closed">{event.status === 'cancelled' ? 'Event geannuleerd' : 'Inschrijving gesloten'}</span> : session.status === 'authenticated' ? <button className="button gold" onClick={() => void submit()} disabled={busy}>{busy ? 'Opslaan…' : event.joined ? 'Afmelden' : 'Aanmelden'}</button> : <Link className="text-link" href="/login" prefetch={false}>Log in om mee te doen →</Link>}
     {error && <p role="alert">{error}</p>}</div>;

@@ -121,6 +121,8 @@ const METRICS = {
   zulrah: { image: '/osrs-icons/metrics/zulrah.png', label: "Zulrah" },
 } as const;
 
+export const metricKeys: readonly string[] = Object.keys(METRICS);
+
 const ALIASES: Readonly<Record<string, keyof typeof METRICS>> = {
   runecraft: 'runecrafting',
   kree_arra: 'kreearra',

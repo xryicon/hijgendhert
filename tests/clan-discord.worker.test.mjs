@@ -22,6 +22,7 @@ const bundle = await build({ stdin: { contents: `
   import { clanDiscordRoute } from './lib/clan-discord-route.ts';
   import { discordAuthRoute } from './lib/discord-auth.ts';
   export class TestSync extends ClanDiscord {
+    startEvent(id, ended = false) { const row = this.ctx.storage.sql.exec('SELECT data FROM clan_events WHERE id = ?', id).one(); const event = JSON.parse(row.data); event.startsAt = new Date(Date.now() - 60000).toISOString(); event.endsAt = new Date(Date.now() + (ended ? -1000 : 60000)).toISOString(); this.ctx.storage.sql.exec('UPDATE clan_events SET starts_at = ?, data = ? WHERE id = ?', Date.parse(event.startsAt), JSON.stringify(event), id); }
     inspect() { return { jobs: this.ctx.storage.sql.exec('SELECT * FROM discord_jobs').toArray(), pause: this.ctx.storage.sql.exec('SELECT * FROM discord_state').toArray() }; }
     async flush() { this.ctx.storage.sql.exec("UPDATE discord_jobs SET next_at = 0 WHERE error = ''"); await this.ctx.storage.deleteAlarm(); await this.alarm(); return this.inspect(); }
   }
@@ -32,6 +33,7 @@ const bundle = await build({ stdin: { contents: `
     const url = new URL(request.url); const sync = env.DISCORD_SYNC.getByName('clan:7059');
     if (url.pathname === '/__test/flush') return Response.json(await sync.flush());
     if (url.pathname === '/__test/inspect') return Response.json(await sync.inspect());
+    if (url.pathname === '/__test/start') { await sync.startEvent(url.searchParams.get('id'), url.searchParams.has('ended')); return new Response('ok'); }
     if (url.pathname === '/__test/raffle') return Response.json(await env.RAFFLES.getByName('clan:7059').schedule(await request.json(), 'test'));
     if (url.pathname === '/__test/due') { await env.RAFFLES.getByName('clan:7059').due(url.searchParams.get('id')); return new Response('ok'); }
     if (url.pathname === '/__test/result') return Response.json(await env.RAFFLES.getByName('clan:7059').getPublic());
@@ -72,7 +74,7 @@ const get = (mf, path, session) => mf.dispatchFetch(env.APP_ORIGIN + path, { hea
 const post = (mf, path, body, session, extra = {}) => mf.dispatchFetch(env.APP_ORIGIN + path, { method: 'POST', headers: { Origin: env.APP_ORIGIN, 'Content-Type': 'application/json', ...(session ? { Cookie: session } : {}), ...extra }, body: JSON.stringify(body) });
 const settings = (extra = {}) => ({ revision: 0, loginChannel: LOGIN, eventsChannel: EVENTS, raffleChannel: RAFFLE, loginEnabled: true, eventsEnabled: true, raffleEnabled: true, ...extra });
 const eventInput = () => ({ id: randomUUID(), revision: 0, title: 'Zulrah clanavond', description: 'Samen op pad met de clan.', category: 'boss', startsAt: new Date(Date.now() + 3600000).toISOString(), endsAt: new Date(Date.now() + 7200000).toISOString(), status: 'scheduled' });
-async function create(mf, session) { const response = await post(mf, '/api/admin/clan-events', eventInput(), session); assert.equal(response.status, 200, await response.clone().text()); return (await response.json()).event; }
+async function create(mf, session, changes = {}) { const response = await post(mf, '/api/admin/clan-events', { ...eventInput(), ...changes }, session); assert.equal(response.status, 200, await response.clone().text()); return (await response.json()).event; }
 async function enable(mf, session, changes = {}) { const r = await post(mf, '/api/admin/discord', settings(changes), session); assert.equal(r.status, 200, await r.clone().text()); return r.json(); }
 async function flush(mf) { return (await get(mf, '/__test/flush')).json(); }
 async function interaction(mf, event, messageId, action = 'join', extra = {}) {
@@ -180,10 +182,79 @@ test('draw completion delivers the committed lottery winner once with a link to 
 test('events, registrations and disabled settings survive a Worker restart', async () => {
   const persist = await mkdtemp(path.join(tmpdir(), 'hh-discord-sync-')); let first, second;
   try {
-    first = runtime({ persist }); const session = await login(first.mf); const event = await create(first.mf, session);
+    first = runtime({ persist }); const session = await login(first.mf); const event = await create(first.mf, session, { category: 'skill', minimum: { unit: 'xp', metric: 'hunter', amount: 5000 } });
     await post(first.mf, '/api/members/clan-events/register', { id: event.id, action: 'join' }, session);
+    await get(first.mf, `/__test/start?id=${event.id}&ended=1`);
+    assert.equal((await post(first.mf, '/api/admin/clan-events/result', { eventId: event.id, userId: A, revision: 0, gained: 6000 }, session)).status, 200);
     await first.mf.dispose(); first = null; second = runtime({ persist });
     const data = await (await get(second.mf, '/api/clan-events')).json(); assert.equal(data.events[0].id, event.id); assert.equal(data.events[0].participantCount, 1);
+    assert.equal(data.events[0].qualifiedCount, 1); assert.deepEqual(data.events[0].minimum, { unit: 'xp', metric: 'hunter', amount: 5000 });
     const admin = await login(second.mf); const state = await (await get(second.mf, '/api/admin/discord', admin)).json(); assert.equal(state.settings.eventsEnabled, false);
+    const own = (await (await get(second.mf, '/api/members/clan-events', admin)).json()).events[0]; assert.equal(own.myProgress.gained, 6000); assert.equal(own.myProgress.revision, 1);
   } finally { await first?.mf.dispose(); await second?.mf.dispose(); assert.ok(path.basename(persist).startsWith('hh-discord-sync-')); await rm(persist, { recursive: true, force: true }); }
+});
+
+test('all event categories accept a valid period minimum, legacy inputs default to none and invalid requirements fail', async () => {
+  const { mf } = runtime();
+  try {
+    const admin = await login(mf);
+    for (const category of ['skill', 'boss', 'raid', 'bingo', 'social', 'other']) {
+      const event = await create(mf, admin, { category }); assert.equal(event.category, category); assert.equal(event.minimum, null);
+    }
+    for (const minimum of [{ unit: 'xp', metric: 'hunter', amount: 5000 }, { unit: 'xp', metric: 'overall', amount: 1000000 }, { unit: 'kc', metric: 'vorkath', amount: 100 }, { unit: 'kc', metric: 'all_bosses', amount: 200 }]) {
+      assert.deepEqual((await create(mf, admin, { minimum })).minimum, minimum);
+    }
+    for (const minimum of [{ unit: 'xp', metric: 'vorkath', amount: 1 }, { unit: 'kc', metric: 'hunter', amount: 1 }, { unit: 'kc', metric: 'last_man_standing', amount: 1 }, { unit: 'xp', metric: 'fake_skill', amount: 1 }, ...[0, -1, 1.5, 10000000001].map(amount => ({ unit: 'xp', metric: 'hunter', amount })), { unit: 'kc', metric: 'vorkath', amount: 10000001 }]) {
+      assert.equal((await post(mf, '/api/admin/clan-events', { ...eventInput(), minimum }, admin)).status, 400);
+    }
+  } finally { await mf.dispose(); }
+});
+
+test('only staff record results after start, count exact thresholds, correct or clear results and preserve public privacy', async () => {
+  const { mf, deliveries } = runtime();
+  try {
+    const admin = await login(mf), member = await login(mf, 'b'); await enable(mf, admin, { loginEnabled: false });
+    const event = await create(mf, admin, { category: 'skill', minimum: { unit: 'xp', metric: 'hunter', amount: 1000 } });
+    assert.equal((await post(mf, '/api/members/clan-events/register', { id: event.id, action: 'join' }, member)).status, 200);
+    const result = { eventId: event.id, userId: B, revision: 0, gained: 1000 };
+    const route = '/api/admin/clan-events/result';
+    assert.equal((await post(mf, route, result)).status, 401);
+    assert.equal((await post(mf, route, result, member)).status, 403);
+    assert.equal((await post(mf, route, result, admin, { Origin: 'https://evil.example' })).status, 403);
+    assert.equal((await post(mf, route, result, admin)).status, 409);
+    const before = (await (await get(mf, '/api/members/clan-events', member)).json()).events[0]; assert.equal(before.joined, true); assert.equal(before.qualifiedCount, 0); assert.equal(before.myProgress.qualified, null);
+    await get(mf, `/__test/start?id=${event.id}`);
+    const edit = { ...eventInput(), id: event.id, revision: event.revision, minimum: null };
+    assert.equal((await post(mf, '/api/admin/clan-events', edit, admin)).status, 409);
+    assert.equal((await post(mf, route, { ...result, userId: A }, admin)).status, 404);
+    assert.equal((await post(mf, route, { ...result, qualified: true }, admin)).status, 400);
+    for (const gained of [-1, 0.5, 10000000001, '1000']) assert.equal((await post(mf, route, { ...result, gained }, admin)).status, 400);
+    for (const [revision, gained, qualified] of [[0, 999, false], [1, 1000, true], [2, 0, false], [3, null, null], [4, 2000, true]]) {
+      const saved = await post(mf, route, { ...result, revision, gained }, admin); assert.equal(saved.status, 200, await saved.clone().text());
+      const updated = (await saved.json()).event; assert.equal(updated.qualifiedCount, qualified === true ? 1 : 0);
+      assert.equal(updated.participants[0].progress.gained, gained); assert.equal(updated.participants[0].progress.qualified, qualified);
+    }
+    assert.equal((await post(mf, route, result, admin)).status, 409);
+    const own = (await (await get(mf, '/api/members/clan-events', member)).json()).events[0]; assert.equal(own.myProgress.gained, 2000); assert.equal(own.myProgress.qualified, true);
+    const pub = (await (await get(mf, '/api/clan-events')).json()).events[0]; assert.equal(pub.qualifiedCount, 1); assert.equal(pub.participantCount, 1); assert.equal(pub.myProgress, null); assert.equal(pub.participants, undefined); assert.equal(pub.joined, false); assert.equal(JSON.stringify(pub).includes(B), false);
+    await flush(mf); const content = JSON.stringify(deliveries.at(-1).body); assert.match(content, /Minimum tijdens het event/); assert.match(content, /Hunter/); assert.match(content, /1 hebben het minimum behaald/);
+  } finally { await mf.dispose(); }
+});
+
+test('Staff team can manage KC results and cancelled or unrestricted events reject results', async () => {
+  const { mf } = runtime({ roles: ['1408990525180084265'] });
+  try {
+    const staff = await login(mf); const route = '/api/admin/clan-events/result';
+    const event = await create(mf, staff, { minimum: { unit: 'kc', metric: 'vorkath', amount: 10 } });
+    await post(mf, '/api/members/clan-events/register', { id: event.id, action: 'join' }, staff); await get(mf, `/__test/start?id=${event.id}&ended=1`);
+    const result = { eventId: event.id, userId: A, revision: 0, gained: 10 };
+    assert.equal((await post(mf, route, { ...result, gained: 10000001 }, staff)).status, 400);
+    const saved = await post(mf, route, result, staff); assert.equal(saved.status, 200); assert.equal((await saved.json()).event.myProgress.qualified, true);
+    const unrestricted = await create(mf, staff); await get(mf, `/__test/start?id=${unrestricted.id}`);
+    assert.equal((await post(mf, route, { ...result, eventId: unrestricted.id }, staff)).status, 409);
+    const input = { ...eventInput(), minimum: { unit: 'kc', metric: 'vorkath', amount: 10 } }; const planned = await create(mf, staff, input);
+    assert.equal((await post(mf, '/api/admin/clan-events', { ...input, revision: planned.revision, status: 'cancelled' }, staff)).status, 200);
+    await get(mf, `/__test/start?id=${planned.id}`);
+    assert.equal((await post(mf, route, { ...result, eventId: planned.id }, staff)).status, 409);
+  } finally { await mf.dispose(); }
 });

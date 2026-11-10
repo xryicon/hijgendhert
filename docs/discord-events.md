@@ -30,6 +30,22 @@ Het uitschakelen van een categorie stopt en annuleert nog wachtende meldingen.
 
 ## Gedrag
 
+- Eventtypes: Skill, Boss, Raid, Bingo, Clanavond en Ander event. Bingo is hier
+  een activiteit met inschrijvingen en ruimte voor teamregels, geen speelbaar bord.
+- Staff kan per event een minimum verdiende XP (skill/totale XP) of KC
+  (boss/alle bosses samen) instellen. Dit is een doel tijdens het event en blokkeert
+  aanmelden vooraf niet. Bestaande events zonder dit veld behouden geen minimum.
+- Vanaf de start liggen de eventregels vast. Admin en Staff team leggen behaalde
+  aantallen vast onder Deelnemers & resultaten. Alleen aantallen binnen de begin-
+  en eindtijd horen hier; deze handmatige controle haalt geen WOM-data op en
+  verandert de WOM-ranglijst niet. De server berekent of het minimum is gehaald.
+  Deelnemers kunnen hun eigen resultaat niet aanpassen. Leeg resultaat betekent
+  onbekend; nul betekent gecontroleerd maar niets behaald. Correcties gebruiken
+  een revisiecontrole en een auditlog met de staffidentiteit.
+- Agenda, profiel en Discord-eventbericht tonen het minimum en afzonderlijk het
+  aantal aanmeldingen en aantal leden dat het minimum heeft behaald. Persoonlijke
+  resultaten blijven binnen de ledenweergave; de openbare agenda toont totalen.
+
 - Alleen een geslaagde nieuwe OAuth-login maakt een inlogmelding. De melding
   bevat Discord-naam, ID en tijd. Geen IP, cookies, tokens of andere logininhoud.
   Het vernieuwen van een sessie of openen van een pagina maakt geen melding.

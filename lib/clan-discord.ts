@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { localDay } from './community';
+import { minimumSchema, minimumLabel, EVENT_CATEGORIES, type EventProgress } from './clan-event-rules';
 
 export const discordId = z.string().regex(/^\d{17,20}$/);
 const channel = z.union([z.literal(''), discordId]);
@@ -13,14 +14,15 @@ export const EMPTY_SYNC_SETTINGS: SyncSettings = { revision: 0, loginChannel: ''
 export const eventInputSchema = z.object({
   id: z.string().uuid(), revision: z.number().int().nonnegative(),
   title: z.string().trim().min(3).max(100), description: z.string().trim().min(3).max(1200),
-  category: z.enum(['raid', 'boss', 'social']),
+  category: z.enum(['raid', 'boss', 'social', 'skill', 'bingo', 'other']),
+  minimum: minimumSchema.nullable().default(null),
   startsAt: z.string().datetime({ offset: true }), endsAt: z.string().datetime({ offset: true }),
   status: z.enum(['scheduled', 'cancelled']),
 }).strict().refine(e => Date.parse(e.endsAt) > Date.parse(e.startsAt), 'De eindtijd moet na de begintijd liggen.');
 export type ClanEventInput = z.infer<typeof eventInputSchema>;
 export type ClanEvent = ClanEventInput & { host: string; createdAt: string; updatedAt: string };
-export type EventParticipant = { userId: string; name: string; joinedAt: string };
-export type EventView = ClanEvent & { participantCount: number; joined: boolean; participants?: EventParticipant[] };
+export type EventParticipant = { userId: string; name: string; joinedAt: string; progress: EventProgress };
+export type EventView = ClanEvent & { participantCount: number; qualifiedCount: number; joined: boolean; myProgress: EventProgress | null; participants?: EventParticipant[] };
 export type SyncKind = 'login' | 'events' | 'raffle';
 export type LoginNotice = { id: string; userId: string; name: string; at: string };
 export type RaffleNotice = { id: string; title: string; prize: string; winner: string; winningTicket: number; totalTickets: number; drawnAt: number };
@@ -35,7 +37,7 @@ export function eventDiscordMessage(event: EventView, origin: string): DiscordMe
   const allNames = (event.participants || []).slice(0, 30).map(p => cleanDiscordText(p.name)).join(', ');
   const names = allNames.slice(0, 1000);
   return { allowed_mentions: { parse: [] }, embeds: [embed(event.title,
-    `${event.status === 'cancelled' ? '**Geannuleerd**\n' : ''}${cleanDiscordText(event.description)}\n\n${time(event.startsAt)}\n**${event.participantCount} deelnemers**${names ? `\n${names}${event.participantCount > 30 || names.length < allNames.length ? '\nBekijk alle deelnemers op de website.' : ''}` : '\nWie gaat er mee?'}\n${closed ? 'Inschrijving gesloten.' : 'Meld je hieronder aan.'}`,
+    `${event.status === 'cancelled' ? '**Geannuleerd**\n' : ''}**${EVENT_CATEGORIES[event.category]}**\n${cleanDiscordText(event.description)}\n\n${time(event.startsAt)}${event.minimum ? `\n**Minimum tijdens het event:** ${cleanDiscordText(minimumLabel(event.minimum))}\n${event.qualifiedCount} hebben het minimum behaald · gecontroleerd door staff` : ''}\n**${event.participantCount} aanmeldingen**${names ? `\n${names}${event.participantCount > 30 || names.length < allNames.length ? '\nBekijk alle deelnemers op de website.' : ''}` : '\nWie gaat er mee?'}\n${closed ? 'Inschrijving gesloten.' : 'Meld je hieronder aan.'}`,
     `${origin}/events?dag=${localDay(event.startsAt)}#kalender`)], components: [{ type: 1, components: [
       { type: 2, style: 3, label: 'Aanmelden', custom_id: `hh:event:join:${event.id}`, disabled: closed },
       { type: 2, style: 2, label: 'Afmelden', custom_id: `hh:event:leave:${event.id}`, disabled: closed },

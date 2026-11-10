@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { authorizeMember, discordConfig, DiscordAccessError, privateHeaders, type DiscordEnv } from './discord-auth';
 import { eventInputSchema, isStaff, SYNC_NAME } from './clan-discord';
+import { eventResultSchema } from './clan-event-rules';
 
 async function readBody(request: Request) {
   const reader = request.body?.getReader(); if (!reader) throw new Error('body');
@@ -10,13 +11,13 @@ async function readBody(request: Request) {
 }
 export async function clanDiscordRoute(request: Request, env: DiscordEnv, fetcher: typeof fetch = fetch): Promise<Response | null> {
   const url = new URL(request.url);
-  const paths = ['/api/clan-events', '/api/members/clan-events', '/api/members/clan-events/register', '/api/admin/clan-events', '/api/admin/discord'];
+  const paths = ['/api/clan-events', '/api/members/clan-events', '/api/members/clan-events/register', '/api/admin/clan-events', '/api/admin/clan-events/result', '/api/admin/discord'];
   if (!paths.includes(url.pathname)) return null;
   const json = (data: unknown, status = 200) => Response.json(data, { status, headers: privateHeaders });
   const store = env.DISCORD_SYNC?.getByName(SYNC_NAME);
   if (!store) return json({ error: 'De eventkoppeling is nog niet beschikbaar.' }, 503);
   const publicRead = url.pathname === '/api/clan-events';
-  const allowed = url.pathname.startsWith('/api/admin/') ? ['GET', 'POST'] : url.pathname.endsWith('/register') ? ['POST'] : ['GET'];
+  const allowed = url.pathname.endsWith('/result') ? ['POST'] : url.pathname.startsWith('/api/admin/') ? ['GET', 'POST'] : url.pathname.endsWith('/register') ? ['POST'] : ['GET'];
   if (!allowed.includes(request.method)) return json({ error: 'Ongeldig verzoek.' }, 405);
   try {
     if (publicRead) return json({ events: await store.listEvents() });
@@ -30,6 +31,11 @@ export async function clanDiscordRoute(request: Request, env: DiscordEnv, fetche
     let body: unknown;
     try { body = await readBody(request); } catch { return json({ error: 'De invoer is ongeldig of te groot.' }, 400); }
     if (url.pathname === '/api/admin/discord') { const result = await store.saveSettings(body); return json(result, result.ok ? 200 : result.status); }
+    if (url.pathname === '/api/admin/clan-events/result') {
+      const value = eventResultSchema.safeParse(body);
+      if (!value.success) return json({ error: 'Controleer het lid en de behaalde XP of KC.' }, 400);
+      const result = await store.recordResult(value.data, member.id); return json(result, result.ok ? 200 : result.status);
+    }
     if (url.pathname === '/api/admin/clan-events') {
       const value = eventInputSchema.safeParse(body);
       if (!value.success) return json({ error: value.error.issues[0].message }, 400);
