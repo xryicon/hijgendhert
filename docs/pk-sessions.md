@@ -36,6 +36,15 @@ een sessieleider helpen. Er is geen bot-token of extra OAuth-scope nodig.
 - Na afsluiten staan de gegevens vast. Open verzoeken sluiten mee af. Links
   staan de vijf recentst afgesloten sessies met totaal GP; aanklikken toont de
   spelers, splits, drops en tijdlijn. Oudere opgeslagen sessies worden niet gewist.
+- Alleen de Discord-clanrol **Admin** kan een actieve of afgeronde sessie
+  verwijderen. Open de sessie, kies **Sessie verwijderen** en bevestig. De sessie
+  verdwijnt uit de actieve lijst en de laatste vijf; een openstaand scherm van
+  een ander lid keert bij de volgende update terug naar het overzicht.
+  Staff en sessieleiders zonder Admin kunnen geen sessies verwijderen.
+  De oorspronkelijke administratie blijft intern bewaard met wie en wanneer
+  verwijderde. Verwijderde sessies zijn niet meer leesbaar of wijzigbaar via de
+  website; herhaalde oude verzoeken kunnen ze niet terugbrengen. Bij een nieuwe
+  wijziging sinds het openen van de bevestiging moet de admin opnieuw controleren.
 
 ## Synchronisatie en opslag
 

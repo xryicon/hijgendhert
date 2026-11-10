@@ -15,15 +15,16 @@ async function body(request: Request) {
 }
 export async function pkRoute(request: Request, env: PkEnv, fetcher: typeof fetch = fetch): Promise<Response | null> {
   const url = new URL(request.url), path = url.pathname;
-  if (!['/api/pk', '/api/pk/access', '/api/pk/session', '/api/pk/create', '/api/pk/action', '/api/admin/pk/settings'].includes(path)) return null;
+  if (!['/api/pk', '/api/pk/access', '/api/pk/session', '/api/pk/create', '/api/pk/action', '/api/admin/pk/settings', '/api/admin/pk/remove'].includes(path)) return null;
   const json = (data: unknown, status = 200, extra = {}) => Response.json(data, { status, headers: { ...privateHeaders, ...extra } });
-  if (!(path === '/api/admin/pk/settings' ? ['GET', 'POST'] : ['/api/pk/create', '/api/pk/action'].includes(path) ? ['POST'] : ['GET']).includes(request.method)) return json({ error: 'Ongeldig verzoek.' }, 405);
+  if (!(path === '/api/admin/pk/settings' ? ['GET', 'POST'] : ['/api/pk/create', '/api/pk/action', '/api/admin/pk/remove'].includes(path) ? ['POST'] : ['GET']).includes(request.method)) return json({ error: 'Ongeldig verzoek.' }, 405);
   const config = discordConfig(env); if (!config || !env.PK) return json({ error: 'De PK-pagina wordt klaargezet.' }, 503);
   if (url.origin !== config.origin || request.headers.get('Sec-Fetch-Site') === 'cross-site' || (request.method === 'POST' && request.headers.get('Origin') !== config.origin)) return json({ error: 'Ververs de pagina en probeer opnieuw.' }, 403);
   try {
     const { member, roles } = await authorizeMemberWithRoles(request, config, fetcher);
-    const actor = { id: member.id, name: member.displayName, staff: isStaff(member.clanRole), roleIds: roles };
+    const actor = { id: member.id, name: member.displayName, staff: isStaff(member.clanRole), admin: member.clanRole === 'Admin', roleIds: roles };
     const store = env.PK.getByName(PK_STORE), settings = await store.getSettings();
+    if (path === '/api/admin/pk/remove' && !actor.admin) return json({ error: 'Alleen Admin kan PK-sessies verwijderen.' }, 403);
     if (path === '/api/pk/access') return json({ allowed: pkAllowed(actor, roles, settings.roleId) });
     if (path === '/api/admin/pk/settings' ? !actor.staff : !pkAllowed(actor, roles, settings.roleId)) return json({ error: 'Voor deze pagina heb je de ingestelde PK-rol nodig. Vraag de clanleiding om toegang.' }, 403);
     if (request.method === 'GET') {
@@ -34,6 +35,9 @@ export async function pkRoute(request: Request, env: PkEnv, fetcher: typeof fetc
     }
     if (!request.headers.get('Content-Type')?.startsWith('application/json')) return json({ error: 'Ongeldige invoer.' }, 415);
     let input: unknown; try { input = await body(request); } catch { return json({ error: 'De invoer is ongeldig of te groot.' }, 400); }
+    if (path === '/api/admin/pk/remove') {
+      const result = await store.remove(input, actor); return json(result, result.ok ? 200 : result.status);
+    }
     if (path === '/api/admin/pk/settings') {
       const parsed = pkSettingsSchema.safeParse(input); if (!parsed.success) return json({ error: 'Controleer het Discord-rol-ID.' }, 400);
       const result = await store.saveSettings(parsed.data, actor); return json(result, result.ok ? 200 : result.status);

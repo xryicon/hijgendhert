@@ -9,7 +9,7 @@ import path from 'node:path';
 const requireWrangler = createRequire(import.meta.resolve('wrangler/package.json'));
 const { Miniflare } = requireWrangler('miniflare'), { build } = requireWrangler('esbuild');
 const root = fileURLToPath(new URL('../', import.meta.url));
-const ROLE = '777777777777777777', MEMBER = '1326459850837987430', STAFF = '1408990525180084265';
+const ROLE = '777777777777777777', MEMBER = '1326459850837987430', STAFF = '1408990525180084265', ADMIN = '1197327572720169030';
 const A = '234567890123456789', B = '334567890123456789', C = '434567890123456789', D = '534567890123456789';
 const env = { APP_ORIGIN: 'https://clan.example', DISCORD_CLIENT_ID: '123456789012345678', DISCORD_CLIENT_SECRET: 'fake-test-only-secret', DISCORD_GUILD_ID: '1073630238115897455', DISCORD_MEMBER_ROLE_IDS: `${MEMBER},1197327572720169030,${STAFF}`, DISCORD_SESSION_SECRET: randomBytes(32).toString('base64url') };
 const bundle = await build({ stdin: { contents: `import { pkRoute } from './lib/pk-route'; import { discordAuthRoute } from './lib/discord-auth'; export { ClanPk } from './worker/clan-pk'; export default { async fetch(request,env) { return await pkRoute(request,env) || await discordAuthRoute(request,env) || new Response('Not found',{status:404}); } };`, resolveDir: root, sourcefile: 'pk-test.ts', loader: 'ts' }, bundle: true, write: false, format: 'esm', platform: 'neutral', target: 'es2022', external: ['node:crypto', 'cloudflare:workers'] });
@@ -24,9 +24,9 @@ function runtime(options = {}) {
     assert.equal(url.origin, 'https://discord.com');
     if (url.pathname.endsWith('/token')) { const code = new URLSearchParams(await request.text()).get('code'); return Response.json({ access_token: `test-access-${code}`, token_type: 'Bearer', expires_in: 604800, scope: 'identify guilds.members.read' }); }
     const who = request.headers.get('Authorization')?.split('-').at(-1) || 'a';
-    const user = { id: { a: A, b: B, c: C, d: D }[who], username: `Discord ${who}` };
+    const user = { id: { a: A, b: B, c: C, d: D, e: '634567890123456789' }[who], username: `Discord ${who}` };
     if (url.pathname.endsWith('/users/@me')) return Response.json(user);
-    if (url.pathname.endsWith('/member')) return Response.json({ user, roles: options.roles?.[who] || (who === 'c' ? [STAFF] : who === 'd' ? [MEMBER] : [MEMBER, ROLE]) });
+    if (url.pathname.endsWith('/member')) return Response.json({ user, roles: options.roles?.[who] || (who === 'e' ? [ADMIN] : who === 'c' ? [STAFF] : who === 'd' ? [MEMBER] : [MEMBER, ROLE]) });
     throw Error(`Unexpected endpoint ${url.pathname}`);
   } }); return { mf, calls };
 }
@@ -181,4 +181,55 @@ test('player keys need no description, keep collected loot separate from splits 
     assert.equal(s.totals.unattributed, 100); assert.equal(Object.values(s.totals.collected).reduce((sum, gp) => sum + gp, 0) + s.totals.unattributed, s.totals.gp);
     assert.equal((await post(mf, '/api/pk/action', action(s, { type: 'add_drop', playerId: 2, gp: 1 }), b)).status, 403);
   } finally { await mf.dispose(); }
+});
+
+test('only admins remove sessions; CSRF, stale confirmations and replayed writes cannot delete or resurrect them', async () => {
+  const options = {}; const { mf } = runtime(options);
+  try {
+    const { a, b, staff } = await setup(mf), admin = await login(mf, 'e');
+    const createInput = { requestId: randomUUID(), title: 'Te verwijderen trip', playerIds: [1] };
+    let s = (await ok(await post(mf, '/api/pk/create', createInput, a))).session;
+    assert.equal(s.canRemove, false);
+    assert.equal((await ok(await get(mf, `/api/pk/session?id=${s.id}`, staff))).session.canRemove, false);
+    assert.equal((await ok(await get(mf, `/api/pk/session?id=${s.id}`, admin))).session.canRemove, true);
+    const remove = { requestId: randomUUID(), sessionId: s.id, revision: s.revision };
+    for (const actor of [a, b, staff]) assert.equal((await post(mf, '/api/admin/pk/remove', remove, actor)).status, 403);
+    assert.equal((await post(mf, '/api/admin/pk/remove', remove)).status, 401);
+    assert.equal((await get(mf, '/api/admin/pk/remove', admin)).status, 405);
+    assert.equal((await post(mf, '/api/admin/pk/remove', remove, admin, { Origin: 'https://evil.example' })).status, 403);
+    assert.equal((await post(mf, '/api/admin/pk/remove', { ...remove, admin: true }, admin)).status, 400);
+    const drop = action(s, { type: 'add_drop', playerId: 1, gp: 123 });
+    s = (await ok(await post(mf, '/api/pk/action', drop, a))).session;
+    assert.equal((await post(mf, '/api/admin/pk/remove', remove, admin)).status, 409);
+    const confirmed = { ...remove, revision: s.revision };
+    assert.equal((await post(mf, '/api/admin/pk/remove', { ...confirmed, requestId: drop.requestId }, admin)).status, 409);
+    assert.equal((await ok(await post(mf, '/api/admin/pk/remove', confirmed, admin))).removedId, s.id);
+    assert.equal((await ok(await post(mf, '/api/admin/pk/remove', confirmed, admin))).removedId, s.id);
+    assert.equal((await post(mf, '/api/admin/pk/remove', { ...confirmed, revision: 99 }, admin)).status, 409);
+    assert.equal((await get(mf, `/api/pk/session?id=${s.id}`, admin)).status, 404);
+    assert.equal((await post(mf, '/api/pk/action', drop, a)).status, 404);
+    assert.equal((await post(mf, '/api/pk/action', action(s, { type: 'finish' }), a)).status, 404);
+    assert.equal((await post(mf, '/api/pk/create', createInput, a)).status, 404);
+    assert.deepEqual(await ok(await get(mf, '/api/pk', a)), { active: [], recent: [] });
+    const next = await create(mf, a); assert.notEqual(next.id, s.id);
+    options.roles = { e: [MEMBER, ROLE] };
+    assert.equal((await post(mf, '/api/admin/pk/remove', { requestId: randomUUID(), sessionId: next.id, revision: next.revision }, admin)).status, 403);
+  } finally { await mf.dispose(); }
+});
+
+test('removing an archived session refills the last five and remains removed after restart', async () => {
+  const persist = await mkdtemp(path.join(tmpdir(), 'hh-pk-')); let first, second;
+  try {
+    first = runtime({ persist }); const { a } = await setup(first.mf), admin = await login(first.mf, 'e');
+    const sessions = [];
+    for (let n = 0; n < 6; n++) sessions.push(await change(first.mf, a, await create(first.mf, a, [1], { title: `Archive ${n}` }), { type: 'finish' }));
+    const s = sessions.at(-1), remove = { requestId: randomUUID(), sessionId: s.id, revision: s.revision };
+    await ok(await post(first.mf, '/api/admin/pk/remove', remove, admin));
+    assert.deepEqual((await ok(await get(first.mf, '/api/pk', a))).recent.map(s => s.title), ['Archive 4', 'Archive 3', 'Archive 2', 'Archive 1', 'Archive 0']);
+    await first.mf.dispose(); first = null; second = runtime({ persist });
+    const nextAdmin = await login(second.mf, 'e');
+    assert.equal((await get(second.mf, `/api/pk/session?id=${s.id}`, nextAdmin)).status, 404);
+    assert.equal((await ok(await get(second.mf, '/api/pk', nextAdmin))).recent.length, 5);
+    assert.equal((await ok(await post(second.mf, '/api/admin/pk/remove', remove, nextAdmin))).removedId, s.id);
+  } finally { await first?.mf.dispose(); await second?.mf.dispose(); assert.ok(path.basename(persist).startsWith('hh-pk-')); await rm(persist, { recursive: true, force: true }); }
 });

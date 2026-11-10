@@ -55,3 +55,5 @@ body:has(.pk-page) .header.header-member{background:linear-gradient(180deg,#100c
 .pk-split-preview.invalid{color:#e5ae8c}.pk-legacy-loot{margin:16px 20px;padding:12px;border:1px solid #aa85413d;background:#5b3f1a1a;color:#bba173;font-size:10px;line-height:1.8}
 @media(hover:hover){.pk-loot-name:hover{color:#ffdda1}.pk-loot-owners button:hover{border-color:#be9557;color:#edd1a0}}
 @media(max-width:520px){.pk-key-form .pk-drop-inputs{grid-template-columns:1fr}.pk-key-form .pk-drop-inputs>.pk-button{grid-column:1}.pk-player-money strong{font-size:14px}}
+
+.pk-session-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}.pk-delete-confirm{border-color:#99503c80;background:#49251c66}.pk-delete-confirm strong{color:#e9b39a}

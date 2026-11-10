@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { pkActionSchema, pkCreateSchema, pkSettingsSchema, pkStatusLabel, pkTotals, type PkAction, type PkActor, type PkPlayerChoice, type PkSession, type PkSettings, type PkSummary, type PkView } from '../lib/pk';
+import { pkActionSchema, pkCreateSchema, pkRemoveSchema, pkSettingsSchema, pkStatusLabel, pkTotals, type PkAction, type PkActor, type PkPlayerChoice, type PkSession, type PkSettings, type PkSummary, type PkView } from '../lib/pk';
 
 const fail = (status: number, error: string) => ({ ok: false as const, status, error });
 // One clan's PK ledger coordinates its live groups and recent session archive.
@@ -11,6 +11,7 @@ export class ClanPk extends DurableObject<Cloudflare.Env> {
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS pk_sessions (id TEXT PRIMARY KEY, owner TEXT NOT NULL, ended_at TEXT, started_at TEXT NOT NULL, data TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS pk_recent ON pk_sessions(ended_at DESC)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS pk_requests (id TEXT PRIMARY KEY, actor TEXT NOT NULL, session_id TEXT NOT NULL, payload TEXT NOT NULL)');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS pk_removed (session_id TEXT PRIMARY KEY, removed_at TEXT NOT NULL, actor TEXT NOT NULL, actor_name TEXT NOT NULL, request_id TEXT NOT NULL UNIQUE, payload TEXT NOT NULL)');
   }
   getSettings(): PkSettings { const row = this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM pk_settings WHERE id = 1').toArray()[0]; return row ? JSON.parse(row.data) : { revision: 0, roleId: '' }; }
   saveSettings(input: unknown, actor: PkActor) {
@@ -22,12 +23,29 @@ export class ClanPk extends DurableObject<Cloudflare.Env> {
     this.ctx.storage.sql.exec('INSERT INTO pk_settings VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data', JSON.stringify(settings));
     return { ok: true as const, settings };
   }
-  #session(id: string): PkSession | null { const row = this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM pk_sessions WHERE id = ?', id).toArray()[0]; return row ? JSON.parse(row.data) : null; }
-  #view(session: PkSession, actor: PkActor): PkView { return { ...session, totals: pkTotals(session), viewerId: actor.id, canManage: !session.endedAt && (session.ownerId === actor.id || actor.staff) }; }
+  #session(id: string): PkSession | null { const row = this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM pk_sessions WHERE id = ? AND id NOT IN (SELECT session_id FROM pk_removed)', id).toArray()[0]; return row ? JSON.parse(row.data) : null; }
+  #view(session: PkSession, actor: PkActor): PkView { return { ...session, totals: pkTotals(session), viewerId: actor.id, canManage: !session.endedAt && (session.ownerId === actor.id || actor.staff), canRemove: actor.admin === true }; }
   getSession(id: string, actor: PkActor) { const session = this.#session(id); return session ? { ok: true as const, session: this.#view(session, actor) } : fail(404, 'Deze PK-sessie is niet gevonden.'); }
   listSessions() {
     const summarize = (row: { data: string }): PkSummary => { const s = JSON.parse(row.data) as PkSession; return { id: s.id, title: s.title, ownerName: s.ownerName, startedAt: s.startedAt, endedAt: s.endedAt, gp: pkTotals(s).gp, playerCount: s.players.length, activeCount: s.players.filter(p => p.status === 'active').length }; };
-    return { active: this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM pk_sessions WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 20').toArray().map(summarize), recent: this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM pk_sessions WHERE ended_at IS NOT NULL ORDER BY ended_at DESC, id DESC LIMIT 5').toArray().map(summarize) };
+    return { active: this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM pk_sessions WHERE ended_at IS NULL AND id NOT IN (SELECT session_id FROM pk_removed) ORDER BY started_at DESC LIMIT 20').toArray().map(summarize), recent: this.ctx.storage.sql.exec<{ data: string }>('SELECT data FROM pk_sessions WHERE ended_at IS NOT NULL AND id NOT IN (SELECT session_id FROM pk_removed) ORDER BY ended_at DESC, id DESC LIMIT 5').toArray().map(summarize) };
+  }
+  remove(input: unknown, actor: PkActor) {
+    if (!actor.admin) return fail(403, 'Alleen Admin kan PK-sessies verwijderen.');
+    const parsed = pkRemoveSchema.safeParse(input); if (!parsed.success) return fail(400, 'Ongeldig verwijderverzoek.');
+    const value = parsed.data, payload = JSON.stringify(value);
+    const previous = this.ctx.storage.sql.exec<{ actor: string; payload: string }>('SELECT actor, payload FROM pk_removed WHERE request_id = ?', value.requestId).toArray()[0];
+    if (previous) return previous.actor === actor.id && previous.payload === payload ? { ok: true as const, removedId: value.sessionId } : fail(409, 'Dit verzoek is al gebruikt. Ververs de sessie.');
+    if (this.ctx.storage.sql.exec('SELECT id FROM pk_requests WHERE id = ?', value.requestId).toArray().length) return fail(409, 'Dit verzoek is al gebruikt. Ververs de sessie.');
+    const s = this.#session(value.sessionId); if (!s) return fail(404, 'Deze PK-sessie is niet gevonden of al verwijderd.');
+    if (s.revision !== value.revision) return fail(409, 'De sessie is net gewijzigd. Controleer de nieuwste stand voordat je verwijdert.');
+    // Retain the original ledger and its audit trail; all reads and mutations
+    // exclude this tombstone, including replays of older create/action requests.
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec('INSERT INTO pk_removed VALUES (?, ?, ?, ?, ?, ?)', s.id, new Date().toISOString(), actor.id, actor.name, value.requestId, payload);
+      this.ctx.storage.sql.exec('INSERT INTO pk_requests VALUES (?, ?, ?, ?)', value.requestId, actor.id, s.id, payload);
+    });
+    return { ok: true as const, removedId: s.id };
   }
   #replay(requestId: string, payload: string, actor: PkActor) {
     const row = this.ctx.storage.sql.exec<{ actor: string; session_id: string; payload: string }>('SELECT actor, session_id, payload FROM pk_requests WHERE id = ?', requestId).toArray()[0];
@@ -44,7 +62,7 @@ export class ClanPk extends DurableObject<Cloudflare.Env> {
     if (!actor.staff && !actor.roleIds?.includes(this.getSettings().roleId || 'unconfigured')) return fail(403, 'Je PK-toegang is gewijzigd.');
     const parsed = pkCreateSchema.safeParse(input); if (!parsed.success) return fail(400, 'Geef de sessie een naam en kies de spelers.');
     const value = parsed.data, payload = JSON.stringify(value); const previous = this.#replay(value.requestId, payload, actor); if (previous) return previous;
-    const open = this.ctx.storage.sql.exec<{ owner: string }>('SELECT owner FROM pk_sessions WHERE ended_at IS NULL').toArray();
+    const open = this.ctx.storage.sql.exec<{ owner: string }>('SELECT owner FROM pk_sessions WHERE ended_at IS NULL AND id NOT IN (SELECT session_id FROM pk_removed)').toArray();
     if (open.some(row => row.owner === actor.id)) return fail(409, 'Je leidt al een actieve sessie. Rond die eerst af.');
     if (open.length >= 20) return fail(409, 'Er zijn al 20 actieve sessies. Rond eerst een sessie af.');
     if (players.length !== value.playerIds.length || players.some(p => !value.playerIds.includes(p.id)) || new Set(players.map(p => p.id)).size !== players.length) return fail(400, 'Kies geldige clanleden uit Wise Old Man.');
