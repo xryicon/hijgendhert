@@ -1,6 +1,7 @@
 "use client";
 
 import ClanCrest from './clan-crest';
+import SeasonalImage from './seasonal-image';
 import { ArrowRight, ArrowUpRight, CalendarDays, Camera, Crown, Swords, Users } from 'lucide-react';
 
 export const clanSections = [
@@ -30,7 +31,7 @@ const format = (value: number) => new Intl.NumberFormat('nl-NL', { maximumFracti
 export default function ClanOverview({ selected, onNavigate, members, totalXp, world, loading, error, stale, onRetry, onJoin }: Props) {
   return <>
     <section className="clan-masthead" aria-labelledby="clan-title" id="de-clan">
-      <img className="clan-masthead-landscape" src="/hijgend-hert-woodland.webp" alt="" aria-hidden="true" width="2172" height="724" fetchPriority="high"/>
+      <SeasonalImage className="clan-masthead-landscape" src="/hijgend-hert-woodland.webp" winterSrc="/hijgend-hert-woodland-winter.webp" alt="" aria-hidden="true" width="2172" height="724" fetchPriority="high"/>
       <div className="container clan-masthead-inner">
         <div className="clan-masthead-copy">
           <p className="eyebrow"><span/> DE CLAN <span className="clan-founded">SINDS 2024</span></p>

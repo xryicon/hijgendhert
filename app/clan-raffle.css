@@ -1,7 +1,7 @@
 .weekly-event-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .weekly-card-body { padding-inline: 24px; }
 .weekly-card-body h2 { font-size: clamp(21px, 2.1vw, 29px); }
-.raffle-art { position: relative; display: grid; place-items: center; width: 100%; height: 100%; overflow: hidden; background: linear-gradient(0deg, #15120e, #15120e44 50%, #15120e80), url('/hijgend-hert-woodland.webp') 45% 45% / cover; }
+.raffle-art { position: relative; display: grid; place-items: center; width: 100%; height: 100%; overflow: hidden; background: linear-gradient(0deg, #15120e, #15120e44 50%, #15120e80), var(--clan-woodland) 45% 45% / cover; }
 .raffle-art-halo { position: absolute; width: 80%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(ellipse, #b1843655, transparent 65%); }
 .raffle-art-ticket { position: absolute; display: flex; flex-direction: column; align-items: center; width: 42%; height: 76%; top: 12%; border: 1px solid #ce9c4c; border-radius: 4px; background: linear-gradient(120deg, #261c0e, #705126 49%, #291e0e); box-shadow: inset 0 0 0 5px #261e13, inset 0 0 0 6px #c4934e77, 0 10px 25px #000a; transform: rotate(9deg); }
 .raffle-ticket-back { transform: rotate(-13deg) translateX(-14px); background: linear-gradient(145deg, #2d2416, #48341d); border-color: #88622f; }
@@ -49,7 +49,7 @@
 .raffle-stage-intro { color: #b5a48a; font-size: 12px; line-height: 1.8; }
 .raffle-draw-layout { display: grid; grid-template-columns: 1fr 1.1fr; padding: 0 32px 32px; gap: 28px; align-items: stretch; }
 .raffle-prize-display { position: relative; display: flex; flex-direction: column; justify-content: end; min-width: 0; min-height: 380px; padding: 25px; border: 1px solid #a47c403b; border-radius: 3px; overflow: hidden; background: radial-gradient(ellipse at 50% 32%, #dba74921, transparent 70%), linear-gradient(0deg, #15100c 5%, #19150d22 75%); }
-.raffle-prize-display::before { content: ''; position: absolute; inset: 0; background: url('/hijgend-hert-woodland.webp') center / cover; opacity: .14; pointer-events: none; }
+.raffle-prize-display::before { content: ''; position: absolute; inset: 0; background: var(--clan-woodland) center / cover; opacity: .14; pointer-events: none; }
 .raffle-prize-display .raffle-art { height: 245px; background: transparent; overflow: visible; }
 .raffle-prize-display .raffle-art-ticket { width: 148px; height: 207px; top: 3px; box-shadow: inset 0 0 0 5px #241a10, inset 0 0 0 6px #d0a15599, 0 13px 35px #0009; }
 .raffle-prize-display .raffle-ticket-word { font-size: 8px; letter-spacing: 1.4px; }

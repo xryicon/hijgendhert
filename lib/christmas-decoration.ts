@@ -1,6 +1,6 @@
 // Static, decorative markup shared by the app and its standalone access page.
 // No user-controlled strings are interpolated here.
-export const CHRISTMAS_STYLESHEET = '/christmas.css?v=20261110';
+export const CHRISTMAS_STYLESHEET = '/christmas.css?v=20261110-snow';
 // Coordinates follow the original 1254px crest, keeping the lights on its antlers.
 const lamps = [[352,49],[325,110],[334,173],[379,215],[436,238],[479,261],[453,174],[439,111],[468,46],[487,128],[507,210],[299,230],[551,271],[902,49],[929,110],[920,173],[875,215],[818,238],[775,261],[801,174],[815,111],[786,46],[767,128],[747,210],[955,230],[703,271]];
 export const ANTLER_LIGHTS = `<svg viewBox="0 0 1254 1254" fill="none" aria-hidden="true" focusable="false"><g stroke="#aa8c4b" stroke-width="4" opacity=".85"><path d="M352 49Q290 143 334 173T479 261Q448 222 453 174T468 46M436 238Q475 245 487 128M479 261Q516 264 551 271L507 210M379 215Q347 267 299 230"/><path d="M902 49Q964 143 920 173T775 261Q806 222 801 174T786 46M818 238Q779 245 767 128M775 261Q738 264 703 271L747 210M875 215Q907 267 955 230"/></g>${lamps.map(([x,y],i)=>`<g class="antler-lamp" style="--lamp-delay:-${(i%7)*.65}s;--lamp-color:${i%5===2?'#f59260':'#ffe2a0'}"><circle cx="${x}" cy="${y}" r="25" fill="var(--lamp-color)" opacity=".12"/><circle cx="${x}" cy="${y}" r="15" fill="var(--lamp-color)" opacity=".26"/><circle cx="${x}" cy="${y}" r="7" fill="var(--lamp-color)"/><circle cx="${x-1}" cy="${y-1}" r="3" fill="#fff8df"/></g>`).join('')}</svg>`;

@@ -12,7 +12,7 @@
 .live-event-filter-row .event-filters button.selected { background: linear-gradient(125deg, #9d7e343b, #535b3038); color: #efcf86; box-shadow: inset 0 1px 0 #e0bd5d1c; }
 .current-event-panel { background: #17201c; border-color: #b19a5055; box-shadow: 0 24px 60px #0003, inset 0 1px 0 #d4b56a15; }
 .current-event-panel .event-live-heading { position: relative; isolation: isolate; padding: 28px 32px 20px; overflow: hidden; }
-.current-event-panel .event-live-heading::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #17201c 0%, #17201cc9 50%, #17201c99), url('/hijgend-hert-woodland.webp') right 43% / cover; opacity: .7; pointer-events: none; }
+.current-event-panel .event-live-heading::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #17201c 0%, #17201cc9 50%, #17201c99), var(--clan-woodland) right 43% / cover; opacity: .7; pointer-events: none; }
 .current-event-panel .event-live-heading h3 { font: 400 32px/1.2 Georgia, serif; color: #f1e4be; letter-spacing: -.5px; margin: 13px 0 9px; }
 .current-event-panel .event-live-heading p { color: #b0b99e; }
 .current-event-panel .event-tag { background: #b3ac5810; border-color: #b2aa5347; color: #ced7a1; }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useSiteAppearance } from './site-appearance-provider';
 
 const VERTEX = `
 attribute vec2 position;
@@ -78,6 +79,8 @@ void main() {
 }`;
 
 export default function LiveEventBackdrop() {
+  const { appearance } = useSiteAppearance();
+  const imageSrc = appearance.christmasEnabled ? '/hijgend-hert-event-courtyard-winter.webp' : '/hijgend-hert-event-courtyard.webp';
   const wrapperRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -206,10 +209,10 @@ export default function LiveEventBackdrop() {
       reducedMotion.removeEventListener("change", setup);
       release();
     };
-  }, []);
+  }, [imageSrc]);
 
-  return <div ref={wrapperRef} className="live-event-backdrop" aria-hidden="true">
-    <img ref={imageRef} src="/hijgend-hert-event-courtyard.webp" alt="" width="1536" height="1024" fetchPriority="high"/>
+  return <div key={imageSrc} ref={wrapperRef} className="live-event-backdrop" aria-hidden="true">
+    <img ref={imageRef} src={imageSrc} alt="" width="1536" height="1024" fetchPriority="high"/>
     <canvas ref={canvasRef} className="live-event-animation" width="1536" height="1024"/>
   </div>;
 }

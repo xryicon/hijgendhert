@@ -1,6 +1,6 @@
 .header.header-member { background: #0b1313e8; border-bottom: 1px solid #b8974e30; }
 .member-page { position: relative; min-height: calc(100svh - 82px); padding: 58px 22px 32px; isolation: isolate; background: #0c1414; }
-.member-page::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, #08111196, #0c1414ed 90%), url('/hijgend-hert-event-arena.webp') center 40% / cover; opacity: .65; }
+.member-page::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, #08111196, #0c1414ed 90%), var(--clan-arena) center 40% / cover; opacity: .65; }
 .member-gate { position: relative; max-width: 510px; margin: 0 auto; padding: 32px 46px 30px; text-align: center; border: 1px solid #9f804b88; border-radius: 5px; background: linear-gradient(145deg, #1d2521f5, #0d1716fa 60%); box-shadow: inset 0 0 0 5px #080f0e66, 0 24px 80px #0006; }
 .member-gate::before { content: ''; position: absolute; pointer-events: none; inset: 8px; border: 1px solid #af94502b; }
 .member-back { position: relative; display: flex; align-items: center; gap: 8px; color: #a8afa5; font-size: 11px; text-align: left; }

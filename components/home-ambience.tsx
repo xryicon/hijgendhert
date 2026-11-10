@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, type RefObject } from "react";
 import { AntlerLights } from './clan-crest';
+import SeasonalImage from './seasonal-image';
 
 function useAmbientVisibility(ref: RefObject<HTMLElement | null>) {
   useEffect(() => {
@@ -37,7 +38,7 @@ export function WoodlandBackdrop() {
     return () => observer.disconnect();
   }, []);
   return <div className="hero-woodland" ref={scene} aria-hidden="true">
-    <img className="hero-landscape" src="/hijgend-hert-woodland.webp" alt="" width="2172" height="724" fetchPriority="high"/>
+    <SeasonalImage className="hero-landscape" src="/hijgend-hert-woodland.webp" winterSrc="/hijgend-hert-woodland-winter.webp" alt="" width="2172" height="724" fetchPriority="high"/>
     <div className="woodland-firelight" ref={light}><i className="firelight-near"/><i className="firelight-middle"/><i className="firelight-far"/></div>
   </div>;
 }

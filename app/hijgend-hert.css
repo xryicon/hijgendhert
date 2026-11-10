@@ -52,7 +52,7 @@ body .event-filters, body .live-event-filter-row .event-filters, body .community
 body .event-filters button, body .live-event-filter-row .event-filters button, body .community-filters button { color: #aa9c81; border-radius: 2px; }
 body .event-filters button.selected, body .live-event-filter-row .event-filters button.selected, body .community-filters button.selected { background: #50391b; color: #f0ce86; box-shadow: inset 0 1px 0 #d9ac4940; }
 body .current-event-panel { border-color: #86602c; background: #15120d; border-radius: 3px; box-shadow: inset 0 0 0 2px #080705, 0 8px 25px #0003; }
-body .current-event-panel .event-live-heading::before { background: linear-gradient(90deg, #17130e 10%, #17130ebd 55%, #17130e73), url('/hijgend-hert-woodland.webp') right 43% / cover; opacity: .65; }
+body .current-event-panel .event-live-heading::before { background: linear-gradient(90deg, #17130e 10%, #17130ebd 55%, #17130e73), var(--clan-woodland) right 43% / cover; opacity: .65; }
 body .current-event-panel .event-live-heading h3 { font-family: Cinzel, Georgia, serif; font-size: 28px; color: #eac383; font-weight: 500; }
 body .current-event-panel .event-live-heading p, body .current-event-panel .event-summary { color: #b6a68a; }
 body .current-event-panel .event-summary { border-bottom-color: #705028; }

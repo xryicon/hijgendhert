@@ -21,6 +21,7 @@ const encoder = new TextEncoder();
 const PUBLIC_ASSETS = new Set([
   '/clan-logo.png', '/hijgend-hert-woodland.webp', '/fonts/cinzel-semibold.ttf',
   '/fonts/inter-regular.ttf', '/favicon.svg', '/christmas.css', '/christmas-evergreen.svg',
+  '/hijgend-hert-woodland-winter.webp',
 ]);
 const headers = {
   'Cache-Control': 'private, no-store, max-age=0',

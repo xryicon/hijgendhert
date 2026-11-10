@@ -1,5 +1,6 @@
 "use client";
 import ClanCrest from './clan-crest';
+import SeasonalImage from './seasonal-image';
 import Link from '@/components/site-link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -125,7 +126,7 @@ export default function ClanSite({ view = 'home' }: { view?: 'home' | 'clan' | '
     catch { setCopied(false); }
   }
   const content = <>
-    {view === 'clan' && <div className="members-landscape" aria-hidden="true"><img src="/hijgend-hert-woodland.webp" alt=""/><span/></div>}
+    {view === 'clan' && <div className="members-landscape" aria-hidden="true"><SeasonalImage src="/hijgend-hert-woodland.webp" winterSrc="/hijgend-hert-woodland-winter.webp" alt=""/><span/></div>}
     <SiteHeader view={view}/>
     <main id="main" className={view === 'home' ? 'homepage' : `clan-inner-page${view === 'clan' ? ' clan-page' : ''}${view === 'events' ? ' events-page live-events-page' : ''}`}>
       {view === 'events' && <LiveEventBackdrop/>}

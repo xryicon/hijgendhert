@@ -201,7 +201,7 @@ test('the script-free access page follows the shared Christmas switch without op
 
 test('only maintenance image/font/theme assets are public and asset responses cannot be cached', async () => {
   const { mf, assetCalls } = runtime();
-  const publicAssets = ['/clan-logo.png', '/hijgend-hert-woodland.webp', '/fonts/cinzel-semibold.ttf', '/fonts/inter-regular.ttf', '/favicon.svg', '/christmas.css', '/christmas-evergreen.svg'];
+  const publicAssets = ['/clan-logo.png', '/hijgend-hert-woodland.webp', '/fonts/cinzel-semibold.ttf', '/fonts/inter-regular.ttf', '/favicon.svg', '/christmas.css', '/christmas-evergreen.svg', '/hijgend-hert-woodland-winter.webp'];
   try {
     for (const route of publicAssets) {
       for (const method of ['GET', 'HEAD']) {

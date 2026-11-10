@@ -1,3 +1,8 @@
+:root{--clan-woodland:url('/hijgend-hert-woodland.webp');--clan-arena:url('/hijgend-hert-event-arena.webp');--clan-courtyard:url('/hijgend-hert-event-courtyard.webp')}
+html[data-season="christmas"]{--clan-woodland:url('/hijgend-hert-woodland-winter.webp');--clan-arena:url('/hijgend-hert-event-arena-winter.webp');--clan-courtyard:url('/hijgend-hert-event-courtyard-winter.webp')}
+html[data-season="christmas"] body :is(.profile-page,.public-member-page){background:linear-gradient(90deg,#0d1416d9,#0d14167a),var(--clan-woodland) center top/cover fixed}
+html[data-season="christmas"] body .profile-page::before{display:none}
+html[data-season="christmas"] body :is(.clan-admin-page,.pk-page){background:linear-gradient(180deg,#0d141655,#0d1416b3)}
 .clan-crest{display:inline-block;position:relative;flex-shrink:0;line-height:0;font-style:normal}
 body .clan-crest>img{display:block;width:100%;height:100%;object-fit:contain}
 .brand .brand-crest{width:43px;height:49px}.admin-clan-crest{width:118px;height:118px}

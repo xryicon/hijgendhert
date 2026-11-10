@@ -1,4 +1,4 @@
-body:has(.pk-page){background:#100c08 url('/hijgend-hert-woodland.webp') center top/cover fixed}
+body:has(.pk-page){background:#100c08 var(--clan-woodland) center top/cover fixed}
 body:has(.pk-page) .header.header-member{background:linear-gradient(180deg,#100c08f2,#100c08b8);border-color:#aa82442e}
 .pk-page{min-height:calc(100vh - 88px);background:linear-gradient(180deg,#100c0844,#100c08e8 650px);padding:52px 0 28px;color:#dfd2ba}
 .pk-shell.container{max-width:1450px;width:calc(100% - 80px)}

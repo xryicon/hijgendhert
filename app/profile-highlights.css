@@ -79,8 +79,8 @@
 /* Reuse the live site's black-and-gold palette, woodland banner and brass faces. */
 body .header.header-member { background: #100e0bf5; border-bottom-color: #594020; }
 body .profile-page { background: var(--bg); }
-body .profile-page::before { background: linear-gradient(180deg, #0d0c0a99, #0d0c0af5 70%), url('/hijgend-hert-woodland.webp') center top / cover; opacity: .34; }
-.profile-identity { border-color: #88622f; border-radius: 5px; background: linear-gradient(90deg, #14110ff5, #16130ce8 58%, #16130c8a), url('/hijgend-hert-woodland.webp') right 60% / cover; box-shadow: inset 0 0 0 4px #100d0960, 0 10px 24px #0005; }
+body .profile-page::before { background: linear-gradient(180deg, #0d0c0a99, #0d0c0af5 70%), var(--clan-woodland) center top / cover; opacity: .34; }
+.profile-identity { border-color: #88622f; border-radius: 5px; background: linear-gradient(90deg, #14110ff5, #16130ce8 58%, #16130c8a), var(--clan-woodland) right 60% / cover; box-shadow: inset 0 0 0 4px #100d0960, 0 10px 24px #0005; }
 .profile-identity::after { border-color: #c5964220; }
 .profile-avatar { border: 0; background: none; border-radius: 0; box-shadow: none; width: 96px; height: 112px; }
 .profile-avatar > img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 5px 9px #0009); }

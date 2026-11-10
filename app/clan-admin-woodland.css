@@ -1,5 +1,5 @@
 /* The clan's existing forest and aged brass, continued through staff tools. */
-body:has(.clan-admin-page) { background: #100d09 url('/hijgend-hert-woodland.webp') center top / cover fixed; }
+body:has(.clan-admin-page) { background: #100d09 var(--clan-woodland) center top / cover fixed; }
 body:has(.clan-admin-page) .header.header-member { background: linear-gradient(180deg,#100d09ed,#100d09a8); border-bottom-color: #ba8a3c30; }
 body .clan-admin-page { background: linear-gradient(180deg,#100c0755,#100d09e8 640px); padding: 78px 0 90px; }
 body .clan-admin { max-width: 1180px; }
