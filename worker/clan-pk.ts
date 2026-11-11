@@ -8,6 +8,19 @@ export class ClanPk extends DurableObject<Cloudflare.Env> {
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env);
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS pk_settings (id INTEGER PRIMARY KEY, data TEXT NOT NULL)');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS pk_settings_migrations (id TEXT PRIMARY KEY)');
+    // Apply the clan owner's PK-role selection once. Later staff changes,
+    // including disabling PK access, must survive deployments and restarts.
+    ctx.storage.transactionSync(() => {
+      const migration = 'pk-role-1570158311314296904';
+      if (ctx.storage.sql.exec('SELECT id FROM pk_settings_migrations WHERE id = ?', migration).toArray().length) return;
+      const row = ctx.storage.sql.exec<{ data: string }>('SELECT data FROM pk_settings WHERE id = 1').toArray()[0];
+      const previous = row ? pkSettingsSchema.parse(JSON.parse(row.data)) : null;
+      const roleId = '1570158311314296904';
+      const settings = { revision: previous ? previous.revision + (previous.roleId === roleId ? 0 : 1) : 0, roleId };
+      ctx.storage.sql.exec('INSERT INTO pk_settings VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data', JSON.stringify(settings));
+      ctx.storage.sql.exec('INSERT INTO pk_settings_migrations VALUES (?)', migration);
+    });
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS pk_sessions (id TEXT PRIMARY KEY, owner TEXT NOT NULL, ended_at TEXT, started_at TEXT NOT NULL, data TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS pk_recent ON pk_sessions(ended_at DESC)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS pk_requests (id TEXT PRIMARY KEY, actor TEXT NOT NULL, session_id TEXT NOT NULL, payload TEXT NOT NULL)');

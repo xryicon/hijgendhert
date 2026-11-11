@@ -15,7 +15,7 @@ const env = { APP_ORIGIN: 'https://clan.example', DISCORD_CLIENT_ID: '1234567890
 const bundle = await build({ stdin: { contents: `import { pkRoute } from './lib/pk-route'; import { discordAuthRoute } from './lib/discord-auth'; export { ClanPk } from './worker/clan-pk'; export default { async fetch(request,env) { return await pkRoute(request,env) || await discordAuthRoute(request,env) || new Response('Not found',{status:404}); } };`, resolveDir: root, sourcefile: 'pk-test.ts', loader: 'ts' }, bundle: true, write: false, format: 'esm', platform: 'neutral', target: 'es2022', external: ['node:crypto', 'cloudflare:workers'] });
 function runtime(options = {}) {
   const calls = [];
-  const mf = new Miniflare({ modules: true, script: bundle.outputFiles[0].text, compatibilityDate: '2026-05-15', compatibilityFlags: ['nodejs_compat'], bindings: env, durableObjects: { PK: { className: 'ClanPk', useSQLite: true } }, ...(options.persist ? { durableObjectsPersist: options.persist } : {}), outboundService: async request => {
+  const mf = new Miniflare({ modules: true, script: options.script || bundle.outputFiles[0].text, compatibilityDate: '2026-05-15', compatibilityFlags: ['nodejs_compat'], bindings: env, durableObjects: { PK: { className: 'ClanPk', useSQLite: true } }, ...(options.persist ? { durableObjectsPersist: options.persist } : {}), outboundService: async request => {
     const url = new URL(request.url); calls.push(url.pathname);
     if (url.origin === 'https://api.wiseoldman.net') {
       assert.equal(url.pathname, '/v2/groups/7059'); if (options.womDown) return Response.json({}, { status: 503 });
@@ -43,6 +43,53 @@ async function setup(mf) { const a = await login(mf), b = await login(mf, 'b'), 
 async function create(mf, actor, players = [1, 2], extra = {}) { return (await ok(await post(mf, '/api/pk/create', { requestId: randomUUID(), title: 'Revenant trip', playerIds: players, ...extra }, actor))).session; }
 const action = (s, fields) => ({ requestId: randomUUID(), sessionId: s.id, revision: s.revision, ...fields });
 async function change(mf, actor, s, fields) { return (await ok(await post(mf, '/api/pk/action', action(s, fields), actor))).session; }
+
+test('the supplied PK role grants access immediately without granting settings or removal rights', async () => {
+  const options = { roles: { a: [MEMBER, '1570158311314296904'] } }; const { mf } = runtime(options);
+  try {
+    const pk = await login(mf), plain = await login(mf, 'd'), staff = await login(mf, 'c');
+    assert.equal((await ok(await get(mf, '/api/admin/pk/settings', staff))).settings.roleId, '1570158311314296904');
+    assert.equal((await ok(await get(mf, '/api/pk/access', pk))).allowed, true);
+    assert.equal((await ok(await get(mf, '/api/pk/access', plain))).allowed, false);
+    assert.equal((await get(mf, '/api/pk', plain)).status, 403);
+    const session = await create(mf, pk); assert.equal(session.canRemove, false);
+    assert.equal((await get(mf, '/api/admin/pk/settings', pk)).status, 403);
+    assert.equal((await post(mf, '/api/admin/pk/remove', action(session, {}), pk)).status, 403);
+    options.roles.a = [MEMBER];
+    assert.equal((await get(mf, '/api/pk', pk)).status, 403);
+  } finally { await mf.dispose(); }
+});
+
+test('existing PK settings are updated once, retain sessions and respect later disabling after restart', async () => {
+  for (const oldRoleId of ['', ROLE]) {
+    const persist = await mkdtemp(path.join(tmpdir(), 'hh-pk-role-')); let current;
+    const session = { id: randomUUID(), title: 'Bestaande PK-sessie', ownerId: A, ownerName: 'Hert', revision: 3, startedAt: new Date().toISOString(), endedAt: null, players: [], drops: [], timeline: [], requests: [] };
+    try {
+      // Seed the pre-update schema; production never exposes this test fixture.
+      current = runtime({ persist, script: `import { DurableObject } from 'cloudflare:workers';
+        export class ClanPk extends DurableObject {
+          seed() { const settings = ${JSON.stringify({ revision: 7, roleId: oldRoleId })}, session = ${JSON.stringify(session)};
+            this.ctx.storage.sql.exec('CREATE TABLE pk_settings (id INTEGER PRIMARY KEY, data TEXT NOT NULL)');
+            this.ctx.storage.sql.exec('INSERT INTO pk_settings VALUES (1, ?)', JSON.stringify(settings));
+            this.ctx.storage.sql.exec('CREATE TABLE pk_sessions (id TEXT PRIMARY KEY, owner TEXT NOT NULL, ended_at TEXT, started_at TEXT NOT NULL, data TEXT NOT NULL)');
+            this.ctx.storage.sql.exec('INSERT INTO pk_sessions VALUES (?, ?, NULL, ?, ?)', session.id, session.ownerId, session.startedAt, JSON.stringify(session)); return settings; }
+        } export default { async fetch(request, env) { return Response.json(await env.PK.getByName('clan:7059').seed()); } };` });
+      await ok(await current.mf.dispatchFetch(env.APP_ORIGIN)); await current.mf.dispose(); current = null;
+      const options = { persist, roles: { a: [MEMBER, '1570158311314296904'] } };
+      current = runtime(options); const staff = await login(current.mf, 'c'), pk = await login(current.mf);
+      assert.deepEqual((await ok(await get(current.mf, '/api/admin/pk/settings', staff))).settings, { revision: 8, roleId: '1570158311314296904' });
+      const loaded = (await ok(await get(current.mf, `/api/pk/session?id=${session.id}`, pk))).session;
+      for (const key of Object.keys(session)) assert.deepEqual(loaded[key], session[key]);
+      assert.equal((await post(current.mf, '/api/admin/pk/settings', { revision: 7, roleId: oldRoleId }, staff)).status, 409);
+      await ok(await post(current.mf, '/api/admin/pk/settings', { revision: 8, roleId: '' }, staff));
+      await current.mf.dispose(); current = null; current = runtime(options);
+      const staffAgain = await login(current.mf, 'c'), pkAgain = await login(current.mf);
+      assert.deepEqual((await ok(await get(current.mf, '/api/admin/pk/settings', staffAgain))).settings, { revision: 9, roleId: '' });
+      assert.equal((await get(current.mf, '/api/pk', pkAgain)).status, 403);
+      assert.equal((await ok(await get(current.mf, '/api/pk', staffAgain))).active[0].id, session.id);
+    } finally { await current?.mf.dispose(); assert.ok(path.basename(persist).startsWith('hh-pk-role-')); await rm(persist, { recursive: true, force: true }); }
+  }
+});
 
 test('PK is private, configurable by staff only, CSRF protected and role removals are enforced', async () => {
   const options = {}; const { mf } = runtime(options);

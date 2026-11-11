@@ -1,6 +1,10 @@
 # PK-sessies
 
-De aparte pagina `/pk` gebruikt de bestaande Discord-login. Admin en Staff team
+De aparte pagina `/pk` gebruikt de bestaande Discord-login. Op 11 november 2026
+is de Discord-rol **PK** (`1570158311314296904`) eenmalig gekoppeld op verzoek
+van de clanbeheerder. De koppeling wordt ook toegepast op bestaande instellingen,
+zonder sessies of loot te wijzigen. Latere beheeraanpassingen blijven bewaard.
+Admin en Staff team
 stellen onder **Clanbeheer → Discord → Toegang tot PK-sessies** één PK-rol-ID in.
 Leeg betekent geen toegang voor gewone leden. De PK-rol is aanvullend op de
 bestaande Member/Admin/Staff-clantoegang. Admin en Staff houden toegang en kunnen
