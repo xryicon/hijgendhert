@@ -33,7 +33,7 @@ function runtime(options = {}) {
     }
     assert.equal(new URL(request.url).origin, 'https://discord.com');
     const id = request.headers.get('Authorization').replace('Bearer test-access-', '');
-    return Response.json({ user: { id, username: id === ids.staff ? 'Havenmeester' : `Hert${id.slice(-1)}` }, roles: options.revoked ? [] : [id === ids.staff ? '1408990525180084265' : '1326459850837987430'] });
+    return Response.json({ nick: options.members?.[id]?.nick, user: { id, username: options.members?.[id]?.username || (id === ids.staff ? 'Havenmeester' : `Hert${id.slice(-1)}`) }, roles: options.revoked ? [] : [id === ids.staff ? '1408990525180084265' : '1326459850837987430'] });
   } });
   return mf;
 }
@@ -410,5 +410,82 @@ test('scheduled reveal and alarm survive a runtime restart without needing an op
     const g=(await next.request('a', `/api/warships?id=${id}`)).data.game;
     assert.equal(g.reveal.at,at); assert.equal(g.fleetAccessLocked,true); assert.equal(g.teamAssignment,null);
     const saved=await (await mf.dispatchFetch(origin+'/__reveal-inspect?id='+id)).json();assert.equal(saved.alarm,Date.parse(at));
+  } finally { await mf.dispose(); assert.ok(path.resolve(persist).startsWith(path.resolve(tmpdir()) + path.sep + 'hh-warships-')); await rm(persist, { recursive: true, force: true }); }
+});
+
+test('verified Discord names link once, keep teams private until reveal and survive nickname changes', async () => {
+  const options = { members: { [ids.a]: { nick: 'HERT_1', username: 'unrelated' } } }, mf = runtime(options);
+  try {
+    const f = await fixture(mf); await prepareReveal(f);
+    const g = (await f.request('a', `/api/warships?id=${f.game.id}`)).data.game;
+    assert.equal(g.linkedPlayer.playerId, 101); assert.equal(g.linkedPlayer.automatic, true);
+    assert.equal(g.myTeam, null); assert.equal(g.canCaptain, false); assert.ok(g.teams.every(t => t.fleet.length === 0));
+    const revision = g.revision;
+    assert.equal((await f.request('a', `/api/warships?id=${g.id}`)).data.game.revision, revision);
+    options.members[ids.a].nick = 'Hert 2';
+    assert.equal((await f.request('a', `/api/warships?id=${g.id}`)).data.game.linkedPlayer.playerId, 101);
+    options.members[ids.spectator] = { nick: 'Hert 1' };
+    assert.equal((await f.request('spectator', `/api/warships?id=${g.id}`)).data.game.linkedPlayer, null);
+    await f.refresh(); assert.equal(f.game.audit.filter(a => a.action === 'auto_link_player').length, 1);
+    await setRevealTime(mf, f, 50000);
+    const open = (await f.request('a', `/api/warships?id=${g.id}`)).data.game;
+    assert.equal(open.myTeam, 0); assert.equal(open.canCaptain, true);
+    await f.action('a', 'fleet', { placements: fleet, locked: true });
+    assert.equal((await f.request('a', `/api/warships?id=${g.id}`)).data.game.teams[0].fleet.length, 4);
+    assert.equal((await f.request('spectator', `/api/warships?id=${g.id}`)).data.game.teams[0].fleet.length, 0);
+  } finally { await mf.dispose(); }
+});
+
+test('automatic linking does not bypass conflicting names, pending claims, staff rejection or authentication', async () => {
+  const options = { members: {} }, mf = runtime(options);
+  try {
+    const f = await fixture(mf); await prepareReveal(f);
+    options.members[ids.a] = { nick: 'Hert 1', username: 'Hert 2' };
+    assert.equal((await f.request('a', `/api/warships?id=${f.game.id}`)).data.game.linkedPlayer, null);
+    await f.action('b', 'link_player', { playerId: 101 });
+    options.members[ids.a] = { nick: 'Hert 1', username: 'unrelated' };
+    assert.equal((await f.request('a', `/api/warships?id=${f.game.id}`)).data.game.linkedPlayer, null);
+    options.members[ids.b] = { nick: 'Hert 1' };
+    await f.action('staff', 'enrol', { userId: ids.b, accept: false });
+    assert.equal((await f.request('b', `/api/warships?id=${f.game.id}`)).data.game.linkedPlayer, null);
+    options.revoked = true;
+    assert.equal((await f.request('a', `/api/warships?id=${f.game.id}`)).status, 403);
+    assert.equal((await f.request(null, `/api/warships?id=${f.game.id}`, undefined, { headers: { 'X-Discord-Name': 'Hert 1' } })).data.game.linkedPlayer, null);
+    options.revoked = false;
+    assert.equal((await f.request('a', `/api/warships?id=${f.game.id}`)).data.game.linkedPlayer.playerId, 101);
+    await f.refresh(); assert.equal(f.game.requests.length, 0);
+  } finally { await mf.dispose(); }
+});
+
+test('staff can remove an automatic account link without losing the player, ships or game history', async () => {
+  const options = { members: { [ids.a]: { nick: 'Hert 1' } } }, mf = runtime(options);
+  try {
+    const f = await fixture(mf); await prepareReveal(f);
+    await f.request('a', `/api/warships?id=${f.game.id}`); await f.refresh();
+    await setRevealTime(mf, f, 50000);
+    await f.action('a', 'fleet', { placements: fleet, locked: true });
+    await f.action('staff', 'force_start');
+    await f.action('a', 'unlink_player', { playerId: 101 }, 403);
+    const removal = await f.action('staff', 'unlink_player', { playerId: 101 });
+    const g = (await f.request('a', `/api/warships?id=${f.game.id}`)).data.game;
+    assert.equal(g.linkedPlayer, null); assert.equal(g.canCaptain, false); assert.equal(g.myTeam, null);
+    assert.ok(g.teams.every(t => t.fleet.length === 0)); assert.equal(g.crew.length, 4);
+    assert.equal((await f.request('staff', '/api/warships/action', removal.body)).data.game.revision, f.game.revision);
+    await f.action('a', 'link_player', { playerId: 101 });
+    await f.action('staff', 'enrol', { userId: ids.a, accept: true });
+    const restored = (await f.request('a', `/api/warships?id=${f.game.id}`)).data.game;
+    assert.equal(restored.linkedPlayer.automatic, false); assert.deepEqual(restored.teams[0].fleet, fleet);
+  } finally { await mf.dispose(); }
+});
+
+test('automatic account ownership persists across a runtime restart', async () => {
+  const persist = await mkdtemp(path.join(tmpdir(), 'hh-warships-')); let mf = runtime({ persist, members: { [ids.a]: { nick: 'Hert 1' } } });
+  try {
+    const f = await fixture(mf); await prepareReveal(f); const id = f.game.id;
+    const linked = (await f.request('a', `/api/warships?id=${id}`)).data.game;
+    assert.equal(linked.linkedPlayer.playerId, 101);
+    await mf.dispose(); mf = runtime({ persist });
+    const next = await fixture(mf), restored = (await next.request('a', `/api/warships?id=${id}`)).data.game;
+    assert.deepEqual(restored.linkedPlayer, linked.linkedPlayer); assert.equal(restored.revision, linked.revision);
   } finally { await mf.dispose(); assert.ok(path.resolve(persist).startsWith(path.resolve(tmpdir()) + path.sep + 'hh-warships-')); await rm(persist, { recursive: true, force: true }); }
 });

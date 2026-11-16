@@ -23,7 +23,7 @@ export async function warshipRoute(request: Request, env: WarshipEnv, fetcher: t
     let actor: WarshipActor | null = null;
     if (writing || url.pathname.endsWith('/roster') || (request.headers.get('Cookie') || '').includes('__Host-hh-member=')) {
       const member = await authorizeMember(request, config, fetcher);
-      actor = { id: member.id, name: member.displayName, staff: isStaff(member.clanRole) };
+      actor = { id: member.id, name: member.displayName, username: member.username, staff: isStaff(member.clanRole) };
     }
     const game = env.WARSHIPS.getByName('clan:7059');
     if (url.pathname.endsWith('/roster')) {

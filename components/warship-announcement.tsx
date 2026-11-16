@@ -4,6 +4,7 @@ import { Anchor, ArrowRight, CalendarClock, Flag, LockKeyhole, ShieldCheck, User
 import type { WarshipView } from '@/lib/warships';
 import WarshipLiveReveal from './warship-live-reveal';
 import ClanCrest from './clan-crest';
+import WarshipTheater from './warship-theater';
 
 function useServerClock(serverTime: string, moving: boolean) {
   const [elapsed, setElapsed] = useState(0);
@@ -15,11 +16,14 @@ function useServerClock(serverTime: string, moving: boolean) {
   }, [serverTime, moving]);
   return anchor.current.snapshot === serverTime ? anchor.current.at + elapsed : Date.parse(serverTime);
 }
-export default function WarshipAnnouncement({ game, onBoard, onCrew }: { game: WarshipView; onBoard: () => void; onCrew: () => void }) {
+export default function WarshipAnnouncement({ game, onBoard, onCrew, theater = false }: { game: WarshipView; onBoard: () => void; onCrew: () => void; theater?: boolean }) {
   const r = game.reveal;
   const now = useServerClock(game.serverTime, r?.phase === 'drawing');
   if (!r) return null;
-  if (r.phase === 'open') return <section className="sea-team-arrival"><span className="sea-arrival-emblem"><Flag size={30}/></span><div><small>DE TEAMGEBIEDEN ZIJN OPEN</small><h2>{game.myTeam !== null ? `Welkom bij ${game.teams[game.myTeam].name}` : 'De vloten zijn verdeeld'}</h2><p>{game.myTeam !== null ? `${game.linkedPlayer?.rsn || 'Jij'} hoort bij deze bemanning. Jullie eigen vloot is alleen voor jullie team zichtbaar.` : game.signedIn ? 'Laat staff je RuneScape-naam aan je Discordaccount koppelen om jouw vloot te openen.' : 'Log in met Discord om jouw team te bekijken.'}</p></div>{game.myTeam !== null ? <button type="button" className="button gold" onClick={onBoard}>Naar jouw vloot <ArrowRight size={16}/></button> : game.signedIn ? <button className="button gold" onClick={onCrew}>Koppel jouw naam</button> : <a className="button gold" href="/login">Inloggen met Discord</a>}</section>;
+  if (r.phase === 'drawing' && game.signedIn) return theater
+    ? <WarshipTheater game={game} onExit={onCrew}><WarshipLiveReveal game={game} now={now}/></WarshipTheater>
+    : <section className="sea-reveal-resume"><div><span className="sea-on-air"><i/> LIVE ONTHULLING</span><h2>De vloten worden verdeeld</h2><p>{r.revealed.length} van {r.count} spelers onthuld</p></div><button className="button gold" onClick={onBoard}>Bekijk de onthulling <ArrowRight size={16}/></button></section>;
+  if (r.phase === 'open') return <section className="sea-team-arrival"><span className="sea-arrival-emblem"><Flag size={30}/></span><div><small>DE TEAMGEBIEDEN ZIJN OPEN</small><h2>{game.myTeam !== null ? `Welkom bij ${game.teams[game.myTeam].name}` : 'De vloten zijn verdeeld'}</h2><p>{game.myTeam !== null ? `${game.linkedPlayer?.rsn || 'Jij'} hoort bij deze bemanning. Jullie eigen vloot is alleen voor jullie team zichtbaar.` : game.signedIn ? 'Geen unieke naamovereenkomst gevonden. Kies bij Bemanning je RuneScape-naam voor een koppeling via staff.' : 'Log in met Discord om jouw team te bekijken.'}</p></div>{game.myTeam !== null ? <button type="button" className="button gold" onClick={onBoard}>Naar jouw vloot <ArrowRight size={16}/></button> : game.signedIn ? <button className="button gold" onClick={onCrew}>Koppel jouw naam</button> : <a className="button gold" href="/login">Inloggen met Discord</a>}</section>;
   const seconds = Math.max(0, Math.ceil((Date.parse(r.at) - now) / 1000));
   const units = [{ value: Math.floor(seconds / 86400), label: 'dagen' }, { value: Math.floor(seconds / 3600) % 24, label: 'uren' }, { value: Math.floor(seconds / 60) % 60, label: 'minuten' }, { value: seconds % 60, label: 'seconden' }];
   return <section className={`sea-prelude ${r.phase === 'drawing' ? 'is-drawing' : ''}`} aria-label="Zeeslag aankondiging"><div className="sea-prelude-grain" aria-hidden="true"/><div className="sea-prelude-heading"><ClanCrest className="sea-announcement-crest"/><p className="eyebrow">HIJGEND HERT · {game.config.title}</p><h1>{r.headline}</h1><p>{r.message}</p></div>

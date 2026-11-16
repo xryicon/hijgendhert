@@ -3,6 +3,7 @@ import { ammo, evidenceKey, finishAtDeadline, hits, otherTeam, shipCells, validF
 import { balancedTeams, manualTeams, teamBalance, type SeaRoster, type SeaTeamDraw } from '../lib/warship-teams';
 import { advanceReveal, revealDuration, revealLocked } from '../lib/warship-reveal';
 import { generateFleet } from '../lib/warship-fleet';
+import { automaticSeaPlayer } from '../lib/warship-link';
 const fail = (status: number, error: string) => ({ ok: false as const, status, error });
 export class ClanWarships extends DurableObject<Cloudflare.Env> {
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
@@ -24,7 +25,7 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
     const oldCrew = g.crew;
     g.crew = draw.players.map(p => {
       const existing = oldCrew.find(old => old.playerId === p.id || (!old.playerId && normalize(old.rsn) === normalize(p.rsn)));
-      return { playerId: p.id, rsn: p.rsn, ehb: p.ehb, team: p.team, captain: p.captain, userId: existing?.userId || '', name: existing?.name || '' };
+      return { playerId: p.id, rsn: p.rsn, ehb: p.ehb, team: p.team, captain: p.captain, userId: existing?.userId || '', name: existing?.name || '', ...(existing?.linkMethod ? { linkMethod: existing.linkMethod } : {}) };
     });
     g.teamAssignment = draw; delete g.teamDraft;
     g.drawLog = (g.drawLog || []).map(item => item.id === draw.id ? { ...item, confirmed: true } : item);
@@ -50,7 +51,17 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
   }
   getGame(id: string, actor: WarshipActor | null) {
     const g = this.#read(id);
-    return !g || (!actor?.staff && !g.published) ? fail(404, 'Dit event is nog niet openbaar.') : { ok: true as const, game: warshipView(g, actor) };
+    if (!g || (!actor?.staff && !g.published)) return fail(404, 'Dit event is nog niet openbaar.');
+    const slot = actor && automaticSeaPlayer(g, actor);
+    if (slot && actor) {
+      // This actor comes only from server-verified Discord membership. Keep the
+      // durable account binding after a nickname change; never replace a claim.
+      slot.userId = actor.id; slot.name = actor.name; slot.linkMethod = 'automatic';
+      g.revision++;
+      g.audit.push({ at: new Date().toISOString(), actor: actor.id, name: actor.name, action: 'auto_link_player' });
+      this.#save(g);
+    }
+    return { ok: true as const, game: warshipView(g, actor) };
   }
   async replay(input: unknown, actor: WarshipActor) {
     const parsed = warshipActionSchema.safeParse(input);
@@ -90,7 +101,7 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
         if (['finished', 'cancelled'].includes(g.status)) return fail(409, 'Dit event is afgesloten.');
         const me = g.crew.find(p => p.userId === actor.id);
         const preparing = g.status === 'draft' || g.status === 'setup';
-        if (['edit', 'enrol', 'remove_member', 'captain', 'start', 'force_start', 'review', 'cancel', 'draw_teams', 'manual_teams', 'confirm_teams', 'schedule_reveal', 'cancel_reveal'].includes(a.type) && !actor.staff) return fail(403, 'Alleen de clanleiding kan dit aanpassen.');
+        if (['edit', 'enrol', 'remove_member', 'captain', 'start', 'force_start', 'review', 'cancel', 'draw_teams', 'manual_teams', 'confirm_teams', 'schedule_reveal', 'cancel_reveal', 'unlink_player'].includes(a.type) && !actor.staff) return fail(403, 'Alleen de clanleiding kan dit aanpassen.');
         if (['edit', 'join', 'remove_member', 'fleet', 'start', 'force_start', 'draw_teams', 'manual_teams', 'confirm_teams', 'schedule_reveal', 'cancel_reveal'].includes(a.type) && !preparing) return fail(409, 'Teams, vloot en regels liggen vast zodra de zeeslag start.');
         if (g.reveal && ['draw_teams', 'manual_teams', 'confirm_teams', 'remove_member', 'join'].includes(a.type)) return fail(409, 'De aangekondigde indeling ligt vast. Trek de aankondiging vóór de loting in om deze te wijzigen.');
         if (revealLocked(g, now) && ['fleet', 'start', 'force_start', 'captain', 'edit'].includes(a.type)) return fail(409, 'De teamgebieden openen na de aankondiging.');
@@ -113,7 +124,7 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
               if (request.playerId) {
                 const slot = g.crew.find(p => p.playerId === request.playerId);
                 if (!slot || slot.userId || g.crew.some(p => p.userId === a.userId)) return fail(409, 'Deze speler of dit Discordaccount is al gekoppeld.');
-                slot.userId = request.userId; slot.name = request.name;
+                slot.userId = request.userId; slot.name = request.name; slot.linkMethod = 'staff';
                 g.requests = g.requests.filter(r => r.userId !== a.userId && r.playerId !== request.playerId);
                 break;
               }
@@ -123,6 +134,7 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
               if (g.crew.filter(p => p.team === request.team).length >= 50) return fail(409, 'Dit team is vol.');
               g.crew.push({ userId: request.userId, name: request.name, rsn: request.rsn, team: request.team, captain: !g.crew.some(p => p.team === request.team && p.captain) });
             }
+            if (!a.accept && request.playerId) g.manualLinkUsers = [...new Set([...(g.manualLinkUsers || []), a.userId])];
             g.requests = g.requests.filter(r => r.userId !== a.userId); break;
           }
           case 'remove_member':
@@ -230,6 +242,14 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
             if (g.requests.length >= 100) return fail(409, 'Wacht op de beoordeling van openstaande aanvragen.');
             g.requests = g.requests.filter(r => r.userId !== actor.id);
             g.requests.push({ playerId: slot.playerId, userId: actor.id, name: actor.name, rsn: slot.rsn, team: slot.team, at });
+            break;
+          }
+          case 'unlink_player': {
+            const slot = g.crew.find(p => p.playerId === a.playerId);
+            if (!slot?.userId) return fail(409, 'Deze speler is niet gekoppeld.');
+            g.manualLinkUsers = [...new Set([...(g.manualLinkUsers || []), slot.userId])];
+            g.requests = g.requests.filter(r => r.userId !== slot.userId);
+            slot.userId = ''; slot.name = ''; delete slot.linkMethod;
             break;
           }
         }

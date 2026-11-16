@@ -18,9 +18,9 @@ Clanbeheer → Clanactiviteiten → Zeeslag Bingo beheren. Het bestaande, uitges
    kan al gemaakt worden voordat spelers inloggen. Iedere herindeling wist beide vloten.
 3. Publiceer onder Clanleiding, of gebruik Plan & publiceer aankondiging.
    De Events-pagina toont de zeeslagkaart en het hoofdmenu krijgt een Zeeslag-tab.
-   Spelers kiezen hun ingedeelde RuneScape-naam en vragen een Discordkoppeling aan.
-   Staff bevestigt de identiteit; een WOM-naam of profielkeuze verleent op zichzelf
-   geen teamtoegang. Een speler kan maar aan één Discordaccount gekoppeld zijn en
+   De server koppelt een unieke volledige Discord-naam automatisch aan de
+   ingedeelde WOM-speler. Bij een afwijkende naam of conflict vraagt de speler
+   handmatig een koppeling aan en bevestigt staff deze. Een speler kan maar aan één Discordaccount gekoppeld zijn en
    omgekeerd. Ook na de start kan een al ingedeelde speler zijn account koppelen.
 4. Beide gekoppelde kapiteins plaatsen vier schepen (4, 3, 3 en 2 vakken) op een 8×8-kaart
    en zetten hun vloot vast. Schepen mogen raken, maar niet overlappen of over
@@ -46,8 +46,8 @@ Clanbeheer → Clanactiviteiten → Zeeslag Bingo beheren. Het bestaande, uitges
   actief event. Bij privé zetten, annuleren of afronden verdwijnt de tab. De
   algemene onderhoudspagina blijft ongewijzigd. De tab gebruikt een openbare
   samenvatting zonder Discord-rolcontrole of privéconcepten.
-- Deelnemers kunnen tijdens het aftellen hun WOM-naam kiezen en staff laat
-  de Discordkoppeling goedkeuren. De vlakke namenlijst toont geen teams of
+- Tijdens het aftellen worden unieke naamovereenkomsten automatisch gekoppeld.
+  Overige deelnemers kunnen hun WOM-naam kiezen voor controle door staff. De vlakke namenlijst toont geen teams of
   kapiteins. Ook staff ontvangt tijdens de aftelling geen teamindeling uit de API.
   Een nog niet bevestigd voorstel is altijd uitsluitend voor staff zichtbaar.
 - De server bewaart één uitslag en één tijdlijn: vijf seconden introductie,
@@ -61,7 +61,7 @@ Clanbeheer → Clanactiviteiten → Zeeslag Bingo beheren. Het bestaande, uitges
   Alleen de huidige draai en al onthulde namen worden gedeeld. Ingelogde
   bezoekers volgen dezelfde tijdlijn; later aansluiten of verversen trekt niet
   opnieuw. Anonieme bezoekers zien de aankondiging en status, zonder namen.
-- Na de onthulling krijgt iedere goedgekeurde deelnemer automatisch toegang tot
+- Na de onthulling krijgt iedere gekoppelde deelnemer automatisch toegang tot
   de eigen vloot. Tegenstanders en staff krijgen geen verborgen vijandelijke
   scheepsposities. De kapiteins plaatsen hun schepen; staff start daarna het
   daadwerkelijke boss-drop-event. De onthulling start het gevecht dus niet.
@@ -154,7 +154,7 @@ toont Zeeslag de wachttijd en herstelknop en pauzeert het extra leesverzoeken.
 
 ## Validatie
 
-`node --test tests/warship-reveal.test.mjs tests/warship-teams.test.mjs tests/warships.worker.test.mjs` test de
+`node --test tests/warship-link.test.mjs tests/warship-reveal.test.mjs tests/warship-teams.test.mjs tests/warships.worker.test.mjs` test de
 balans tegen een onafhankelijke volledige zoekactie voor kleine groepen, grote
 en oneven groepen, kapiteins, ontbrekende EHB en de echte lokale Workers/SQLite
 met gesimuleerde Discord-accounts. Controleert privacy, rollen, CSRF, geometrie,
@@ -164,7 +164,7 @@ vlootreset bij herindeling, afgeschermde toekomstige onthullingen, tijdlijn,
 planning/intrekken, dubbele alarmen en persistentie van planning na herstart.
 Ook staff-only force-start, generatie en behoud van vloten, koppelen na start,
 herhaling zonder herloting, de vertraagde onthulling en oude planningen worden
-gecontroleerd. De suite bevat vijfentwintig tests. Geen productie-event of
+gecontroleerd. De suite bevat tweeëndertig tests. Geen productie-event of
 Discord-bericht wordt tijdens deze tests aangemaakt.
 
 Bossiconen gebruiken de bestaande lokale OSRS-assets. De voorgestelde itemnamen
@@ -174,3 +174,33 @@ zijn gebaseerd op de OSRS Wiki: [Zulrah](https://oldschool.runescape.wiki/w/Zulr
 [Cerberus](https://oldschool.runescape.wiki/w/Cerberus),
 [Dagannoth Rex](https://oldschool.runescape.wiki/w/Dagannoth_Rex) en
 [Alchemical Hydra](https://oldschool.runescape.wiki/w/Alchemical_Hydra).
+
+## Automatische naamkoppeling en presentatiescherm
+
+Bij het openen van een gepubliceerd event vergelijkt de server de geverifieerde
+Discord-clannaam en gebruikersnaam met de bevestigde WOM-deelnemers. Alleen een
+unieke volledige overeenkomst wordt gekoppeld. Hoofdletters, spaties, underscores
+en koppeltekens worden gelijk behandeld; versieringen en rankprefixen niet.
+Verschillende matches tussen clannaam en gebruikersnaam, bestaande koppelingen
+en open aanvragen gaan naar de bestaande handmatige staffcontrole. Er zijn geen
+extra providerverzoeken nodig. Dit is een clanconventie op basis van Discord-namen,
+geen bewijs van bezit van het RuneScape-account.
+
+De koppeling wordt duurzaam opgeslagen op Discord-ID en WOM-speler-ID en blijft
+behouden bij een naamswijziging. Teams en vlootposities blijven tijdens de
+onthulling afgeschermd. Staff kan bij Bemanning een accountkoppeling verwijderen;
+de deelnemer, schepen en historie blijven behouden. Het verwijderde of afgewezen
+account kan in die ronde uitsluitend via staff opnieuw gekoppeld worden.
+
+De live selectie opent als een schermvullend podium met twee tegenoverliggende
+vloten, rad en naamonthulling. De beschikbare schermhoogte bepaalt hoeveel
+spelerskaarten op één pagina passen. Grote teams gebruiken paginaknoppen en
+volgen automatisch de laatst onthulde speler; het podium heeft geen scrolllijst.
+Op mobiel staat het rad boven beide teams. Escape of Terug naar event verlaat
+het podium zonder de gezamenlijke loting te stoppen. Achtergrondfocus en scroll
+worden tijdelijk geblokkeerd en daarna hersteld. Reduced-motion blijft ondersteund.
+
+De tests controleren naamconflicten, bescherming van bestaande claims, afwijzing
+en ontkoppeling, privacy vóór de onthulling, rolcontrole, herstart en paginacapaciteit.
+Visuele browsercontrole is niet uitgevoerd; de controle is via broncode, types,
+build en geautomatiseerde tests uitgevoerd.
