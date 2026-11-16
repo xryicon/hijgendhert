@@ -5,7 +5,7 @@ import { env } from 'cloudflare:workers';
 import SiteHeader from '@/components/site-header';
 import PkDashboard from '@/components/pk-dashboard';
 import Link from '@/components/site-link';
-import { authorizeMemberWithRoles, discordConfig } from '@/lib/discord-auth';
+import { authorizeMemberWithRoles, discordConfig, DiscordAccessError, discordErrorReference } from '@/lib/discord-auth';
 import { isStaff } from '@/lib/clan-discord';
 import { PK_STORE } from '@/lib/pk';
 import { pkAllowed } from '@/lib/pk-route';
@@ -16,7 +16,15 @@ export default async function Page() {
   const incoming = await headers();
   let access;
   try { access = await authorizeMemberWithRoles(new Request(`${config.origin}/pk`, { headers: { Cookie: incoming.get('cookie') || '' } }), config); }
-  catch { redirect('/login'); }
+  catch (error) {
+    const reason = error instanceof DiscordAccessError ? error.code : 'unavailable';
+    const query = new URLSearchParams({ error: reason });
+    if (reason === 'unavailable') {
+      query.set('ref', discordErrorReference('PAGE', error));
+      query.set('retryAt', String(Date.now() + (error instanceof DiscordAccessError ? error.retryAfter || 60 : 60) * 1000));
+    }
+    redirect(`/login?${query}`);
+  }
   const settings = await env.PK?.getByName(PK_STORE).getSettings();
   const allowed = Boolean(settings && pkAllowed({ id: access.member.id, name: access.member.displayName, staff: isStaff(access.member.clanRole) }, access.roles, settings.roleId));
   return <><SiteHeader view="member" initialMember={access.member}/><main className="pk-page" id="main">{allowed ? <PkDashboard/> : <div className="container pk-locked"><img src="/clan-logo.png" alt="Hijgend Hert" width="110" height="110"/><p className="eyebrow">DE WILDERNESS WACHT</p><h1>Alleen voor de PK-groep</h1><p>Vraag de clanleiding om de PK-rol in Discord. Je sessies, loot en splits staan veilig achter deze toegang.</p><Link href="/" className="button gold">Terug naar de clan</Link></div>}</main></>;

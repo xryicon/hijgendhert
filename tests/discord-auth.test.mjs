@@ -21,6 +21,32 @@ const req = (path, init) => new Request(`${env.APP_ORIGIN}${path}`, init);
 const getCookie = (response, name) => response.headers.getSetCookie().find(cookie => cookie.startsWith(`${name}=`))?.split(';')[0];
 const response = (body, status = 200) => Response.json(body, { status });
 
+test('a stalled membership coordinator returns a bounded recoverable error', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let started;
+  const entered = new Promise(resolve => { started = resolve; });
+  const membershipChecks = { getByName: () => ({ checkDiscordMembership() { started(); return new Promise(() => {}); } }) };
+  const check = checkMembership({ ...config, membershipChecks }, token);
+  const rejected = assert.rejects(check, error => error.code === 'unavailable' && error.detail === 'CHECK_TIMEOUT' && error.retryAfter === 30);
+  await entered;
+  t.mock.timers.tick(10_000);
+  await rejected;
+});
+
+test('optional avatar storage cannot block a verified session response', async () => {
+  let finishAvatar;
+  const tasks = [];
+  const PROGRESS = { getByName: name => name.startsWith('discord-membership:')
+    ? { checkDiscordMembership: async () => ({ ok: true, member: { user, roles: [env.DISCORD_MEMBER_ROLE_IDS] } }) }
+    : { rememberMemberAvatar: () => new Promise(resolve => { finishAvatar = resolve; }) } };
+  const sealed = await seal(config, 'session', { accessToken: token, userId: user.id, expiresAt: Date.now() + 600000 });
+  const result = await discordAuthRoute(req('/api/auth/session', { headers: { Cookie: `__Host-hh-member=${sealed}` } }), { ...env, PROGRESS }, fetch, { waitUntil: task => tasks.push(task) });
+  assert.equal(result.status, 200);
+  assert.equal((await result.json()).authenticated, true);
+  assert.equal(tasks.length, 1);
+  finishAvatar(); await Promise.all(tasks);
+});
+
 function provider(options = {}) {
   const calls = [];
   const fetcher = async (url, init) => {

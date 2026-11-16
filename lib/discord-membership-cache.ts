@@ -1,6 +1,9 @@
 import { DiscordAccessError, type DiscordMembershipOutcome, type DiscordMembershipResult } from './discord-auth';
 
 export const DISCORD_MEMBERSHIP_FRESH_MS = 5 * 60_000;
+// A form submission and its follow-up requests share recently verified roles.
+// This is server-held evidence, never a role supplied by the browser.
+export const DISCORD_MEMBERSHIP_ACTION_MS = 10_000;
 type Pause = { fingerprint: string; retryAt: number; code: 'unavailable'; detail: string };
 export type DiscordMembershipEvidence = { fingerprint: string; checkedAt: number; member: DiscordMembershipResult['member'] };
 type EvidenceStore = { read: () => DiscordMembershipEvidence | null; save: (value: DiscordMembershipEvidence | null) => void };
@@ -31,7 +34,8 @@ export class DiscordMembershipCache {
     if (this.pending?.fingerprint === fingerprint) return this.pending.result;
     const now = this.now();
     const cached = this.cached ?? this.evidence?.read();
-    if (!fresh && cached?.fingerprint === fingerprint && now >= cached.checkedAt && now - cached.checkedAt < DISCORD_MEMBERSHIP_FRESH_MS) return { ok: true, member: cached.member };
+    const maxAge = fresh ? DISCORD_MEMBERSHIP_ACTION_MS : DISCORD_MEMBERSHIP_FRESH_MS;
+    if (cached?.fingerprint === fingerprint && now >= cached.checkedAt && now - cached.checkedAt < maxAge) return { ok: true, member: cached.member };
     if (cached && (now < cached.checkedAt || now - cached.checkedAt >= DISCORD_MEMBERSHIP_FRESH_MS)) this.saveEvidence(null);
     const pause = this.readPause();
     if (pause?.fingerprint === fingerprint && now < pause.retryAt) return { ok: false, code: pause.code, detail: pause.detail, retryAfter: Math.max(1, Math.ceil((pause.retryAt - now) / 1000)) };

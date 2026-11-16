@@ -40,7 +40,7 @@ const application = {
     if (leaderboardResponse) return leaderboardResponse;
     const raffleResponse = await raffleRoute(request, env);
     if (raffleResponse) return raffleResponse;
-    const authResponse = await discordAuthRoute(request, env);
+    const authResponse = await discordAuthRoute(request, env, fetch, ctx);
     if (authResponse) return authResponse;
     const notificationResponse = await notificationRoute(request, env);
     if (notificationResponse) return notificationResponse;

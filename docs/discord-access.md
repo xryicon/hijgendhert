@@ -28,7 +28,7 @@ profiel op `/profiel`. De oude route `/ledenomgeving` verwijst naar het profiel.
 - `/api/members/profile` en `/api/members/event` controleren de Discord-toegang.
   Leesaanvragen delen maximaal vijf minuten een geslaagde
   rolcontrole; profielantwoorden blijven private/no-store. Account wijzigen
-  vereist een same-origin POST en een verse Discord-controle.
+  vereist een same-origin POST en een Discord-controle van maximaal tien seconden oud.
 
 De toegestane server is `{OSRS} Hijgend Hert` (`1073630238115897455`). De door de
 clanleiding opgegeven toegestane rollen zijn:
@@ -91,8 +91,10 @@ van de Sites-preview niet om de bot bereikbaar te maken.
   delen een controle per gehashte app/guild/access-token via `PROGRESS`.
   Een geslaagde controle blijft maximaal vijf minuten in de besloten objectopslag;
   rolwijzigingen kunnen voor leesaanvragen dus maximaal vijf minuten later
-  zichtbaar worden. Mutaties en beheer-API's gebruiken een verse of nog lopende
-  Discord-controle. De OAuth-callback vraagt ook een verse controle. Opgeslagen
+  zichtbaar worden. Mutaties en beheer-API's delen maximaal tien seconden
+  servermatig bevestigde rollen, zonder de termijn door gebruik te verlengen.
+  Daarna is een nieuwe Discord-controle nodig. De OAuth-callback gebruikt dezelfde
+  korte termijn, gebonden aan zijn nieuwe access-token. Opgeslagen
   sessierollen worden nooit als bewijs gebruikt. Een ontbrekende rol, vertrokken
   lid of nog niet afgeronde toelating weigert toegang. Zodra een nieuwe controle
   mislukt, vervalt het eerdere resultaat; fouten gebruiken nooit oude toegang.
@@ -112,7 +114,10 @@ van de Sites-preview niet om de bot bereikbaar te maken.
 - De knop Account blijft altijd een link naar de inlog-/herstelscreen wanneer
   de sessie nog wordt geladen of Discord tijdelijk niet bereikbaar is. Een
   geslaagde servercontrole vervangt oudere lopende browsercontroles. De time-out
-  omvat ook het wachten op een ander tabblad. Mislukte browsercontroles tonen
+  omvat ook het wachten op een ander tabblad en een vastgelopen antwoord.
+  De interne rolcontrole stopt na tien seconden; optionele avataropslag blokkeert
+  het sessieantwoord niet. Zie [herstel bij events en PK](discord-access-recovery.md).
+  Mislukte browsercontroles tonen
   hun veilige HH-code bij Details voor clanbeheer.
 - Nieuwe besloten serverpagina's/actions moeten `requireDiscordMember()` gebruiken.
   Nieuwe API-routes moeten `authorizeMember()` gebruiken vóór zij iets lezen of

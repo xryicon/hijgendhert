@@ -24,6 +24,12 @@ const bundle = await build({
       import { GET as hallData } from './app/api/hall-of-fame/route.ts';
       export default { async fetch(request, env) {
         const url = new URL(request.url);
+        if (url.pathname === '/__test/expire-evidence') {
+          const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(env.APP_ORIGIN + ':' + env.DISCORD_CLIENT_ID + ':' + env.DISCORD_GUILD_ID + ':worker-test-access-token-only'));
+          const fingerprint = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+          await env.PROGRESS.getByName('discord-membership:' + fingerprint).clearDiscordMembership();
+          return new Response('Expired test evidence');
+        }
         if (url.pathname === '/profiel' || url.pathname === '/__test/protected-write') {
           try { return Response.json(await authorizeMember(request, discordConfig(env))); }
           catch (error) { return Response.json({ reason: error.code }, { status: error.code === 'unavailable' ? 503 : 401, headers: { 'Retry-After': String(error.retryAfter || 60) } }); }
@@ -135,7 +141,7 @@ async function login(mf) {
   return { authUrl, finish };
 }
 
-test('Cloudflare bundles callback, profile and session checks while writes recheck live roles', async () => {
+test('Cloudflare bundles page and action bursts; expired evidence rechecks live roles', async () => {
   const options = { coordinator: true };
   const { mf, calls } = runtime(options);
   try {
@@ -145,6 +151,10 @@ test('Cloudflare bundles callback, profile and session checks while writes reche
     const results = await Promise.all(requests.map(route => mf.dispatchFetch(env.APP_ORIGIN + route, { headers: { Cookie: session } })));
     assert.ok(results.every(response => response.status === 200));
     assert.equal(calls.filter(call => new URL(call.url).pathname.endsWith('/member')).length, 1);
+    const burst = await Promise.all(Array.from({ length: 4 }, () => mf.dispatchFetch(env.APP_ORIGIN + '/__test/protected-write', { method: 'POST', headers: { Cookie: session } })));
+    assert.ok(burst.every(response => response.status === 200));
+    assert.equal(calls.filter(call => new URL(call.url).pathname.endsWith('/member')).length, 1);
+    await mf.dispatchFetch(env.APP_ORIGIN + '/__test/expire-evidence');
     options.roles = [];
     const denied = await mf.dispatchFetch(env.APP_ORIGIN + '/__test/protected-write', { method: 'POST', headers: { Cookie: session } });
     assert.equal(denied.status, 401); assert.equal((await denied.json()).reason, 'role');
@@ -160,6 +170,7 @@ test('Cloudflare shares a Discord 429 pause across profile and session without d
     const { finish } = await login(mf);
     const session = cookie(finish, '__Host-hh-member'); assert.ok(session);
     options.memberStatus = 429;
+    await mf.dispatchFetch(env.APP_ORIGIN + '/__test/expire-evidence');
     assert.equal((await mf.dispatchFetch(env.APP_ORIGIN + '/__test/protected-write', { method: 'POST', headers: { Cookie: session } })).status, 503);
     const count = calls.length;
     const result = await mf.dispatchFetch(env.APP_ORIGIN + '/api/auth/session', { headers: { Cookie: session } });
@@ -186,6 +197,7 @@ test('verified login survives Worker restart; a new denial clears the saved role
     assert.equal(restored.status, 200);
     assert.equal((await restored.json()).member.displayName, 'Hert');
     assert.equal(active.calls.length, 0, 'A recent verified login needs no new Discord call');
+    await active.mf.dispatchFetch(env.APP_ORIGIN + '/__test/expire-evidence');
     const denied = await active.mf.dispatchFetch(env.APP_ORIGIN + '/__test/protected-write', { method: 'POST', headers: { Cookie: session } });
     assert.equal(denied.status, 401);
     await active.mf.dispose();

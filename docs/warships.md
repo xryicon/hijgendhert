@@ -134,7 +134,10 @@ onthulling iedere seconde. De aftelling en animatie volgen de servertijd.
 Overzicht/Events-kaart en menutab verversen minder vaak. Verborgen tabbladen
 stoppen, verzoeken overlappen niet en Retry-After wordt
 gerespecteerd. Authenticated reads delen de bestaande vijfminutencontrole;
-mutaties controleren rollen opnieuw. Fouten wissen geen opgeslagen speldata.
+mutaties delen maximaal tien seconden servermatig bevestigde rollen en
+controleren daarna opnieuw. Een mislukte nieuwe controle wist het eerdere
+rolbewijs. Fouten wissen geen opgeslagen speldata. Bij een onderbroken login
+toont Zeeslag de wachttijd en herstelknop en pauzeert het extra leesverzoeken.
 
 ## Validatie
 

@@ -76,3 +76,18 @@ test('Discord failure keeps a safe diagnostic and respects its retry deadline', 
     assert.equal(calls, 1);
   } finally { app.dispose(); }
 });
+
+test('a stalled response cannot leave access checking forever or authenticate after timeout', async () => {
+  let finish;
+  const app = mount(() => new Promise(resolve => { finish = resolve; }), { request: (_name, _options, run) => run() });
+  try {
+    [...app.timers.values()][0]();
+    await settle();
+    assert.equal(app.state().status, 'unavailable');
+    assert.ok(app.state().retryAt > Date.now());
+    finish(Response.json({ authenticated: true, member: { id: '234567890123456789', displayName: 'Too late' } }));
+    await settle();
+    assert.equal(app.state().status, 'unavailable');
+    assert.equal(app.state().member, null);
+  } finally { app.dispose(); }
+});

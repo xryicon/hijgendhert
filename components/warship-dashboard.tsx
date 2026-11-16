@@ -8,6 +8,7 @@ import { FLEET, otherTeam, seaCoordinate, type Team, type WarshipConfig, type Wa
 import WarshipBoard from './warship-board';
 import WarshipCrew from './warship-crew';
 import WarshipAnnouncement from './warship-announcement';
+import { SessionRetryButton } from './discord-login-controls';
 import { FleetEditor, localInput, WarshipConfigForm } from './warship-forms';
 
 const date = (value: string) => new Date(value).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -43,7 +44,7 @@ export default function WarshipDashboard() {
   const choose = useCallback((next: string) => { autoSelect.current = false; setId(next); setGame(null); setLoading(true); setTarget(null); setEditor(false); setPending(null); setWriteError(''); setNotice(''); setSelectedDrop(''); setEvidence(''); setDroppedAt(''); setTab('board'); setConfirmation(null); window.history.replaceState(null, '', next ? `/zeeslag?event=${next}` : '/zeeslag'); }, []);
   const pollMs = game?.reveal && game.reveal.phase !== 'open' && Date.parse(game.reveal.at) - Date.parse(game.serverTime) < 15000 ? 1000 : 5000;
   useEffect(() => {
-    if (!ready || session.status === 'loading') return;
+    if (!ready || session.status === 'loading' || session.status === 'unavailable') return;
     const controller = new AbortController(); let fetching = false, retryAt = 0;
     async function load() {
       if (document.hidden || fetching || Date.now() < retryAt || controller.signal.aborted) return;
@@ -99,15 +100,16 @@ export default function WarshipDashboard() {
     e.preventDefault(); if (!droppedAt) return;
     if (await act('claim', { objectiveId: selectedDrop, evidence, droppedAt: new Date(droppedAt).toISOString() })) { setEvidence(''); setSelectedDrop(''); }
   }
-  const disabled = busy || !!error || !!pending;
+  const disabled = busy || !!error || !!pending || session.status !== 'authenticated';
   return <main id="main" className="sea-page"><div className="container sea-shell">
     <a href="/events" className="sea-back"><ArrowLeft size={14}/> Terug naar events</a>
     {!game?.fleetAccessLocked && <header className="sea-hero"><div className="sea-hero-copy"><p className="eyebrow">HIJGEND HERT · BOSS DROP BINGO</p><h1>Zeeslag<span>De jacht gaat het water op.</span></h1><p>Verdien je munitie bij de bosses. Kies je doel. Laat de andere vloot zinken.</p><div className="sea-steps"><span><Gem size={15}/> Boss drop</span><i>→</i><span><ShieldCheck size={15}/> Goedgekeurd</span><i>→</i><span><Crosshair size={15}/> Vuren</span></div></div><FleetArt/></header>}
     <div className="sea-topline"><span className="sea-status"><span className={active ? 'sea-live-dot' : ''}/>{game ? phases[game.status] : 'De haven'}{game && !game.published && <><LockKeyhole size={13}/> Privé</>}</span>{game && !game.fleetAccessLocked && <Countdown end={game.config.endsAt} active={!!active}/>}<div className="sea-buttons">{game && <button className="sea-text-button" disabled={busy || !!pending} onClick={() => choose('')}>Events & archief</button>}{canManage && preparing && !game.reveal && <button className="button outline" disabled={busy || !!pending} onClick={() => setEditor(!editor)}>Instellingen</button>}{canManage && (!game || ['finished', 'cancelled'].includes(game.status)) && <button className="button gold" disabled={busy || !!pending} onClick={() => { choose(''); setOverview({ games: [], canManage: true, signedIn: true }); setEditor(true); }}><Plus size={15}/> Nieuwe zeeslag</button>}</div></div>
+    {session.status === 'unavailable' && <section className="member-connection" role="status"><h2>Even opnieuw verbinden</h2><p>Je login blijft bewaard. Zodra Discord je toegang heeft bevestigd, opent Zeeslag vanzelf.</p><SessionRetryButton/>{session.reference && <small>{session.reference}</small>}</section>}
     {(error || writeError) && <div className="sea-error" role="alert"><span>{writeError || error}</span>{pending ? <button disabled={busy} onClick={() => void send(pending)}>Opnieuw verzenden</button> : <button disabled={busy} onClick={() => { setRefresh(n => n + 1); setWriteError(''); }}><RefreshCw size={14}/> Vernieuwen</button>}{!session.member && <a href="/login">Inloggen</a>}</div>}
     {notice && <p className="sea-success" role="status"><Check size={16}/>{notice}</p>}
     {editor && <WarshipConfigForm key={game?.id || 'new'} initial={game?.config} revision={game?.revision} busy={disabled} onSave={saveConfig} onClose={() => setEditor(false)}/>}
-    {loading && !game && <div className="sea-empty" role="status"><Anchor size={36}/><h2>De zeekaart ophalen…</h2></div>}
+    {loading && !game && session.status !== 'unavailable' && <div className="sea-empty" role="status"><Anchor size={36}/><h2>{session.status === 'loading' ? 'Je login controleren…' : 'De zeekaart ophalen…'}</h2></div>}
     {!loading && !game && !editor && !error && <div className="sea-empty"><Ship size={48}/><h2>De vloot ligt nog in de haven.</h2><p>{canManage ? 'Maak een privéconcept, stel de boss drops in en publiceer zodra de clan kan aansluiten.' : 'Zodra de clanleiding een zeeslag publiceert, verschijnt de ronde hier.'}</p>{!session.member && <a className="button gold" href="/login">Inloggen met Discord</a>}</div>}
     {game && <>
       <WarshipAnnouncement game={game} onCrew={() => setTab('crew')} onBoard={() => { setTab('board'); requestAnimationFrame(() => document.getElementById('sea-your-fleet')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }}/>

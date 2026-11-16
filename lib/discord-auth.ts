@@ -124,6 +124,15 @@ export type DiscordGuildMember = z.infer<typeof memberSchema>;
 export type DiscordMembershipResult = { member: DiscordGuildMember; cooldownSeconds: number };
 export type DiscordMembershipOutcome = { ok: true; member: DiscordGuildMember } | { ok: false; code: AccessCode; detail?: string; retryAfter?: number };
 
+async function discordDeadline<T>(operation: PromiseLike<T>, milliseconds: number, detail: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([operation, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new DiscordAccessError('unavailable', detail, 30)), milliseconds);
+    })]);
+  } finally { clearTimeout(timer); }
+}
+
 // A display preference, never proof of RuneScape account ownership. It survives
 // sign-out on this browser and is encrypted and bound to one Discord user.
 export async function readPlayerPreference(request: Request, config: DiscordConfig, userId: string, now = Date.now()) {
@@ -188,8 +197,8 @@ export async function checkMembership(config: DiscordConfig, token: string, fetc
     const digest = await crypto.subtle.digest('SHA-256', encoder.encode(`${config.origin}:${config.clientId}:${config.guildId}:${token}`));
     const fingerprint = Buffer.from(digest).toString('hex');
     let result: DiscordMembershipOutcome;
-    try { result = await config.membershipChecks.getByName(`discord-membership:${fingerprint}`).checkDiscordMembership(config.guildId, token, fresh); }
-    catch { throw new DiscordAccessError('unavailable', 'CHECK_SERVICE', 60); }
+    try { result = await discordDeadline<DiscordMembershipOutcome>(config.membershipChecks.getByName(`discord-membership:${fingerprint}`).checkDiscordMembership(config.guildId, token, fresh), 10_000, 'CHECK_TIMEOUT'); }
+    catch (error) { throw error instanceof DiscordAccessError ? error : new DiscordAccessError('unavailable', 'CHECK_SERVICE', 60); }
     if (!result.ok) throw new DiscordAccessError(result.code, result.detail, result.retryAfter);
     member = result.member;
   } else member = (await fetchDiscordMembership(config.guildId, token, fetcher)).member;
@@ -212,8 +221,8 @@ export async function authorizeMember(request: Request, config: DiscordConfig, f
 export async function authorizeMemberWithRoles(request: Request, config: DiscordConfig, fetcher: typeof fetch = fetch, now = Date.now()): Promise<{ member: DiscordMember; roles: string[] }> {
   const parsed = sessionSchema.safeParse(await unseal(config, 'session', readCookie(request, SESSION_COOKIE)));
   if (!parsed.success || parsed.data.expiresAt <= now || parsed.data.expiresAt > now + MAX_SESSION_SECONDS * 1000 || (parsed.data.accessExpiresAt !== undefined && parsed.data.accessExpiresAt <= now)) throw new DiscordAccessError('expired');
-  // Reuse verified membership for reads for at most five minutes. Mutations and admin
-  // reads require a fresh provider check; no roles are trusted from the cookie.
+  // Reads reuse verified membership for at most five minutes. Actions/admin reads
+  // share at most ten seconds of server evidence; no roles are trusted from cookies.
   const path = new URL(request.url).pathname;
   const sharedRead = request.method === 'GET' && ['/profiel', '/api/auth/session', '/api/members/profile', '/api/members/event', '/api/members/notifications', '/api/members/clan-events', '/pk', '/api/pk', '/api/pk/session', '/api/pk/access', '/api/warships'].includes(path);
   const member = await checkMembership(config, parsed.data.accessToken, fetcher, !sharedRead);
@@ -384,7 +393,7 @@ export async function discordInteraction(request: Request, env: DiscordEnv, now 
   } catch { return json({ error: 'Invalid request' }, 400); }
 }
 
-export async function discordAuthRoute(request: Request, env: DiscordEnv, fetcher: typeof fetch = fetch): Promise<Response | null> {
+export async function discordAuthRoute(request: Request, env: DiscordEnv, fetcher: typeof fetch = fetch, ctx?: Pick<ExecutionContext, 'waitUntil'>): Promise<Response | null> {
   const url = new URL(request.url);
   if (url.pathname === '/api/discord/interactions') return discordInteraction(request, env);
   if (!['/api/auth/discord', '/api/auth/discord/callback', '/api/auth/session', '/api/auth/logout'].includes(url.pathname)) return null;
@@ -408,7 +417,13 @@ export async function discordAuthRoute(request: Request, env: DiscordEnv, fetche
     renewedCookie = renewed.renewedCookie;
     const member = await authorizeMember(renewed.request, config, fetcher);
     // Reuse the existing identity check. No additional Discord requests or credentials are saved.
-    try { await env.PROGRESS?.getByName('clan:7059:avatars').rememberMemberAvatar(member); }
+    try {
+      const save = env.PROGRESS?.getByName('clan:7059:avatars').rememberMemberAvatar(member);
+      if (save) {
+        const optional = discordDeadline(save, 1000, 'AVATAR_TIMEOUT').catch(() => {});
+        if (ctx) ctx.waitUntil(optional); else await optional;
+      }
+    }
     catch { /* An unavailable picture directory must never interrupt sign-in. */ }
     return json({ authenticated: true, member }, 200, renewedCookie ? [renewedCookie] : []);
   }

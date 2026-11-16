@@ -66,9 +66,15 @@ export default function SessionProvider({ children }: { children: ReactNode }) {
         return { response, body: await response.json() as { authenticated?: boolean; member?: DiscordMember; reason?: string; reference?: string } };
       };
       // Serialize cookie renewal across tabs. Credentials stay in HttpOnly cookies.
-      const result = navigator.locks
-        ? await navigator.locks.request('hh-session-check', { signal: controller.signal }, check)
-        : await check();
+      const interrupted = new Promise<never>((_, reject) => {
+        controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true });
+      });
+      const operation = navigator.locks
+        ? navigator.locks.request('hh-session-check', { signal: controller.signal }, check)
+        : check();
+      // Settle the UI even if a granted lock or a stalled response body does not
+      // release promptly when aborted. A late result cannot restore access.
+      const result = await Promise.race([operation, interrupted]);
       if (running.current !== controller) return;
       if (!result) { retryAt.current = sharedRetryAt(); failures.current = Math.max(1, failures.current); setSession(old => ({ ...old, status: 'unavailable', reason: 'unavailable', retryAt: retryAt.current })); return; }
       const { response, body } = result;

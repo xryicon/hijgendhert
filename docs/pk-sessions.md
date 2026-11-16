@@ -57,7 +57,9 @@ De zichtbare pagina leest een open sessie iedere 5 seconden; het overzicht ieder
 bewaren de laatst geladen stand; 401/403 wissen die stand. Retry-After wordt
 gerespecteerd. De Wise Old Man-clanlijst gebruikt de bestaande gedeelde cache;
 live loot-updates doen geen extra WOM-aanvragen. Discord-readchecks delen de
-bestaande korte 15-secondencontrole; schrijfacties controleren rollen opnieuw.
+bestaande vijfminutencontrole; schrijfacties delen maximaal tien seconden
+servermatig bevestigde rollen en controleren daarna opnieuw. PK bewaart bij een
+login-storing de foutcode en Retry-After tijdens het doorsturen naar Login.
 
 `PK` bindt aan de SQLite Durable Object `ClanPk`, migratie `clan-pk-v1`.
 `clan:7059` coördineert de beperkte PK-administratie van deze clan. Elke mutatie

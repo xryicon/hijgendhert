@@ -28,12 +28,14 @@ test('page reads share one request and role evidence expires after five minutes'
   const next = state.cache.check('token-a', false, load);
   assert.equal(calls, 2); finish({ member, cooldownSeconds: 0 }); await next;
 });
-test('fresh checks replace old roles and never fall back to a previous success after a failure', async () => {
-  const { cache } = setup();
+test('fresh checks replace old roles after the short action window and never fall back after a failure', async () => {
+  const state = setup(), { cache } = state;
   await cache.check('token-a', false, async () => ({ member, cooldownSeconds: 0 }));
+  state.advance(10_000);
   const revoked = { ...member, roles: [] };
   const fresh = await cache.check('token-a', true, async () => ({ member: revoked, cooldownSeconds: 0 }));
   assert.deepEqual(fresh.member.roles, []);
+  state.advance(10_000);
   const fail = () => { throw new DiscordAccessError('unavailable', 'HTTP429', 120); };
   assert.equal((await cache.check('token-a', true, fail)).ok, false);
   assert.deepEqual(await cache.check('token-a', false, () => { throw Error('Must not retry'); }), { ok: false, code: 'unavailable', detail: 'HTTP429', retryAfter: 120 });
@@ -55,8 +57,10 @@ test('successful quota exhaustion does not break the next page after 15 seconds 
   await state.cache.check('token-a', false, load);
   const forbidden = () => { throw Error('Provider bucket is exhausted'); };
   assert.equal((await state.cache.check('token-a', false, forbidden)).ok, true);
-  assert.equal((await state.cache.check('token-a', true, forbidden)).retryAfter, 360);
-  state.advance(15_000);
+  assert.equal((await state.cache.check('token-a', true, forbidden)).ok, true);
+  state.advance(10_000);
+  assert.equal((await state.cache.check('token-a', true, forbidden)).retryAfter, 350);
+  state.advance(5_000);
   const restarted = state.recreate();
   assert.equal((await restarted.check('token-a', false, forbidden)).ok, true);
   state.advance(DISCORD_MEMBERSHIP_FRESH_MS - 15_000);
@@ -66,6 +70,7 @@ test('successful quota exhaustion does not break the next page after 15 seconds 
 test('fresh failures and logout invalidate persisted evidence across restarts', async () => {
   const state = setup();
   await state.cache.check('token-a', false, async () => ({ member, cooldownSeconds: 0 }));
+  state.advance(10_000);
   await state.recreate().check('token-a', true, async () => { throw new DiscordAccessError('server'); });
   let calls = 0;
   await state.recreate().check('token-a', false, async () => { calls++; return { member, cooldownSeconds: 0 }; });
@@ -73,6 +78,22 @@ test('fresh failures and logout invalidate persisted evidence across restarts', 
   state.recreate().clear();
   await state.recreate().check('token-a', false, async () => { calls++; return { member, cooldownSeconds: 0 }; });
   assert.equal(calls, 2);
+});
+
+test('opening an event then creating and editing shares one short role check without extending its lifetime', async () => {
+  const state = setup(); let calls = 0;
+  const load = async () => { calls++; return { member, cooldownSeconds: 0 }; };
+  await state.cache.check('token-a', false, load);
+  for (let i = 0; i < 9; i++) {
+    state.advance(1000);
+    assert.equal((await state.recreate().check('token-a', true, load)).ok, true);
+  }
+  assert.equal(calls, 1);
+  state.advance(1000);
+  const denied = await state.cache.check('token-a', true, async () => { calls++; throw new DiscordAccessError('role'); });
+  assert.equal(denied.ok, false);
+  assert.equal(calls, 2, 'The tenth second must trigger a new provider check');
+  assert.equal((await state.recreate().check('token-a', false, async () => { throw new DiscordAccessError('role'); })).ok, false);
 });
 test('different credential fingerprints cannot share membership or a provider pause', async () => {
   const { cache } = setup();
