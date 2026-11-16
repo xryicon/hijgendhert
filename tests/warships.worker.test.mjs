@@ -9,8 +9,13 @@ import path from 'node:path';
 const requireWrangler = createRequire(import.meta.resolve('wrangler/package.json'));
 const { build } = requireWrangler('esbuild'), { Miniflare } = requireWrangler('miniflare');
 const root = fileURLToPath(new URL('../', import.meta.url));
-const source = `import {warshipRoute} from './lib/warship-route'; import {seal,discordConfig} from './lib/discord-auth'; export {ClanWarships} from './worker/clan-warships';
-export default { async fetch(request,env) { const url=new URL(request.url); if(url.pathname==='/__fixture') {const id=url.searchParams.get('id'); return new Response(await seal(discordConfig(env),'session',{accessToken:'test-access-'+id,userId:id,expiresAt:Date.now()+3600000}));} return await warshipRoute(request,env) || new Response('Not found',{status:404}); } };`;
+const source = `import {warshipRoute} from './lib/warship-route'; import {seal,discordConfig} from './lib/discord-auth'; import {ClanWarships as BaseWarships} from './worker/clan-warships';
+export class ClanWarships extends BaseWarships {
+  async shiftReveal(id, elapsed) { const row=this.ctx.storage.sql.exec('SELECT data FROM sea_games WHERE id = ?',id).toArray()[0]; const g=JSON.parse(row.data); const duration=Date.parse(g.reveal.opensAt)-Date.parse(g.reveal.at); g.reveal.at=new Date(Date.now()-elapsed).toISOString();g.reveal.opensAt=new Date(Date.parse(g.reveal.at)+duration).toISOString();this.ctx.storage.sql.exec('UPDATE sea_games SET data = ? WHERE id = ?',JSON.stringify(g),id);await this.ctx.storage.deleteAlarm(); }
+  async inspectReveal(id) { const row=this.ctx.storage.sql.exec('SELECT data FROM sea_games WHERE id = ?',id).toArray()[0]; const g=JSON.parse(row.data);return {alarm:await this.ctx.storage.getAlarm(),reveal:g.reveal,revision:g.revision,audit:g.audit}; }
+  repeatAlarm() {return this.alarm();}
+}
+export default { async fetch(request,env) { const url=new URL(request.url); const stub=env.WARSHIPS.getByName('clan:7059'); if(url.pathname==='/__fixture') {const id=url.searchParams.get('id'); return new Response(await seal(discordConfig(env),'session',{accessToken:'test-access-'+id,userId:id,expiresAt:Date.now()+3600000}));} if(url.pathname==='/__reveal-time'){const b=await request.json();await stub.shiftReveal(b.id,b.elapsed);await stub.repeatAlarm();return new Response('ok');} if(url.pathname==='/__reveal-inspect')return Response.json(await stub.inspectReveal(url.searchParams.get('id')));if(url.pathname==='/__reveal-alarm'){await stub.repeatAlarm();return new Response('ok');} return await warshipRoute(request,env) || new Response('Not found',{status:404}); } };`;
 const bundle = await build({ stdin: { contents: source, resolveDir: root, loader: 'ts' }, bundle: true, write: false, format: 'esm', platform: 'neutral', target: 'es2022', external: ['node:crypto', 'cloudflare:workers'] });
 const pure = await build({ entryPoints: [path.join(root, 'lib/warships.ts')], bundle: true, write: false, format: 'esm', platform: 'node' });
 const { validFleet, shipCells, warshipView, finishAtDeadline, starterDrops, warshipActionSchema } = await import(`data:text/javascript;base64,${Buffer.from(pure.outputFiles[0].text).toString('base64')}`);
@@ -62,7 +67,8 @@ async function fixture(mf) {
   let evidence = 0;
   const claim = async (who = 'a') => action(who, 'claim', { objectiveId: game.config.objectives[0].id, evidence: `https://discord.com/channels/111/222/${++evidence}`, droppedAt: new Date().toISOString() });
   const approve = async () => { const result = await request('staff', `/api/warships?id=${game.id}`); game = result.data.game; return action('staff', 'review', { claimId: game.claims.at(-1).id, approve: true, reason: '' }); };
-  return { cookies, request, action, create, start, claim, approve, get game() { return game; } };
+  const refresh = async () => { game = (await request('staff', `/api/warships?id=${game.id}`)).data.game; return game; };
+  return { cookies, request, action, create, start, claim, approve, refresh, get game() { return game; } };
 }
 
 test('fleet geometry rejects overlaps, wrapping, out-of-board and duplicate ships', () => {
@@ -253,4 +259,97 @@ test('manual assignment keeps unknown EHB explicit and rejects duplicated player
     await f.action('staff', 'confirm_teams', { drawId: f.game.teamDraft.id });
     assert.equal(f.game.balance.missing, 1); assert.equal(f.game.crew.find(p => p.playerId === 105).ehb, null);
   } finally { await mf.dispose(); }
+});
+
+const revealFields = (f, delay = 120000) => ({ drawId: (f.game.teamDraft || f.game.teamAssignment)?.id || f.game.reveal.drawId, at: new Date(Date.now() + delay).toISOString(), headline: 'Hijgend Hert vaart uit', message: 'Testaankondiging, geen echt event.' });
+async function setRevealTime(mf, f, elapsed) { const r = await mf.dispatchFetch(origin + '/__reveal-time', { method: 'POST', body: JSON.stringify({ id: f.game.id, elapsed }) }); assert.equal(r.status, 200); await f.refresh(); }
+async function inspectReveal(mf, f) { return (await mf.dispatchFetch(origin + '/__reveal-inspect?id=' + f.game.id)).json(); }
+async function prepareReveal(f) { await f.create(); await f.action('staff', 'draw_teams', { playerIds: [101, 102, 103, 104], captainIds: [101, 102] }); return f.action('staff', 'schedule_reveal', revealFields(f)); }
+
+test('scheduled announcement hides every future team and locks fleets, while approved accounts can link before the draw', async () => {
+  const options = {}, mf = runtime(options);
+  try {
+    const f = await fixture(mf); await f.create();
+    assert.equal((await f.request(null, '/api/warships/navigation')).data.event, null);
+    await f.action('staff', 'draw_teams', { playerIds: [101, 102, 103, 104], captainIds: [101, 102] });
+    await f.action('staff', 'schedule_reveal', revealFields(f, 1000), 400);
+    const scheduled = await f.action('staff', 'schedule_reveal', revealFields(f));
+    assert.equal(f.game.published, true); assert.equal(f.game.reveal.phase, 'countdown');
+    const saved = await inspectReveal(mf, f); assert.equal(saved.alarm, Date.parse(f.game.reveal.at));
+    const replay = await f.request('staff', '/api/warships/action', scheduled.body); assert.equal(replay.data.game.revision, f.game.revision);
+    for (const [actor, playerId] of [['a', 101], ['b', 102]]) {
+      await f.action(actor, 'link_player', { playerId }); assert.equal(f.game.requests[0].team, null);
+      await f.action('staff', 'enrol', { userId: ids[actor], accept: true });
+      await f.action(actor, 'fleet', { placements: fleet, locked: true }, 409);
+    }
+    for (const viewer of [null, 'staff', 'a', 'b', 'spectator']) {
+      const g = (await f.request(viewer, `/api/warships?id=${f.game.id}`)).data.game;
+      assert.deepEqual(g.crew, []); assert.equal(g.teamAssignment, null); assert.equal(g.teamDraft, null); assert.deepEqual(g.drawLog, []);
+      assert.equal(g.myTeam, null); assert.equal(g.canCaptain, false); assert.equal(g.reveal.current, null); assert.deepEqual(g.reveal.revealed, []);
+      assert.ok(g.teams.every(t => t.members === 0 && !t.fleet.length));
+      assert.ok(g.lobbyPlayers.every(p => !('team' in p) && !('captain' in p)));
+    }
+    await f.refresh(); await f.action('staff', 'start', {}, 409);
+    await f.action('a', 'cancel_reveal', {}, 403);
+    const nav = await f.request(null, '/api/warships/navigation', undefined, { headers: { Cookie: '__Host-hh-member=invalid' } });
+    assert.equal(nav.status, 200); assert.equal(nav.data.event.revealAt, f.game.reveal.at);
+  } finally { await mf.dispose(); }
+});
+
+test('server alarm reveals progressively, survives duplicate delivery and opens only each linked players own fleet', async () => {
+  const options = {}, mf = runtime(options);
+  try {
+    const f = await fixture(mf); await prepareReveal(f);
+    for (const [actor, playerId] of [['a', 101], ['b', 102]]) { await f.action(actor, 'link_player', { playerId }); await f.action('staff', 'enrol', { userId: ids[actor], accept: true }); }
+    const womCount = options.womRequests; options.womUnavailable = true;
+    await setRevealTime(mf, f, 4100);
+    assert.equal(f.game.reveal.phase, 'drawing'); assert.equal(f.game.reveal.current.id, 101); assert.deepEqual(f.game.reveal.revealed, []);
+    assert.equal(f.game.teamAssignment, null); assert.ok(f.game.fleetAccessLocked);
+    await setRevealTime(mf, f, 6100);
+    assert.deepEqual(f.game.reveal.revealed.map(p => p.id), [101]);
+    await f.action('staff', 'cancel_reveal', {}, 409); await f.action('staff', 'start', {}, 409);
+    await setRevealTime(mf, f, 20000);
+    assert.equal(f.game.reveal.phase, 'open'); assert.equal(f.game.fleetAccessLocked, false);
+    assert.equal(options.womRequests, womCount);
+    const before = await inspectReveal(mf, f);
+    await mf.dispatchFetch(origin + '/__reveal-alarm'); const after = await inspectReveal(mf, f);
+    assert.equal(after.revision, before.revision); assert.equal(after.audit.filter(a => a.action === 'reveal_started').length, 1); assert.equal(after.audit.filter(a => a.action === 'reveal_completed').length, 1);
+    for (const [actor, team] of [['a', 0], ['b', 1]]) {
+      const g = (await f.request(actor, `/api/warships?id=${f.game.id}`)).data.game; assert.equal(g.myTeam, team); assert.equal(g.canCaptain, true);
+      await f.action(actor, 'fleet', { placements: fleet, locked: true });
+    }
+    for (const [actor, team] of [['a', 0], ['b', 1]]) { const g = (await f.request(actor, `/api/warships?id=${f.game.id}`)).data.game; assert.equal(g.teams[team].fleet.length, 4); assert.equal(g.teams[1-team].fleet.length, 0); }
+    for (const actor of [null, 'staff', 'spectator']) { const g = (await f.request(actor, `/api/warships?id=${f.game.id}`)).data.game; assert.ok(g.teams.every(t => t.fleet.length === 0)); }
+    await f.action('staff', 'start'); assert.equal(f.game.status, 'active');
+  } finally { await mf.dispose(); }
+});
+
+test('staff can reschedule before the countdown ends; withdrawal hides the menu tab and cancels the alarm', async () => {
+  const mf = runtime();
+  try {
+    const f = await fixture(mf); await prepareReveal(f);
+    await f.action('a', 'link_player', { playerId: 101 }); await f.action('staff', 'enrol', { userId: ids.a, accept: true });
+    const updated = revealFields(f, 240000); await f.action('staff', 'schedule_reveal', updated);
+    assert.equal((await inspectReveal(mf, f)).alarm, Date.parse(updated.at));
+    await f.action('staff', 'cancel_reveal'); assert.equal(f.game.published, false);
+    assert.equal((await inspectReveal(mf, f)).alarm, null);
+    assert.equal((await f.request(null, '/api/warships/navigation')).data.event, null);
+    assert.equal((await f.request('a', `/api/warships?id=${f.game.id}`)).status, 404);
+    await f.action('staff', 'schedule_reveal', revealFields(f));
+    const g = (await f.request('a', `/api/warships?id=${f.game.id}`)).data.game;
+    assert.equal(g.linkedPlayer.playerId, 101); assert.equal(g.myTeam, null);
+    await f.action('staff', 'cancel', { reason: 'Test afgerond' }); assert.equal((await inspectReveal(mf, f)).alarm, null);
+    assert.equal((await f.request(null, '/api/warships/navigation')).data.event, null);
+  } finally { await mf.dispose(); }
+});
+
+test('scheduled reveal and alarm survive a runtime restart without needing an open browser', async () => {
+  const persist = await mkdtemp(path.join(tmpdir(), 'hh-warships-')); let mf = runtime({ persist });
+  try {
+    const f = await fixture(mf); await prepareReveal(f); const id=f.game.id, at=f.game.reveal.at;
+    await mf.dispose(); mf=runtime({persist}); const next=await fixture(mf);
+    const g=(await next.request('a', `/api/warships?id=${id}`)).data.game;
+    assert.equal(g.reveal.at,at); assert.equal(g.fleetAccessLocked,true); assert.equal(g.teamAssignment,null);
+    const saved=await (await mf.dispatchFetch(origin+'/__reveal-inspect?id='+id)).json();assert.equal(saved.alarm,Date.parse(at));
+  } finally { await mf.dispose(); assert.ok(path.resolve(persist).startsWith(path.resolve(tmpdir()) + path.sep + 'hh-warships-')); await rm(persist, { recursive: true, force: true }); }
 });

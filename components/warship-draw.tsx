@@ -7,12 +7,12 @@ export function TeamBalance({ players }: { players: SeaTeamDraw['players'] }) {
   const b = teamBalance(players);
   return <div className={`sea-balance ${b.missing || b.percent > 10 || Math.abs(b.sizes[0] - b.sizes[1]) > 1 ? 'needs-review' : ''}`}><strong>{b.missing ? `${b.missing} ontbrekende EHB-rating${b.missing > 1 ? 's' : ''}` : `${ehbText(b.gap)} verschil`}</strong><span>{b.sizes[0]} tegen {b.sizes[1]} spelers{!b.missing && ` · ${b.percent.toFixed(1).replace('.', ',')}% van het gemiddelde teamtotaal`}</span><p>{b.missing ? 'Het EHB-totaal is onvolledig. Beoordeel deze handmatige indeling zelf.' : b.percent > 10 ? 'Er blijft een duidelijk verschil. Bekijk de selectie en kapiteins voordat je bevestigt.' : 'EHB is een indicatie van bosservaring. Gear, speeltijd en ervaring per boss tellen niet mee.'}</p></div>;
 }
-export default function WarshipDraw({ draw, teams }: { draw: SeaTeamDraw; teams: [string, string] }) {
+export default function WarshipDraw({ draw, teams, autoPlay = true }: { draw: SeaTeamDraw; teams: [string, string]; autoPlay?: boolean }) {
   const sequence = useMemo(() => [
     ...(draw.mode === 'random' ? [draw.players.find(p => p.captain && p.team === 0)!, draw.players.find(p => p.captain && p.team === 1)!] : []),
     ...draw.players.filter(p => !p.captain),
   ], [draw]);
-  const [step, setStep] = useState(0), [playing, setPlaying] = useState(draw.mode !== 'manual');
+  const [step, setStep] = useState(0), [playing, setPlaying] = useState(autoPlay && draw.mode !== 'manual');
   const [landed, setLanded] = useState(false), [rotation, setRotation] = useState(0);
   const chosen = sequence[step];
   const candidates = sequence.filter((_, i) => i >= step);

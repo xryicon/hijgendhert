@@ -4,11 +4,12 @@ import { Check, Flag, Search, Shuffle, Users, X } from 'lucide-react';
 import type { WarshipView } from '@/lib/warships';
 import type { SeaRoster, SeaTeamDraw } from '@/lib/warship-teams';
 import WarshipDraw, { ehbText, TeamBalance } from './warship-draw';
+import WarshipRevealSettings from './warship-reveal-settings';
 
 type Act = (type: string, fields?: Record<string, unknown>) => Promise<boolean>;
 export default function WarshipTeamBuilder({ game, busy, act }: { game: WarshipView; busy: boolean; act: Act }) {
   const preparing = game.status === 'draft' || game.status === 'setup';
-  const canEdit = game.canManage && preparing;
+  const canEdit = game.canManage && preparing && !game.reveal;
   const initial = game.teamDraft || game.teamAssignment;
   const [roster, setRoster] = useState<SeaRoster | null>(null), [error, setError] = useState(''), [loading, setLoading] = useState(false);
   const [retry, setRetry] = useState(0), [retryAt, setRetryAt] = useState(0), [clock, setClock] = useState(Date.now());
@@ -70,9 +71,10 @@ export default function WarshipTeamBuilder({ game, busy, act }: { game: WarshipV
       {(missing || unavailable) && <p className="sea-note">{unavailable ? 'Een geselecteerde speler ontbreekt in de geladen clanlijst. Verwijder deze of probeer later opnieuw.' : 'EHB ontbreekt bij een geselecteerde speler. Een automatische verdeling is daarom niet beschikbaar; je kunt wel handmatig indelen.'}</p>}
       <div className="sea-buttons"><button type="button" className="button gold" disabled={busy || !valid || loading} onClick={() => void generate()}>{mode === 'manual' ? <Check size={17}/> : <Shuffle size={17}/>} {busy ? 'Indeling voorbereiden…' : mode === 'manual' ? 'Bekijk handmatige indeling' : game.teamDraft ? 'Nieuwe loting maken' : 'Draai & verdeel'}</button>{selected.length > 0 && <button type="button" className="sea-text-button" disabled={busy} onClick={() => { setSelected([]); setCaptains([null, null]); }}>Selectie wissen</button>}</div><p className="sea-note">Iedere loting wordt opgeslagen in het logboek. Bevestig het voorstel om de teams vast te zetten. Een nieuwe indeling wist beide scheepsopstellingen.</p>
     </section>}
-    {draw && <section id="sea-team-result"><div className="sea-section-heading"><div><small>{game.teamDraft ? 'VOORSTEL · NOG NIET VASTGEZET' : 'BEVESTIGDE TEAMINDELING'}</small><h2>{draw.mode === 'manual' ? 'De gekozen bemanning' : 'Het rad van Hijgend Hert'}</h2></div>{canEdit && <button type="button" className="button outline" disabled={busy} onClick={() => edit(draw)}>Pas deze indeling aan</button>}</div><WarshipDraw key={draw.id} draw={draw} teams={game.config.teams}/>
+    {draw && <section id="sea-team-result"><div className="sea-section-heading"><div><small>{game.teamDraft ? 'VOORSTEL · NOG NIET VASTGEZET' : 'BEVESTIGDE TEAMINDELING'}</small><h2>{draw.mode === 'manual' ? 'De gekozen bemanning' : 'Het rad van Hijgend Hert'}</h2></div>{canEdit && <button type="button" className="button outline" disabled={busy} onClick={() => edit(draw)}>Pas deze indeling aan</button>}</div><WarshipDraw key={draw.id} draw={draw} teams={game.config.teams} autoPlay={!game.reveal}/>
       {canEdit && game.teamDraft && <div className="sea-confirm-teams">{!confirm ? <button className="button gold" type="button" disabled={busy} onClick={() => setConfirm(true)}>Deze teams gebruiken</button> : <><p>Dit vervangt de huidige bemanning en wist beide geheime scheepsopstellingen. Kapiteins plaatsen daarna een nieuwe vloot.</p><div className="sea-buttons"><button type="button" className="button gold" disabled={busy} onClick={() => void act('confirm_teams', { drawId: game.teamDraft!.id }).then(ok => { if (ok) setConfirm(false); })}>Bevestig teamindeling</button><button type="button" className="button outline" disabled={busy} onClick={() => setConfirm(false)}>Terug</button></div></>}</div>}
     </section>}
+    <WarshipRevealSettings key={game.reveal?.at || 'unplanned'} game={game} busy={busy} act={act}/>
     {game.drawLog.length > 0 && <details className="sea-draw-history"><summary>Lotinglogboek ({game.drawLog.length} meest recente indelingen)</summary>{[...game.drawLog].reverse().map(d => <div key={d.id}><strong>{d.captains.join(' · ')}</strong><span>{new Date(d.at).toLocaleString('nl-NL')} · {d.mode === 'random' ? 'Willekeurige kapiteins' : d.mode === 'captains' ? 'Gekozen kapiteins' : 'Handmatig'}</span><small>{ehbText(d.totals[0])} / {ehbText(d.totals[1])} · {d.confirmed ? 'Bevestigd' : 'Voorstel'} · #{d.id.slice(0, 8)}</small></div>)}</details>}
   </div>;
 }

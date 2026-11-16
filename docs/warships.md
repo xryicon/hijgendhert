@@ -13,9 +13,11 @@ Clanbeheer → Clanactiviteiten → Zeeslag Bingo beheren. Het bestaande, uitges
    vooraf ingevuld.
 2. Kies onder Bemanning de deelnemende Wise Old Man-clanleden. Laat het rad beide
    kapiteins loten, kies zelf twee kapiteins, of deel beide teams handmatig in.
-   Controleer de EHB-totalen en bevestig het voorstel. De indeling kan al gemaakt
-   worden voordat spelers inloggen. Iedere herindeling wist beide vloten.
-3. Publiceer onder Clanleiding. De Events-pagina toont dan de zeeslagkaart.
+   Controleer de EHB-totalen. Bevestig het voorstel direct, of plan onder
+   De grote aankondiging een gezamenlijke onthulling (zie hieronder). De indeling
+   kan al gemaakt worden voordat spelers inloggen. Iedere herindeling wist beide vloten.
+3. Publiceer onder Clanleiding, of gebruik Plan & publiceer aankondiging.
+   De Events-pagina toont de zeeslagkaart en het hoofdmenu krijgt een Zeeslag-tab.
    Spelers kiezen hun ingedeelde RuneScape-naam en vragen een Discordkoppeling aan.
    Staff bevestigt de identiteit; een WOM-naam of profielkeuze verleent op zichzelf
    geen teamtoegang. Een speler kan maar aan één Discordaccount gekoppeld zijn en
@@ -26,6 +28,39 @@ Clanbeheer → Clanactiviteiten → Zeeslag Bingo beheren. Het bestaande, uitges
 5. Staff start de zeeslag na bevestiging. Teams, regels en schepen liggen dan
    vast. De kapitein kan nog worden vervangen binnen hetzelfde team.
 
+## Aftelling en gezamenlijke onthulling
+
+- Na het voorbereiden van teams kiest staff onder Bemanning een datum, tijd,
+  aankondigingstitel en bericht. Plan & publiceer aankondiging zet de teams vast,
+  wist eventuele scheepsopstellingen en publiceert meteen de aftelling.
+  De tijd moet minimaal een minuut vooruit liggen, met na de onthulling nog
+  minimaal een minuut vóór het ingestelde eventeinde.
+- De eigen Zeeslag-tab verschijnt tijdens een gepubliceerd voorbereidend of
+  actief event. Bij privé zetten, annuleren of afronden verdwijnt de tab. De
+  algemene onderhoudspagina blijft ongewijzigd. De tab gebruikt een openbare
+  samenvatting zonder Discord-rolcontrole of privéconcepten.
+- Deelnemers kunnen tijdens het aftellen hun WOM-naam kiezen en staff laat
+  de Discordkoppeling goedkeuren. De vlakke namenlijst toont geen teams of
+  kapiteins. Ook staff ontvangt tijdens de aftelling geen teamindeling uit de API.
+  Een nog niet bevestigd voorstel is altijd uitsluitend voor staff zichtbaar.
+- De server bewaart één uitslag en één tijdlijn: vier seconden introductie,
+  2,6 seconden per speler (beide kapiteins eerst), twee seconden afsluiting.
+  Alleen de huidige draai en al onthulde namen worden gedeeld. Ingelogde
+  bezoekers volgen dezelfde tijdlijn; later aansluiten of verversen trekt niet
+  opnieuw. Anonieme bezoekers zien de aankondiging en status, zonder namen.
+- Na de onthulling krijgt iedere goedgekeurde deelnemer automatisch toegang tot
+  de eigen vloot. Tegenstanders en staff krijgen geen verborgen vijandelijke
+  scheepsposities. De kapiteins plaatsen hun schepen; staff start daarna het
+  daadwerkelijke boss-drop-event. De onthulling start het gevecht dus niet.
+- Vóór de onthulling kan staff de planning aanpassen of intrekken. Intrekken
+  maakt het event privé en bewaart de gekozen teams en accountkoppelingen.
+  Zodra de onthulling begint kan deze niet opnieuw gepland of gerold worden.
+- Een persistente Durable Object-alarm verwerkt de eerstvolgende onthulling,
+  opening van teamgebieden of eventdeadline. Verwerking is idempotent bij
+  herhaling; lezen verwerkt eventueel gemiste overgangen ook. De opgeslagen
+  uitslag en planning overleven een herstart. WOM wordt alleen bij het maken
+  van teams gebruikt, niet tijdens de geplande onthulling.
+
 ## Wise Old Man en de teamloting
 
 - De staff-only `/api/warships/roster` leest de bestaande gedeelde cache van
@@ -34,7 +69,7 @@ Clanbeheer → Clanactiviteiten → Zeeslag Bingo beheren. Het bestaande, uitges
   Fetched-at, verouderde cachedata en oude/ontbrekende accountupdatedAt blijven zichtbaar.
 - De server valideert speler-ID's en neemt namen/EHB uit de WOM-gegevens over.
   Clientwaarden kunnen ratings niet veranderen. `draw_teams` en `manual_teams`
-  slaan een voorstel op; pas `confirm_teams` vervangt de bemanning. Er is maximaal
+  slaan een voorstel op; `confirm_teams` of `schedule_reveal` vervangt de bemanning. Er is maximaal
   één huidig voorstel en een log van de laatste twintig indelingen.
 - Willekeurige kapiteins worden gelijkwaardig zonder teruglegging gekozen met
   `crypto.getRandomValues` en rejection sampling. De kapiteins staan in aparte teams.
@@ -94,8 +129,10 @@ Bewijslinks zijn uitsluitend zichtbaar voor het eigen team en staff. Publieke
 bezoekers ontvangen geen Discord-ID's, bewijslinks, aanvragen of beheerlog.
 Alle pagina-/API-antwoorden zijn private/no-store.
 
-De zichtbare pagina ververst elke vijf seconden; overzicht/Events-kaart minder
-vaak. Verborgen tabbladen stoppen, verzoeken overlappen niet en Retry-After wordt
+De zichtbare pagina ververst elke vijf seconden; vlak voor en tijdens de
+onthulling iedere seconde. De aftelling en animatie volgen de servertijd.
+Overzicht/Events-kaart en menutab verversen minder vaak. Verborgen tabbladen
+stoppen, verzoeken overlappen niet en Retry-After wordt
 gerespecteerd. Authenticated reads delen de bestaande vijfminutencontrole;
 mutaties controleren rollen opnieuw. Fouten wissen geen opgeslagen speldata.
 
@@ -107,7 +144,9 @@ en oneven groepen, kapiteins, ontbrekende EHB en de echte lokale Workers/SQLite
 met gesimuleerde Discord-accounts. Controleert privacy, rollen, CSRF, geometrie,
 dropmomenten en limieten, bewijs-URLs, idempotentie, munitie, concurrente acties,
 zinken, winnen, de deadline, serverratings, WOM-idempotentie, accountkoppeling,
-vlootreset bij herindeling en persistentie na herstart. Geen productie-event of
+vlootreset bij herindeling, afgeschermde toekomstige onthullingen, tijdlijn,
+planning/intrekken, dubbele alarmen en persistentie van planning na herstart.
+De suite bevat twintig tests. Geen productie-event of
 Discord-bericht wordt tijdens deze tests aangemaakt.
 
 Bossiconen gebruiken de bestaande lokale OSRS-assets. De voorgestelde itemnamen

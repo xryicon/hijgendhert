@@ -8,7 +8,7 @@ import { WomUnavailable, type WomEnv } from './wise-old-man';
 type WarshipEnv = DiscordEnv & WomEnv & { WARSHIPS?: DurableObjectNamespace<ClanWarships> };
 export async function warshipRoute(request: Request, env: WarshipEnv, fetcher: typeof fetch = fetch): Promise<Response | null> {
   const url = new URL(request.url);
-  if (!['/api/warships', '/api/warships/action', '/api/warships/roster'].includes(url.pathname)) return null;
+  if (!['/api/warships', '/api/warships/action', '/api/warships/roster', '/api/warships/navigation'].includes(url.pathname)) return null;
   const json = (data: unknown, status = 200, extra = {}) => Response.json(data, { status, headers: { ...privateHeaders, ...extra } });
   const writing = url.pathname.endsWith('/action');
   if (request.method !== (writing ? 'POST' : 'GET')) return json({ error: 'Ongeldig verzoek.' }, 405);
@@ -16,6 +16,10 @@ export async function warshipRoute(request: Request, env: WarshipEnv, fetcher: t
   if (!config || !env.WARSHIPS) return json({ error: 'Zeeslag wordt klaargezet.' }, 503);
   if (url.origin !== config.origin || request.headers.get('Sec-Fetch-Site') === 'cross-site' || (writing && request.headers.get('Origin') !== config.origin)) return json({ error: 'Ververs de pagina en probeer opnieuw.' }, 403);
   try {
+    if (url.pathname.endsWith('/navigation')) {
+      const publicGames = await env.WARSHIPS.getByName('clan:7059').overview(null);
+      return json({ event: publicGames.games.find(g => g.published && !['finished', 'cancelled'].includes(g.status)) || null });
+    }
     let actor: WarshipActor | null = null;
     if (writing || url.pathname.endsWith('/roster') || (request.headers.get('Cookie') || '').includes('__Host-hh-member=')) {
       const member = await authorizeMember(request, config, fetcher);

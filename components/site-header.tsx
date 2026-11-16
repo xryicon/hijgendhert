@@ -8,6 +8,7 @@ import type { DiscordMember } from '@/lib/member-types';
 import MemberAvatar from './member-avatar';
 import ClanCrest from './clan-crest';
 import PkAccessLink from './pk-access-link';
+import WarshipNavLink from './warship-nav-link';
 
 const navigation = [
   { id: 'welcome', label: 'Nieuw hier?', href: '/nieuw-hier', icon: Sprout },
@@ -15,7 +16,7 @@ const navigation = [
   { id: 'events', label: 'Events', href: '/events', icon: Swords },
 ];
 
-export default function SiteHeader({ view, initialMember }: { view: 'home' | 'clan' | 'events' | 'member' | 'welcome'; initialMember?: DiscordMember }) {
+export default function SiteHeader({ view, initialMember }: { view: 'home' | 'clan' | 'events' | 'member' | 'welcome' | 'zeeslag'; initialMember?: DiscordMember }) {
   const [menu, setMenu] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const account = useRef<HTMLDivElement>(null);
@@ -40,11 +41,12 @@ export default function SiteHeader({ view, initialMember }: { view: 'home' | 'cl
   return <>
     {initialMember && <VerifiedMemberSession member={initialMember}/>}
     <a className="skip-link" href="#main">Ga naar inhoud</a>
-    <header className={`header header-${view === 'events' ? 'event' : view}${scrolled ? ' is-scrolled' : ''}`}>
+    <header className={`header header-${view === 'events' || view === 'zeeslag' ? 'event' : view}${scrolled ? ' is-scrolled' : ''}`}>
       <div className="container nav-wrap">
         {view === 'home' ? <a className="brand" href="#home" aria-label="Hijgend Hert home">{brand}</a> : <Link className="brand" href="/" prefetch={false} aria-label="Hijgend Hert home">{brand}</Link>}
         <nav id="main-navigation" className={menu ? 'navigation open' : 'navigation'} aria-label="Hoofdnavigatie">
           {navigation.map(item => <Link key={item.id} href={item.href} prefetch={false} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => setMenu(false)}><item.icon size={15} strokeWidth={1.6} aria-hidden="true"/><span>{item.label}</span></Link>)}
+          <WarshipNavLink active={view === 'zeeslag'} onNavigate={() => setMenu(false)}/>
           <PkAccessLink onNavigate={() => setMenu(false)}/>
         </nav>
         <div className="nav-actions">

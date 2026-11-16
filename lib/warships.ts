@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { captainIdsSchema, teamPlayerIds, womPlayerId, teamBalance, type SeaTeamDraw, type SeaDrawLog } from './warship-teams';
+import { revealLocked, revealView, type SeaReveal } from './warship-reveal';
 
 export const SEA_SIZE = 8;
 export const FLEET = [{ name: 'Het Vlaggenschip', length: 4 }, { name: 'De Jager', length: 3 }, { name: 'De Stormvanger', length: 3 }, { name: 'Het Hert', length: 2 }] as const;
@@ -43,6 +44,8 @@ export const warshipActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('manual_teams'), ...ref, teams: z.tuple([z.array(womPlayerId).min(1).max(50), z.array(womPlayerId).min(1).max(50)]), captainIds: captainIdsSchema }).strict(),
   z.object({ type: z.literal('confirm_teams'), ...ref, drawId: id }).strict(),
   z.object({ type: z.literal('link_player'), ...ref, playerId: womPlayerId }).strict(),
+  z.object({ type: z.literal('schedule_reveal'), ...ref, drawId: id, at: z.string().datetime({ offset: true }), headline: text(100), message: text(500) }).strict(),
+  z.object({ type: z.literal('cancel_reveal'), ...ref }).strict(),
 ]);
 export type WarshipAction = z.infer<typeof warshipActionSchema>;
 export type WarshipActor = { id: string; name: string; staff: boolean };
@@ -56,6 +59,7 @@ export type WarshipGame = {
   fleets: [Placement[], Placement[]]; locked: [boolean, boolean]; crew: Crew[]; requests: JoinRequest[]; claims: DropClaim[]; shots: SeaShot[];
   audit: { at: string; actor: string; name: string; action: string }[];
   teamDraft?: SeaTeamDraw; teamAssignment?: SeaTeamDraw; drawLog?: SeaDrawLog[];
+  reveal?: SeaReveal;
 };
 export function shipCells(p: Placement): number[] {
   const length = FLEET[p.ship]?.length;
@@ -83,31 +87,35 @@ export function finishAtDeadline(game: WarshipGame, now = Date.now()) {
 
 // Explicit allowlist: enemy placements, proof links and account IDs never leak
 // through a spread of the stored game. Even staff sees only its own live fleet.
-export function warshipView(g: WarshipGame, actor: WarshipActor | null) {
+export function warshipView(g: WarshipGame, actor: WarshipActor | null, now = Date.now()) {
   const me = g.crew.find(p => p.userId === actor?.id);
-  const ownTeam = me?.team ?? null;
+  const locked = revealLocked(g, now);
+  const ownTeam = locked ? null : me?.team ?? null;
   const reveal = g.status === 'finished';
   return {
     id: g.id, revision: g.revision, config: g.config, status: g.status, published: g.published, createdAt: g.createdAt,
     startedAt: g.startedAt, finishedAt: g.finishedAt, winner: g.winner, finishReason: g.finishReason,
-    myTeam: ownTeam, canManage: !!actor?.staff, canCaptain: !!me?.captain, signedIn: !!actor,
-    teamDraft: actor ? g.teamDraft || null : null, teamAssignment: actor ? g.teamAssignment || null : null,
-    drawLog: actor ? g.drawLog || [] : [],
-    balance: teamBalance(g.crew.map(p => ({ team: p.team, ehb: p.ehb ?? null }))),
-    teams: ([0, 1] as Team[]).map(team => ({ name: g.config.teams[team], members: g.crew.filter(p => p.team === team).length,
+    serverTime: new Date(now).toISOString(), reveal: revealView(g, !!actor, now), fleetAccessLocked: locked,
+    linkedPlayer: me ? { playerId: me.playerId || null, rsn: me.rsn } : null,
+    lobbyPlayers: actor && g.teamAssignment ? g.crew.map(p => ({ playerId: p.playerId!, rsn: p.rsn, linked: !!p.userId })).sort((a, b) => a.rsn.localeCompare(b.rsn)) : [],
+    myTeam: ownTeam, canManage: !!actor?.staff, canCaptain: !locked && !!me?.captain, signedIn: !!actor,
+    teamDraft: actor?.staff && !locked ? g.teamDraft || null : null, teamAssignment: actor && !locked ? g.teamAssignment || null : null,
+    drawLog: actor && !locked ? g.drawLog || [] : [],
+    balance: teamBalance(locked ? [] : g.crew.map(p => ({ team: p.team, ehb: p.ehb ?? null }))),
+    teams: ([0, 1] as Team[]).map(team => ({ name: g.config.teams[team], members: locked ? 0 : g.crew.filter(p => p.team === team).length,
       ready: g.locked[team], ammo: ammo(g, team), hits: hits(g, team), sunk: g.shots.filter(s => s.team === team && s.result === 'sunk').length,
       fleet: reveal || ownTeam === team ? g.fleets[team] : [],
       revealedCells: g.shots.filter(s => s.team === otherTeam(team) && s.sunkShip !== null).flatMap(s => shipCells(g.fleets[team].find(p => p.ship === s.sunkShip)!)),
     })),
-    shots: g.shots, crew: actor ? g.crew.map(p => ({ ...p, linked: !!p.userId, userId: actor.staff || p.userId === actor.id ? p.userId : '' })) : [],
-    requests: actor ? g.requests.filter(r => actor.staff || r.userId === actor.id) : [],
+    shots: g.shots, crew: actor && !locked ? g.crew.map(p => ({ ...p, linked: !!p.userId, userId: actor.staff || p.userId === actor.id ? p.userId : '' })) : [],
+    requests: actor ? g.requests.filter(r => actor.staff || r.userId === actor.id).map(r => ({ ...r, team: locked ? null : r.team })) : [],
     claims: actor ? g.claims.filter(c => actor.staff || c.team === ownTeam).map(c => ({ ...c, userId: actor.staff || c.userId === actor.id ? c.userId : '' })) : [],
     progress: g.config.objectives.map(o => ({ id: o.id, counts: ([0, 1] as Team[]).map(team => g.claims.filter(c => c.team === team && c.objectiveId === o.id && c.status === 'approved').length) })),
     audit: actor?.staff ? g.audit.slice(-50).reverse() : [],
   };
 }
 export type WarshipView = ReturnType<typeof warshipView>;
-export type WarshipSummary = { id: string; title: string; status: WarshipGame['status']; published: boolean; endsAt: string };
+export type WarshipSummary = { id: string; title: string; status: WarshipGame['status']; published: boolean; endsAt: string; revealAt?: string | null; opensAt?: string | null };
 export type WarshipOverview = { games: WarshipSummary[]; canManage: boolean; signedIn: boolean };
 
 // Suggested rules only; staff reviews and can replace every entry before launch.
