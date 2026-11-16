@@ -215,7 +215,7 @@ export async function authorizeMemberWithRoles(request: Request, config: Discord
   // Reuse verified membership for reads for at most five minutes. Mutations and admin
   // reads require a fresh provider check; no roles are trusted from the cookie.
   const path = new URL(request.url).pathname;
-  const sharedRead = request.method === 'GET' && ['/profiel', '/api/auth/session', '/api/members/profile', '/api/members/event', '/api/members/notifications', '/api/members/clan-events', '/pk', '/api/pk', '/api/pk/session', '/api/pk/access'].includes(path);
+  const sharedRead = request.method === 'GET' && ['/profiel', '/api/auth/session', '/api/members/profile', '/api/members/event', '/api/members/notifications', '/api/members/clan-events', '/pk', '/api/pk', '/api/pk/session', '/api/pk/access', '/api/warships'].includes(path);
   const member = await checkMembership(config, parsed.data.accessToken, fetcher, !sharedRead);
   if (!member.user || member.user.id !== parsed.data.userId) throw new DiscordAccessError('expired');
   return { roles: member.roles, member: {

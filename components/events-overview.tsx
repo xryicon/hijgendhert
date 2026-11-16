@@ -7,6 +7,7 @@ import WeeklyWheelArt from "@/components/weekly-wheel-art";
 import MetricImage from '@/components/metric-image';
 import { metricLabel } from '@/lib/osrs-metrics';
 import { RaffleCard } from '@/components/clan-raffle';
+import WarshipEntry from '@/components/warship-entry';
 import { weeklyRound, type Competition, type WeeklyCategory } from "@/lib/community";
 
 export type EventView = "overview" | "live" | "calendar" | "past" | "skill" | "boss" | "raffle";
@@ -32,6 +33,7 @@ export default function EventsOverview({ competitions, loading, error, onRetry, 
     </div>
     {error && <div className="weekly-data-message" role="status"><p>{error}</p><button className="text-link" onClick={onRetry}><RefreshCw size={14}/> Opnieuw proberen</button></div>}
     {stale && <p className="weekly-data-message" role="status">Laatst bekende competities. <button className="text-link" onClick={onRetry}>Ververs</button></p>}
+    <WarshipEntry/>
     <div className="weekly-event-grid">
       {(["skill", "boss"] as const).map(category => {
         const round = weeklyRound(competitions, category, now);
