@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { ammo, evidenceKey, finishAtDeadline, hits, otherTeam, shipCells, validFleet, warshipActionSchema, warshipView, type WarshipActor, type WarshipGame, type WarshipSummary } from '../lib/warships';
+import { balancedTeams, manualTeams, teamBalance, type SeaRoster, type SeaTeamDraw } from '../lib/warship-teams';
 const fail = (status: number, error: string) => ({ ok: false as const, status, error });
 export class ClanWarships extends DurableObject<Cloudflare.Env> {
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
@@ -23,7 +24,14 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
     const g = this.#read(id);
     return !g || (!actor?.staff && !g.published) ? fail(404, 'Dit event is nog niet openbaar.') : { ok: true as const, game: warshipView(g, actor) };
   }
-  mutate(input: unknown, actor: WarshipActor) {
+  replay(input: unknown, actor: WarshipActor) {
+    const parsed = warshipActionSchema.safeParse(input);
+    if (!parsed.success) return fail(400, 'Controleer de invoer.');
+    const a = parsed.data;
+    const saved = this.ctx.storage.sql.exec<{ actor: string; game_id: string; payload: string }>('SELECT actor, game_id, payload FROM sea_requests WHERE id = ?', a.requestId).toArray()[0];
+    return !saved ? null : saved.actor === actor.id && saved.payload === JSON.stringify(a) ? this.getGame(saved.game_id, actor) : fail(409, 'Dit verzoek is al gebruikt. Ververs het bord.');
+  }
+  mutate(input: unknown, actor: WarshipActor, roster?: SeaRoster) {
     const parsed = warshipActionSchema.safeParse(input);
     if (!parsed.success) return fail(400, parsed.error.issues[0]?.message || 'Controleer de invoer.');
     const a = parsed.data, payload = JSON.stringify(a);
@@ -51,14 +59,15 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
         if (['finished', 'cancelled'].includes(g.status)) return fail(409, 'Dit event is afgesloten.');
         const me = g.crew.find(p => p.userId === actor.id);
         const preparing = g.status === 'draft' || g.status === 'setup';
-        if (['edit', 'enrol', 'remove_member', 'captain', 'start', 'review', 'cancel'].includes(a.type) && !actor.staff) return fail(403, 'Alleen de clanleiding kan dit aanpassen.');
-        if (['edit', 'join', 'withdraw', 'enrol', 'remove_member', 'fleet', 'start'].includes(a.type) && !preparing) return fail(409, 'Teams, vloot en regels liggen vast zodra de zeeslag start.');
+        if (['edit', 'enrol', 'remove_member', 'captain', 'start', 'review', 'cancel', 'draw_teams', 'manual_teams', 'confirm_teams'].includes(a.type) && !actor.staff) return fail(403, 'Alleen de clanleiding kan dit aanpassen.');
+        if (['edit', 'join', 'remove_member', 'fleet', 'start', 'draw_teams', 'manual_teams', 'confirm_teams'].includes(a.type) && !preparing) return fail(409, 'Teams, vloot en regels liggen vast zodra de zeeslag start.');
         if (g.audit.length >= 2000 && a.type !== 'cancel') return fail(409, 'De eventlimiet is bereikt. Laat staff het event afsluiten.');
         switch (a.type) {
           case 'edit':
             if (g.claims.length || Date.parse(a.config.endsAt) <= now || Date.parse(a.config.endsAt) > now + 90 * 86400000) return fail(400, 'Controleer de eindtijd.');
             g.config = a.config; break;
           case 'join':
+            if (g.teamAssignment) return fail(409, 'Kies je ingedeelde Wise Old Man-naam om je Discordaccount te koppelen.');
             if (me) return fail(409, 'Je zit al in een team.');
             if (g.requests.length >= 100 || g.crew.length >= 100) return fail(409, 'De bemanning is vol.');
             g.requests = g.requests.filter(r => r.userId !== actor.id);
@@ -68,6 +77,14 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
             const request = g.requests.find(r => r.userId === a.userId);
             if (!request) return fail(404, 'Deze aanvraag is niet meer open.');
             if (a.accept) {
+              if (request.playerId) {
+                const slot = g.crew.find(p => p.playerId === request.playerId);
+                if (!slot || slot.userId || g.crew.some(p => p.userId === a.userId)) return fail(409, 'Deze speler of dit Discordaccount is al gekoppeld.');
+                slot.userId = request.userId; slot.name = request.name;
+                g.requests = g.requests.filter(r => r.userId !== a.userId && r.playerId !== request.playerId);
+                break;
+              }
+              if (!preparing || g.teamAssignment) return fail(409, 'De teamindeling ligt vast.');
               const normalized = (s: string) => s.toLowerCase().replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim();
               if (g.crew.some(p => p.userId === a.userId || normalized(p.rsn) === normalized(request.rsn))) return fail(409, 'Deze speler zit al in een team.');
               if (g.crew.filter(p => p.team === request.team).length >= 50) return fail(409, 'Dit team is vol.');
@@ -75,17 +92,22 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
             }
             g.requests = g.requests.filter(r => r.userId !== a.userId); break;
           }
-          case 'remove_member': g.crew = g.crew.filter(p => p.userId !== a.userId); break;
+          case 'remove_member':
+            if (g.teamAssignment) return fail(409, 'Pas de Wise Old Man-teamindeling aan en bevestig deze opnieuw.');
+            g.crew = g.crew.filter(p => p.userId !== a.userId); break;
           case 'captain': {
             const captain = g.crew.find(p => p.userId === a.userId); if (!captain) return fail(404, 'Speler niet gevonden.');
-            g.crew.forEach(p => { if (p.team === captain.team) p.captain = p.userId === captain.userId; }); break;
+            g.crew.forEach(p => { if (p.team === captain.team) p.captain = p.userId === captain.userId; });
+            if (g.teamAssignment) g.teamAssignment = { ...g.teamAssignment, mode: 'manual', players: g.teamAssignment.players.map(p => ({ ...p, captain: !!g.crew.find(c => c.playerId === p.id)?.captain })) };
+            break;
           }
           case 'fleet':
             if (!me?.captain) return fail(403, 'Alleen de kapitein kan de eigen vloot plaatsen.');
             if (!validFleet(a.placements)) return fail(400, 'Plaats alle vier schepen binnen het bord, zonder overlap.');
             g.fleets[me.team] = a.placements; g.locked[me.team] = a.locked; break;
           case 'start':
-            if (g.status !== 'setup' || !g.published || !g.locked.every(Boolean) || !g.fleets.every(validFleet) || ![0, 1].every(t => g.crew.some(p => p.team === t && p.captain))) return fail(409, 'Publiceer het event en laat beide kapiteins hun vloot vastzetten.');
+            if (g.teamDraft) return fail(409, 'Bevestig eerst de voorgestelde teamindeling.');
+            if (g.status !== 'setup' || !g.published || !g.locked.every(Boolean) || !g.fleets.every(validFleet) || ![0, 1].every(t => g.crew.some(p => p.team === t && p.captain && p.userId))) return fail(409, 'Publiceer het event, koppel beide kapiteins aan Discord en laat hen hun vloot vastzetten.');
             if (Date.parse(g.config.endsAt) <= now) return fail(400, 'De eindtijd is verstreken.');
             g.status = 'active'; g.startedAt = at; g.requests = []; break;
           case 'claim': {
@@ -118,6 +140,44 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
             break;
           }
           case 'cancel': g.status = 'cancelled'; g.finishedAt = at; g.finishReason = a.reason; break;
+          case 'draw_teams':
+          case 'manual_teams': {
+            if (!roster || !Number.isFinite(Date.parse(roster.fetchedAt))) return fail(503, 'De Wise Old Man-clanlijst is tijdelijk niet beschikbaar.');
+            const ids = a.type === 'draw_teams' ? a.playerIds : a.teams.flat();
+            const players = ids.map(id => roster.players.find(p => p.id === id));
+            if (new Set(ids).size !== ids.length || players.some(p => !p)) return fail(400, 'Kies verschillende spelers uit de huidige clanlijst.');
+            let selected: SeaTeamDraw['players'];
+            try { selected = a.type === 'draw_teams' ? balancedTeams(players as SeaRoster['players'], a.captainIds) : manualTeams(players as SeaRoster['players'], a.teams, a.captainIds); }
+            catch (error) { return fail(400, error instanceof Error ? error.message : 'Controleer de teamindeling.'); }
+            g.teamDraft = { id: a.requestId, at, mode: a.type === 'manual_teams' ? 'manual' : a.captainIds ? 'captains' : 'random', players: selected, fetchedAt: roster.fetchedAt, stale: roster.stale };
+            const balance = teamBalance(selected);
+            g.drawLog = [...(g.drawLog || []), { id: a.requestId, at, mode: g.teamDraft.mode, captains: [0, 1].map(t => selected.find(p => p.team === t && p.captain)!.rsn), totals: balance.totals, gap: balance.gap, confirmed: false }].slice(-20);
+            break;
+          }
+          case 'confirm_teams': {
+            if (!g.teamDraft || g.teamDraft.id !== a.drawId) return fail(409, 'Dit voorstel is gewijzigd. Controleer de nieuwste indeling.');
+            const normalize = (name: string) => name.toLowerCase().replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim();
+            const oldCrew = g.crew;
+            g.crew = g.teamDraft.players.map(p => {
+              const existing = oldCrew.find(old => old.playerId === p.id || (!old.playerId && normalize(old.rsn) === normalize(p.rsn)));
+              return { playerId: p.id, rsn: p.rsn, ehb: p.ehb, team: p.team, captain: p.captain, userId: existing?.userId || '', name: existing?.name || '' };
+            });
+            g.teamAssignment = g.teamDraft; delete g.teamDraft;
+            g.drawLog = (g.drawLog || []).map(draw => draw.id === a.drawId ? { ...draw, confirmed: true } : draw);
+            // A re-draft can move a player who has already seen a fleet. Always
+            // clear both layouts so that old ship knowledge cannot be reused.
+            g.fleets = [[], []]; g.locked = [false, false]; g.requests = [];
+            break;
+          }
+          case 'link_player': {
+            if (me) return fail(409, 'Je Discordaccount is al aan een speler gekoppeld.');
+            const slot = g.crew.find(p => p.playerId === a.playerId);
+            if (!slot || slot.userId) return fail(409, 'Kies een ingedeelde speler die nog niet gekoppeld is.');
+            if (g.requests.length >= 100) return fail(409, 'Wacht op de beoordeling van openstaande aanvragen.');
+            g.requests = g.requests.filter(r => r.userId !== actor.id);
+            g.requests.push({ playerId: slot.playerId, userId: actor.id, name: actor.name, rsn: slot.rsn, team: slot.team, at });
+            break;
+          }
         }
       }
     }

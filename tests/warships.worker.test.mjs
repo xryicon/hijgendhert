@@ -18,8 +18,14 @@ const origin = 'https://clan.example';
 const ids = { staff: '1197327572720169001', a: '1197327572720169002', b: '1197327572720169003', spectator: '1197327572720169004' };
 const env = { APP_ORIGIN: origin, DISCORD_CLIENT_ID: '1569436253043167305', DISCORD_CLIENT_SECRET: 'test-only-client-secret', DISCORD_SESSION_SECRET: randomBytes(32).toString('base64url'), DISCORD_GUILD_ID: '1073630238115897455', DISCORD_MEMBER_ROLE_IDS: '1326459850837987430,1408990525180084265' };
 const fleet = [{ ship: 0, cell: 0, vertical: false }, { ship: 1, cell: 16, vertical: false }, { ship: 2, cell: 32, vertical: false }, { ship: 3, cell: 48, vertical: false }];
+const womPlayers = [900, 100, 700, 300, null].map((ehb, i) => ({ id: 101 + i, username: `hert ${i + 1}`, displayName: `Hert ${i + 1}`, ehb, updatedAt: '2026-11-16T12:00:00Z' }));
 function runtime(options = {}) {
   const mf = new Miniflare({ modules: true, script: bundle.outputFiles[0].text, compatibilityDate: '2026-05-15', compatibilityFlags: ['nodejs_compat'], bindings: env, durableObjects: { WARSHIPS: { className: 'ClanWarships', useSQLite: true } }, ...(options.persist ? { durableObjectsPersist: options.persist } : {}), outboundService: async request => {
+    if (new URL(request.url).origin === 'https://api.wiseoldman.net') {
+      assert.equal(new URL(request.url).pathname, '/v2/groups/7059');
+      options.womRequests = (options.womRequests || 0) + 1;
+      return options.womUnavailable ? new Response('Unavailable', { status: 503 }) : Response.json({ id: 7059, memberships: womPlayers.map(player => ({ player })) });
+    }
     assert.equal(new URL(request.url).origin, 'https://discord.com');
     const id = request.headers.get('Authorization').replace('Bearer test-access-', '');
     return Response.json({ user: { id, username: id === ids.staff ? 'Havenmeester' : `Hert${id.slice(-1)}` }, roles: options.revoked ? [] : [id === ids.staff ? '1408990525180084265' : '1326459850837987430'] });
@@ -182,4 +188,69 @@ test('deadline finalizes by hits and ties without requiring an open browser', ()
     const game = { status: 'active', revision: 1, config: { endsAt: new Date(now).toISOString() }, shots: winning ? [{ team: 0, result: 'hit' }] : [] };
     assert.equal(finishAtDeadline(game, now), true); assert.equal(game.winner, winning ? 0 : null); assert.equal(game.status, 'finished'); assert.equal(finishAtDeadline(game, now), false);
   }
+});
+
+test('Wise Old Man roster and draw are staff-only, server-rated and replay safely without another provider read', async () => {
+  const options = {}, mf = runtime(options);
+  try {
+    const f = await fixture(mf); await f.create();
+    assert.equal((await f.request(null, '/api/warships/roster')).status, 401);
+    assert.equal((await f.request('a', '/api/warships/roster')).status, 403);
+    const roster = await f.request('staff', '/api/warships/roster'); assert.equal(roster.status, 200); assert.equal(roster.data.players[0].ehb, 900);
+    const proposal = await f.action('staff', 'draw_teams', { playerIds: [101, 102, 103, 104], captainIds: [101, 102] });
+    const d = f.game.teamDraft; assert.equal(d.players.length, 4); assert.equal(d.players.find(p => p.id === 101).ehb, 900);
+    assert.equal(f.game.crew.length, 0); assert.equal(f.game.drawLog.length, 1);
+    const count = options.womRequests; options.womUnavailable = true;
+    const replay = await f.request('staff', '/api/warships/action', proposal.body);
+    assert.deepEqual(replay.data.game.teamDraft, d); assert.equal(options.womRequests, count);
+    await f.action('staff', 'draw_teams', { playerIds: [101, 9999], captainIds: null }, 400);
+    await f.action('staff', 'draw_teams', { playerIds: [101, 105], captainIds: null }, 400);
+    await f.action('staff', 'draw_teams', { playerIds: [101, 102], captainIds: null, ehb: 0 }, 400);
+    await f.action('staff', 'publish', { published: true });
+    await f.action('a', 'draw_teams', { playerIds: [101, 102], captainIds: null }, 403);
+    assert.equal((await f.request(null, `/api/warships?id=${f.game.id}`)).data.game.teamDraft, null);
+    await f.action('staff', 'confirm_teams', { drawId: d.id }); assert.equal(f.game.crew.length, 4); assert.ok(f.game.crew.every(p => !p.linked));
+  } finally { await mf.dispose(); }
+});
+
+test('confirmed WOM teams require approved Discord links and re-drafts reset previously visible fleets', async () => {
+  const mf = runtime();
+  try {
+    const f = await fixture(mf); await f.create();
+    await f.action('staff', 'draw_teams', { playerIds: [101, 102, 103, 104], captainIds: [101, 102] });
+    await f.action('staff', 'confirm_teams', { drawId: f.game.teamDraft.id });
+    await f.action('staff', 'publish', { published: true });
+    for (const [actor, playerId] of [['a', 101], ['b', 102]]) {
+      await f.action(actor, 'link_player', { playerId }); assert.equal(f.game.myTeam, null);
+      await f.action(actor, 'fleet', { placements: fleet, locked: true }, 403);
+      await f.action('staff', 'enrol', { userId: ids[actor], accept: true });
+      await f.action(actor, 'fleet', { placements: fleet, locked: true });
+    }
+    await f.action('spectator', 'link_player', { playerId: 101 }, 409);
+    await f.action('staff', 'manual_teams', { teams: [[102, 103], [101, 104]], captainIds: [102, 101] });
+    await f.action('staff', 'start', {}, 409);
+    await f.action('staff', 'confirm_teams', { drawId: f.game.teamDraft.id });
+    assert.ok(f.game.teams.every(t => !t.ready));
+    const own = (await f.request('a', `/api/warships?id=${f.game.id}`)).data.game;
+    assert.equal(own.myTeam, 1); assert.ok(own.teams.every(t => t.fleet.length === 0));
+    for (const actor of ['a', 'b']) await f.action(actor, 'fleet', { placements: fleet, locked: true });
+    await f.action('staff', 'start');
+    await f.action('staff', 'draw_teams', { playerIds: [101, 102], captainIds: null }, 409);
+    await f.action('spectator', 'link_player', { playerId: 103 });
+    await f.action('staff', 'enrol', { userId: ids.spectator, accept: true });
+    const late = (await f.request('spectator', `/api/warships?id=${f.game.id}`)).data.game;
+    assert.equal(late.myTeam, 0); assert.equal(late.canCaptain, false); assert.equal(late.teams[1].fleet.length, 0);
+  } finally { await mf.dispose(); }
+});
+
+test('manual assignment keeps unknown EHB explicit and rejects duplicated players or wrong captains', async () => {
+  const mf = runtime();
+  try {
+    const f = await fixture(mf); await f.create();
+    await f.action('staff', 'manual_teams', { teams: [[101], [101]], captainIds: [101, 101] }, 400);
+    await f.action('staff', 'manual_teams', { teams: [[101], [102]], captainIds: [102, 101] }, 400);
+    await f.action('staff', 'manual_teams', { teams: [[101], [105]], captainIds: [101, 105] });
+    await f.action('staff', 'confirm_teams', { drawId: f.game.teamDraft.id });
+    assert.equal(f.game.balance.missing, 1); assert.equal(f.game.crew.find(p => p.playerId === 105).ehb, null);
+  } finally { await mf.dispose(); }
 });

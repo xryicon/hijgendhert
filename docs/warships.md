@@ -11,15 +11,46 @@ Clanbeheer → Clanactiviteiten → Zeeslag Bingo beheren. Het bestaande, uitges
    bepaalt welke items gelden, hoeveel schoten één drop oplevert en het maximum
    aantal goedgekeurde drops per team. Er worden geen echte deelnemers of drops
    vooraf ingevuld.
-2. Publiceer onder Clanleiding. De Events-pagina toont dan de zeeslagkaart.
-   Ingelogde clanleden vragen deelname aan met hun RuneScape-naam. Staff controleert
-   naam/identiteit en keurt de teamindeling goed. De eerste speler is kapitein;
-   staff kan een andere goedgekeurde speler uit hetzelfde team aanwijzen.
-3. Beide kapiteins plaatsen vier schepen (4, 3, 3 en 2 vakken) op een 8×8-kaart
+2. Kies onder Bemanning de deelnemende Wise Old Man-clanleden. Laat het rad beide
+   kapiteins loten, kies zelf twee kapiteins, of deel beide teams handmatig in.
+   Controleer de EHB-totalen en bevestig het voorstel. De indeling kan al gemaakt
+   worden voordat spelers inloggen. Iedere herindeling wist beide vloten.
+3. Publiceer onder Clanleiding. De Events-pagina toont dan de zeeslagkaart.
+   Spelers kiezen hun ingedeelde RuneScape-naam en vragen een Discordkoppeling aan.
+   Staff bevestigt de identiteit; een WOM-naam of profielkeuze verleent op zichzelf
+   geen teamtoegang. Een speler kan maar aan één Discordaccount gekoppeld zijn en
+   omgekeerd. Ook na de start kan een al ingedeelde speler zijn account koppelen.
+4. Beide gekoppelde kapiteins plaatsen vier schepen (4, 3, 3 en 2 vakken) op een 8×8-kaart
    en zetten hun vloot vast. Schepen mogen raken, maar niet overlappen of over
    een rand lopen. De kapitein kan de indeling vóór de start aanpassen.
-4. Staff start de zeeslag na bevestiging. Teams, regels en schepen liggen dan
+5. Staff start de zeeslag na bevestiging. Teams, regels en schepen liggen dan
    vast. De kapitein kan nog worden vervangen binnen hetzelfde team.
+
+## Wise Old Man en de teamloting
+
+- De staff-only `/api/warships/roster` leest de bestaande gedeelde cache van
+  `/groups/7059`. [WOM group details](https://docs.wiseoldman.net/api/groups/group-endpoints)
+  bevatten de clanleden en EHB. Er zijn geen afzonderlijke refreshes per speler.
+  Fetched-at, verouderde cachedata en oude/ontbrekende accountupdatedAt blijven zichtbaar.
+- De server valideert speler-ID's en neemt namen/EHB uit de WOM-gegevens over.
+  Clientwaarden kunnen ratings niet veranderen. `draw_teams` en `manual_teams`
+  slaan een voorstel op; pas `confirm_teams` vervangt de bemanning. Er is maximaal
+  één huidig voorstel en een log van de laatste twintig indelingen.
+- Willekeurige kapiteins worden gelijkwaardig zonder teruglegging gekozen met
+  `crypto.getRandomValues` en rejection sampling. De kapiteins staan in aparte teams.
+  De overige spelers worden verdeeld met maximaal één speler verschil in teamgrootte,
+  inclusief de EHB van de kapiteins. Tot twintig spelers is de zoekactie exact op
+  EHB afgerond op twee decimalen. Daarboven gebruiken we 24 startindelingen per
+  teamgrootte, met maximaal 24 verbeterende paarruilen per indeling. Dat geeft het
+  beste gevonden resultaat, geen garantie op een wereldwijd optimum.
+- Het rad onthult het serverresultaat. Opnieuw afspelen trekt niet opnieuw;
+  een bewuste nieuwe loting krijgt een nieuw ID en logitem. Herlevering van een
+  verzoek geeft dezelfde opgeslagen uitslag, ook als WOM intussen onbereikbaar is.
+- Nul EHB is geldig. Ontbrekende/negatieve/ongeldige EHB blokkeert automatisch
+  balanceren en blijft expliciet onbekend bij handmatige teams. EHB is een
+  ervaringsindicator, geen meting van gear, beschikbare speeltijd of inzet.
+- Oude rondes zonder WOM-indeling blijven bruikbaar met hun bestaande
+  deelnameaanvragen. Een bevestigde WOM-indeling sluit vrije teamkeuze af.
 
 ## Boss drops en schoten
 
@@ -70,10 +101,13 @@ mutaties controleren rollen opnieuw. Fouten wissen geen opgeslagen speldata.
 
 ## Validatie
 
-`node --test tests/warships.worker.test.mjs` draait de echte lokale Workers/SQLite
+`node --test tests/warship-teams.test.mjs tests/warships.worker.test.mjs` test de
+balans tegen een onafhankelijke volledige zoekactie voor kleine groepen, grote
+en oneven groepen, kapiteins, ontbrekende EHB en de echte lokale Workers/SQLite
 met gesimuleerde Discord-accounts. Controleert privacy, rollen, CSRF, geometrie,
 dropmomenten en limieten, bewijs-URLs, idempotentie, munitie, concurrente acties,
-zinken, winnen, de deadline en persistentie na herstart. Geen productie-event of
+zinken, winnen, de deadline, serverratings, WOM-idempotentie, accountkoppeling,
+vlootreset bij herindeling en persistentie na herstart. Geen productie-event of
 Discord-bericht wordt tijdens deze tests aangemaakt.
 
 Bossiconen gebruiken de bestaande lokale OSRS-assets. De voorgestelde itemnamen

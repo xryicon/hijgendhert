@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { captainIdsSchema, teamPlayerIds, womPlayerId, teamBalance, type SeaTeamDraw, type SeaDrawLog } from './warship-teams';
 
 export const SEA_SIZE = 8;
 export const FLEET = [{ name: 'Het Vlaggenschip', length: 4 }, { name: 'De Jager', length: 3 }, { name: 'De Stormvanger', length: 3 }, { name: 'Het Hert', length: 2 }] as const;
@@ -38,10 +39,14 @@ export const warshipActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('review'), ...ref, claimId: id, approve: z.boolean(), reason: z.string().trim().max(200) }).strict(),
   z.object({ type: z.literal('fire'), ...ref, cell: z.number().int().min(0).max(63) }).strict(),
   z.object({ type: z.literal('cancel'), ...ref, reason: text(200) }).strict(),
+  z.object({ type: z.literal('draw_teams'), ...ref, playerIds: teamPlayerIds, captainIds: captainIdsSchema.nullable() }).strict(),
+  z.object({ type: z.literal('manual_teams'), ...ref, teams: z.tuple([z.array(womPlayerId).min(1).max(50), z.array(womPlayerId).min(1).max(50)]), captainIds: captainIdsSchema }).strict(),
+  z.object({ type: z.literal('confirm_teams'), ...ref, drawId: id }).strict(),
+  z.object({ type: z.literal('link_player'), ...ref, playerId: womPlayerId }).strict(),
 ]);
 export type WarshipAction = z.infer<typeof warshipActionSchema>;
 export type WarshipActor = { id: string; name: string; staff: boolean };
-export type Crew = { userId: string; name: string; rsn: string; team: Team; captain: boolean };
+export type Crew = { userId: string; name: string; rsn: string; team: Team; captain: boolean; playerId?: number; ehb?: number | null };
 export type JoinRequest = Omit<Crew, 'captain'> & { at: string };
 export type DropClaim = { id: string; userId: string; name: string; rsn: string; team: Team; objectiveId: string; evidence: string; droppedAt: string; submittedAt: string; status: 'pending' | 'approved' | 'rejected'; reviewer: string | null; reviewedAt: string | null; reason: string };
 export type SeaShot = { team: Team; cell: number; result: 'hit' | 'miss' | 'sunk'; sunkShip: number | null; at: string };
@@ -50,6 +55,7 @@ export type WarshipGame = {
   createdAt: string; startedAt: string | null; finishedAt: string | null; winner: Team | null; finishReason: string;
   fleets: [Placement[], Placement[]]; locked: [boolean, boolean]; crew: Crew[]; requests: JoinRequest[]; claims: DropClaim[]; shots: SeaShot[];
   audit: { at: string; actor: string; name: string; action: string }[];
+  teamDraft?: SeaTeamDraw; teamAssignment?: SeaTeamDraw; drawLog?: SeaDrawLog[];
 };
 export function shipCells(p: Placement): number[] {
   const length = FLEET[p.ship]?.length;
@@ -85,12 +91,15 @@ export function warshipView(g: WarshipGame, actor: WarshipActor | null) {
     id: g.id, revision: g.revision, config: g.config, status: g.status, published: g.published, createdAt: g.createdAt,
     startedAt: g.startedAt, finishedAt: g.finishedAt, winner: g.winner, finishReason: g.finishReason,
     myTeam: ownTeam, canManage: !!actor?.staff, canCaptain: !!me?.captain, signedIn: !!actor,
+    teamDraft: actor ? g.teamDraft || null : null, teamAssignment: actor ? g.teamAssignment || null : null,
+    drawLog: actor ? g.drawLog || [] : [],
+    balance: teamBalance(g.crew.map(p => ({ team: p.team, ehb: p.ehb ?? null }))),
     teams: ([0, 1] as Team[]).map(team => ({ name: g.config.teams[team], members: g.crew.filter(p => p.team === team).length,
       ready: g.locked[team], ammo: ammo(g, team), hits: hits(g, team), sunk: g.shots.filter(s => s.team === team && s.result === 'sunk').length,
       fleet: reveal || ownTeam === team ? g.fleets[team] : [],
       revealedCells: g.shots.filter(s => s.team === otherTeam(team) && s.sunkShip !== null).flatMap(s => shipCells(g.fleets[team].find(p => p.ship === s.sunkShip)!)),
     })),
-    shots: g.shots, crew: actor ? g.crew.map(p => ({ ...p, userId: actor.staff || p.userId === actor.id ? p.userId : '' })) : [],
+    shots: g.shots, crew: actor ? g.crew.map(p => ({ ...p, linked: !!p.userId, userId: actor.staff || p.userId === actor.id ? p.userId : '' })) : [],
     requests: actor ? g.requests.filter(r => actor.staff || r.userId === actor.id) : [],
     claims: actor ? g.claims.filter(c => actor.staff || c.team === ownTeam).map(c => ({ ...c, userId: actor.staff || c.userId === actor.id ? c.userId : '' })) : [],
     progress: g.config.objectives.map(o => ({ id: o.id, counts: ([0, 1] as Team[]).map(team => g.claims.filter(c => c.team === team && c.objectiveId === o.id && c.status === 'approved').length) })),
