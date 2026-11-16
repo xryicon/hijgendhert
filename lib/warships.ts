@@ -36,6 +36,7 @@ export const warshipActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('captain'), ...ref, userId: discordId }).strict(),
   z.object({ type: z.literal('fleet'), ...ref, placements: z.array(placementSchema).length(4), locked: z.boolean() }).strict(),
   z.object({ type: z.literal('start'), ...ref }).strict(),
+  z.object({ type: z.literal('force_start'), ...ref }).strict(),
   z.object({ type: z.literal('claim'), ...ref, objectiveId: id, evidence: proof, droppedAt: z.string().datetime({ offset: true }) }).strict(),
   z.object({ type: z.literal('review'), ...ref, claimId: id, approve: z.boolean(), reason: z.string().trim().max(200) }).strict(),
   z.object({ type: z.literal('fire'), ...ref, cell: z.number().int().min(0).max(63) }).strict(),

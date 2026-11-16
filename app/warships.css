@@ -12,3 +12,69 @@
 @media(max-width:800px){.sea-prelude{padding:34px 20px 21px}.sea-live-draw{grid-template-columns:1fr;gap:26px;text-align:center}.sea-live-draw .sea-wheel-wrap{width:min(310px,100%);margin:auto}.sea-live-draw-copy>small{margin-top:18px}.sea-live-draw-copy h2{font-size:30px}.sea-team-arrival{flex-wrap:wrap;padding:23px 20px;gap:16px}.sea-team-arrival>.button{margin-left:73px}.sea-announced-crews{gap:15px}.sea-reveal-settings{padding:20px 15px}.sea-prelude-heading h1{font-size:36px}}
 @media(max-width:480px){.sea-prelude{padding:28px 14px 18px}.sea-announcement-crest{width:75px!important;height:85px!important}.sea-prelude-heading h1{font-size:29px}.sea-prelude-heading>p:last-child{font-size:12px}.sea-launch-countdown{gap:12px;margin-top:25px}.sea-launch-countdown>div{width:72px;padding:14px 6px 11px}.sea-launch-countdown strong{font-size:34px;letter-spacing:0}.sea-launch-countdown span{font-size:7px;letter-spacing:1px}.sea-launch-countdown>div+div:before{left:-10px;top:20px;font-size:22px}.sea-prelude-bottom{gap:13px}.sea-reveal-date{font-size:10px;line-height:1.7}.sea-announced-crews{grid-template-columns:1fr}.sea-team-arrival h2{font-size:19px}.sea-team-arrival>.button{margin-left:0;width:100%}.sea-arrival-emblem{width:43px;height:58px}.sea-prelude-heading .eyebrow{font-size:8px;letter-spacing:1.8px}}
 @media(prefers-reduced-motion:reduce){.sea-prelude:after{animation:none}.sea-live-wheel{transition:none}}
+
+/* The two fleets face one another around the shared reveal stage. */
+.sea-match-reveal{margin:32px -12px 10px;text-align:left}
+.sea-prelude.is-drawing{padding:24px 25px 20px}
+.sea-prelude.is-drawing .sea-prelude-heading{display:grid;grid-template-columns:62px 1fr;column-gap:18px;align-items:center;text-align:left}
+.sea-prelude.is-drawing .sea-announcement-crest{grid-column:1;grid-row:1/3;width:62px!important;height:68px!important;margin:0}
+.sea-prelude.is-drawing .sea-prelude-heading .eyebrow{margin:0;align-self:end}
+.sea-prelude.is-drawing .sea-prelude-heading h1{grid-column:2;font-size:clamp(21px,3vw,32px);margin:7px 0 0;align-self:start}
+.sea-prelude.is-drawing .sea-prelude-heading>p:last-child{display:none}
+.sea-match-heading{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:0 10px 20px;border-bottom:1px solid #c4a46138}
+.sea-match-heading>span:last-child{font-size:10px;color:#9fae92;letter-spacing:1px}
+.sea-loading-arena{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,.9fr) minmax(0,1fr);align-items:start;gap:22px;padding:25px 0 10px;isolation:isolate}
+.sea-loading-arena:before{content:'';position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,#a37d2812,transparent 32%,transparent 68%,#315d4e25);pointer-events:none}
+.sea-loading-side{--team-accent:#d7b76e;--team-soft:#7d652f;min-width:0}
+.sea-loading-side.sea-side-1{--team-accent:#9fcebe;--team-soft:#416e60}
+.sea-loading-side>header{position:relative;min-height:145px;padding:8px 0 22px;text-align:center;border-bottom:1px solid var(--team-soft)}
+.sea-team-standard{width:51px!important;height:55px!important;display:block;margin:0 auto 8px;filter:drop-shadow(0 0 15px #ac924033)}
+.sea-loading-side>header>small{font-size:7px;letter-spacing:2.7px;color:var(--team-accent)}
+.sea-loading-side h3{font:600 clamp(17px,2vw,25px)/1.35 Cinzel,Georgia,serif!important;color:var(--team-accent);margin:8px 0;overflow-wrap:anywhere}
+.sea-loading-side>header>span{font-size:9px;letter-spacing:1px;color:#8f9c85}
+.sea-loading-roster{position:relative;display:flex;flex-direction:column;gap:10px;max-height:486px;overflow-y:auto;overflow-x:hidden;padding:16px 2px 6px;scrollbar-width:thin;scrollbar-color:var(--team-soft) #101c16}
+.sea-loading-card,.sea-loading-slot{position:relative;min-height:84px;flex-shrink:0;border:1px solid var(--team-soft);background:linear-gradient(110deg,#433a2270,#16241c 70%);display:flex;align-items:center;gap:12px;padding:13px 14px;overflow:hidden}
+.sea-side-1 .sea-loading-card{background:linear-gradient(250deg,#30544677,#16241c 70%);flex-direction:row-reverse;text-align:right}
+.sea-loading-card:before{content:'';position:absolute;inset:4px;border:1px solid #d6b97512;pointer-events:none}
+.sea-loading-card.is-captain{min-height:102px;border-color:var(--team-accent);box-shadow:inset 0 1px 0 #ecd7aa42,0 4px 20px #0003}
+.sea-loading-card.is-captain:after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--team-accent)}
+.sea-side-1 .sea-loading-card.is-captain:after{left:auto;right:0}
+.sea-loading-portrait{width:50px;height:62px;flex-shrink:0;display:grid;place-items:center;border-bottom:2px solid var(--team-accent);background:linear-gradient(#131c15,#34412a);clip-path:polygon(8% 0,92% 0,100% 10%,100% 90%,50% 100%,0 90%,0 10%)}
+.sea-loading-portrait .clan-avatar{width:47px;height:54px;background:transparent!important;border:0!important;border-radius:0!important}
+.sea-loading-portrait .clan-avatar img{object-fit:contain!important}
+.sea-loading-card>div{min-width:0;flex:1}
+.sea-loading-card small{display:flex;align-items:center;gap:5px;font-size:7px;letter-spacing:1.7px;color:var(--team-accent);margin-bottom:6px}
+.sea-side-1 .sea-loading-card small{justify-content:flex-end}
+.sea-loading-card strong{display:block;font:600 clamp(13px,1.4vw,18px)/1.3 Georgia,serif;letter-spacing:.3px;color:#efdfbd;overflow-wrap:anywhere}
+.sea-loading-card>div>span{display:block;font-size:8px;color:#87947e;margin-top:6px}
+.sea-card-seal{position:absolute;bottom:7px;right:8px;color:var(--team-accent);opacity:.12}
+.sea-side-1 .sea-card-seal{right:auto;left:8px}
+.sea-loading-card.is-pending{visibility:hidden}
+.sea-loading-slot{border-color:#7e805e24;background:repeating-linear-gradient(135deg,transparent 0 9px,#aaa26a03 9px 10px),#0b171144;color:#63715b;justify-content:center;gap:9px}
+.sea-loading-slot span{font-size:9px;letter-spacing:.3px}
+.sea-loading-side>footer{height:3px;background:#796b3630;margin-top:13px}
+.sea-loading-side>footer>span{display:block;height:100%;background:var(--team-accent);transition:width .7s;box-shadow:0 0 12px var(--team-soft)}
+.sea-match-stage{min-width:0;position:relative;text-align:center;min-height:470px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 0}
+.sea-versus{display:flex;align-items:center;justify-content:center;gap:9px;color:#b49b61;margin-bottom:30px;width:100%}
+.sea-versus>span{flex:1;max-width:45px;height:1px;background:linear-gradient(90deg,transparent,#b59d5e80)}
+.sea-versus>span:last-child{transform:rotate(180deg)}
+.sea-versus b{font:22px Georgia,serif;letter-spacing:4px}
+.sea-match-wheel{width:min(280px,100%);transition:opacity .35s,filter .35s}
+.sea-match-wheel.is-dimmed{opacity:.16;filter:blur(2px)}
+.sea-match-cue{margin-top:27px;min-height:105px;width:100%}
+.sea-match-cue small{font-size:7px;letter-spacing:2px;color:#ae985e}
+.sea-match-cue h2{font:500 22px/1.3 Georgia,serif;margin:11px 0;color:#e5d2a7;overflow-wrap:anywhere}
+.sea-match-cue p{font-size:9px;line-height:1.8;color:#849479;margin:0 auto;max-width:210px}
+.sea-name-spotlight{--spot-gold:#e6c57b;position:absolute;z-index:5;width:min(510px,calc(100% - 24px));min-height:210px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px 18px;border-block:1px solid var(--spot-gold);background:radial-gradient(ellipse at center,#5b4b22bd,#101d16f7 70%);box-shadow:0 0 65px #a28a4033,0 20px 60px #0008;pointer-events:none;transform-origin:center;transition:transform .1s linear,opacity .1s linear;will-change:transform}
+.sea-name-spotlight:before,.sea-name-spotlight:after{content:'';position:absolute;inset:5px;border-block:1px solid #e3ca7b38;pointer-events:none}
+.sea-name-spotlight:after{inset:-7px 14px;border-color:#e3ca7b18}
+.sea-spotlight-1{--spot-gold:#b5e6d3;background:radial-gradient(ellipse at center,#31594bbd,#101d16f7 70%);box-shadow:0 0 65px #548d7033,0 20px 60px #0008}
+.sea-spotlight-ornament{color:var(--spot-gold);margin-bottom:12px;filter:drop-shadow(0 0 12px #c3ac5b77)}
+.sea-name-spotlight>small{font-size:9px;letter-spacing:4px;color:var(--spot-gold)}
+.sea-name-spotlight>strong{font:600 clamp(30px,4.7vw,60px)/1.2 Cinzel,Georgia,serif;color:#fff0cd;text-shadow:0 0 30px #deb96c60;margin:16px 0;overflow-wrap:anywhere;max-width:100%}
+.sea-spotlight-team{font:11px Cinzel,Georgia,serif;letter-spacing:2px;color:var(--spot-gold)}
+.sea-name-spotlight.is-flying{box-shadow:0 0 25px #ad945c33}
+@media(max-width:1000px){.sea-loading-arena{gap:12px;grid-template-columns:minmax(0,1fr) minmax(190px,.8fr) minmax(0,1fr)}.sea-loading-card{padding:11px 9px;gap:8px}.sea-loading-portrait{width:40px;height:52px}.sea-loading-portrait .clan-avatar{width:38px;height:46px}.sea-loading-card>div>span{font-size:7px}.sea-match-reveal{margin-inline:-6px}}
+@media(max-width:700px){.sea-loading-arena{grid-template-columns:1fr 1fr;gap:16px;padding-top:15px}.sea-match-stage{grid-column:1/-1;grid-row:1;min-height:300px;padding:8px 0}.sea-match-wheel{width:185px}.sea-versus{margin-bottom:15px}.sea-match-cue{min-height:70px;margin-top:18px}.sea-match-cue h2{font-size:20px;margin:8px 0}.sea-match-cue p{max-width:300px}.sea-side-0{grid-column:1;grid-row:2}.sea-side-1{grid-column:2;grid-row:2}.sea-loading-side>header{min-height:125px;padding-bottom:15px}.sea-loading-side h3{font-size:16px!important}.sea-loading-side>header>small{font-size:6px;letter-spacing:1.2px}.sea-loading-card,.sea-side-1 .sea-loading-card{flex-direction:column;text-align:center;padding:12px 8px;min-height:145px;gap:9px}.sea-loading-card.is-captain{min-height:160px}.sea-loading-card small,.sea-side-1 .sea-loading-card small{justify-content:center;font-size:6px;letter-spacing:1px}.sea-loading-card strong{font-size:14px}.sea-loading-roster{max-height:510px;gap:8px}.sea-loading-slot{flex-direction:column;min-height:145px;text-align:center}.sea-loading-slot span{font-size:8px;max-width:100px;line-height:1.6}.sea-match-heading{gap:8px;padding-inline:0}.sea-match-heading>span:last-child{font-size:8px;letter-spacing:0}.sea-match-heading .sea-on-air{font-size:7px;letter-spacing:1px;padding:8px}.sea-name-spotlight{min-height:200px}.sea-name-spotlight>strong{font-size:clamp(25px,6.7vw,43px)}.sea-name-spotlight>small{font-size:8px;letter-spacing:2.5px}}
+@media(prefers-reduced-motion:reduce){.sea-name-spotlight,.sea-loading-side>footer>span,.sea-match-wheel{transition:none}}
+@media(max-width:480px){.sea-prelude.is-drawing{padding:20px 13px 16px}.sea-prelude.is-drawing .sea-prelude-heading{grid-template-columns:43px 1fr;column-gap:12px}.sea-prelude.is-drawing .sea-announcement-crest{width:43px!important;height:50px!important}.sea-prelude.is-drawing .sea-prelude-heading .eyebrow{font-size:7px;letter-spacing:1px}.sea-prelude.is-drawing .sea-prelude-heading h1{font-size:21px}.sea-match-reveal{margin-top:23px}}

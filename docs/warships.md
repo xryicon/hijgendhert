@@ -27,6 +27,13 @@ Clanbeheer → Clanactiviteiten → Zeeslag Bingo beheren. Het bestaande, uitges
    een rand lopen. De kapitein kan de indeling vóór de start aanpassen.
 5. Staff start de zeeslag na bevestiging. Teams, regels en schepen liggen dan
    vast. De kapitein kan nog worden vervangen binnen hetzelfde team.
+   Onder Clanleiding kan staff ook Forceer start kiezen als kapiteins nog niet
+   klaar zijn. Iedere niet-vastgezette vloot krijgt dan een willekeurige geldige
+   opstelling; vastgezette vloten blijven behouden. De bevestiging legt dit uit.
+   Beide teams moeten een kapitein hebben en de teamonthulling moet klaar zijn.
+   Kapiteins hoeven nog niet aan Discord gekoppeld te zijn: bestaande aanvragen
+   blijven behouden en kunnen tijdens het event worden goedgekeurd. De schepen
+   liggen vanaf de geforceerde start vast. Ook staff ziet geen vijandelijke vloot.
 
 ## Aftelling en gezamenlijke onthulling
 
@@ -43,8 +50,14 @@ Clanbeheer → Clanactiviteiten → Zeeslag Bingo beheren. Het bestaande, uitges
   de Discordkoppeling goedkeuren. De vlakke namenlijst toont geen teams of
   kapiteins. Ook staff ontvangt tijdens de aftelling geen teamindeling uit de API.
   Een nog niet bevestigd voorstel is altijd uitsluitend voor staff zichtbaar.
-- De server bewaart één uitslag en één tijdlijn: vier seconden introductie,
-  2,6 seconden per speler (beide kapiteins eerst), twee seconden afsluiting.
+- De server bewaart één uitslag en één tijdlijn: vijf seconden introductie,
+  negen seconden per speler (beide kapiteins eerst), vijf seconden afsluiting.
+  Per speler: vier seconden draaien, 2,6 seconden de naam groot in beeld,
+  1,1 seconden bewegen naar de teamkaart, daarna 1,3 seconden rust.
+  Beide teams staan tegenover elkaar met kapiteinskaarten, lege plaatsen en
+  een gezamenlijke VS-presentatie. Bij minder-bewegingvoorkeur vervalt de vlucht.
+  Bestaande geplande rondes behouden hun oorspronkelijke tijdlijn; opnieuw
+  plannen vóór de onthulling gebruikt het nieuwe tempo.
   Alleen de huidige draai en al onthulde namen worden gedeeld. Ingelogde
   bezoekers volgen dezelfde tijdlijn; later aansluiten of verversen trekt niet
   opnieuw. Anonieme bezoekers zien de aankondiging en status, zonder namen.
@@ -141,7 +154,7 @@ toont Zeeslag de wachttijd en herstelknop en pauzeert het extra leesverzoeken.
 
 ## Validatie
 
-`node --test tests/warship-teams.test.mjs tests/warships.worker.test.mjs` test de
+`node --test tests/warship-reveal.test.mjs tests/warship-teams.test.mjs tests/warships.worker.test.mjs` test de
 balans tegen een onafhankelijke volledige zoekactie voor kleine groepen, grote
 en oneven groepen, kapiteins, ontbrekende EHB en de echte lokale Workers/SQLite
 met gesimuleerde Discord-accounts. Controleert privacy, rollen, CSRF, geometrie,
@@ -149,7 +162,9 @@ dropmomenten en limieten, bewijs-URLs, idempotentie, munitie, concurrente acties
 zinken, winnen, de deadline, serverratings, WOM-idempotentie, accountkoppeling,
 vlootreset bij herindeling, afgeschermde toekomstige onthullingen, tijdlijn,
 planning/intrekken, dubbele alarmen en persistentie van planning na herstart.
-De suite bevat twintig tests. Geen productie-event of
+Ook staff-only force-start, generatie en behoud van vloten, koppelen na start,
+herhaling zonder herloting, de vertraagde onthulling en oude planningen worden
+gecontroleerd. De suite bevat vijfentwintig tests. Geen productie-event of
 Discord-bericht wordt tijdens deze tests aangemaakt.
 
 Bossiconen gebruiken de bestaande lokale OSRS-assets. De voorgestelde itemnamen

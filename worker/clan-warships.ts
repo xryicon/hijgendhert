@@ -2,6 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { ammo, evidenceKey, finishAtDeadline, hits, otherTeam, shipCells, validFleet, warshipActionSchema, warshipView, type WarshipActor, type WarshipGame, type WarshipSummary } from '../lib/warships';
 import { balancedTeams, manualTeams, teamBalance, type SeaRoster, type SeaTeamDraw } from '../lib/warship-teams';
 import { advanceReveal, revealDuration, revealLocked } from '../lib/warship-reveal';
+import { generateFleet } from '../lib/warship-fleet';
 const fail = (status: number, error: string) => ({ ok: false as const, status, error });
 export class ClanWarships extends DurableObject<Cloudflare.Env> {
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
@@ -89,10 +90,10 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
         if (['finished', 'cancelled'].includes(g.status)) return fail(409, 'Dit event is afgesloten.');
         const me = g.crew.find(p => p.userId === actor.id);
         const preparing = g.status === 'draft' || g.status === 'setup';
-        if (['edit', 'enrol', 'remove_member', 'captain', 'start', 'review', 'cancel', 'draw_teams', 'manual_teams', 'confirm_teams', 'schedule_reveal', 'cancel_reveal'].includes(a.type) && !actor.staff) return fail(403, 'Alleen de clanleiding kan dit aanpassen.');
-        if (['edit', 'join', 'remove_member', 'fleet', 'start', 'draw_teams', 'manual_teams', 'confirm_teams', 'schedule_reveal', 'cancel_reveal'].includes(a.type) && !preparing) return fail(409, 'Teams, vloot en regels liggen vast zodra de zeeslag start.');
+        if (['edit', 'enrol', 'remove_member', 'captain', 'start', 'force_start', 'review', 'cancel', 'draw_teams', 'manual_teams', 'confirm_teams', 'schedule_reveal', 'cancel_reveal'].includes(a.type) && !actor.staff) return fail(403, 'Alleen de clanleiding kan dit aanpassen.');
+        if (['edit', 'join', 'remove_member', 'fleet', 'start', 'force_start', 'draw_teams', 'manual_teams', 'confirm_teams', 'schedule_reveal', 'cancel_reveal'].includes(a.type) && !preparing) return fail(409, 'Teams, vloot en regels liggen vast zodra de zeeslag start.');
         if (g.reveal && ['draw_teams', 'manual_teams', 'confirm_teams', 'remove_member', 'join'].includes(a.type)) return fail(409, 'De aangekondigde indeling ligt vast. Trek de aankondiging vóór de loting in om deze te wijzigen.');
-        if (revealLocked(g, now) && ['fleet', 'start', 'captain', 'edit'].includes(a.type)) return fail(409, 'De teamgebieden openen na de aankondiging.');
+        if (revealLocked(g, now) && ['fleet', 'start', 'force_start', 'captain', 'edit'].includes(a.type)) return fail(409, 'De teamgebieden openen na de aankondiging.');
         if (g.audit.length >= 2000 && a.type !== 'cancel') return fail(409, 'De eventlimiet is bereikt. Laat staff het event afsluiten.');
         switch (a.type) {
           case 'edit':
@@ -137,6 +138,22 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
             if (!me?.captain) return fail(403, 'Alleen de kapitein kan de eigen vloot plaatsen.');
             if (!validFleet(a.placements)) return fail(400, 'Plaats alle vier schepen binnen het bord, zonder overlap.');
             g.fleets[me.team] = a.placements; g.locked[me.team] = a.locked; break;
+          case 'force_start': {
+            if (g.teamDraft) return fail(409, 'Bevestig eerst de voorgestelde teamindeling.');
+            if (g.status !== 'setup' || !g.published || ![0, 1].every(t => g.crew.some(p => p.team === t && p.captain))) return fail(409, 'Publiceer het event en bevestig voor beide teams een kapitein.');
+            if (Date.parse(g.config.endsAt) <= now) return fail(400, 'De eindtijd is verstreken.');
+            for (const team of [0, 1] as const) {
+              if (!g.locked[team] || !validFleet(g.fleets[team])) {
+                g.fleets[team] = generateFleet();
+                g.audit.push({ at, actor: actor.id, name: actor.name, action: `auto_fleet_${team}` });
+              }
+              g.locked[team] = true;
+            }
+            g.status = 'active'; g.startedAt = at;
+            // Approved WOM slots can still be linked after force-start.
+            g.requests = g.requests.filter(r => !!r.playerId);
+            break;
+          }
           case 'start':
             if (g.teamDraft) return fail(409, 'Bevestig eerst de voorgestelde teamindeling.');
             if (g.status !== 'setup' || !g.published || !g.locked.every(Boolean) || !g.fleets.every(validFleet) || ![0, 1].every(t => g.crew.some(p => p.team === t && p.captain && p.userId))) return fail(409, 'Publiceer het event, koppel beide kapiteins aan Discord en laat hen hun vloot vastzetten.');
@@ -198,7 +215,7 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
             const time = Date.parse(a.at), opens = time + revealDuration(draw.players.length);
             if (time < now + 60000 || time > now + 90 * 86400000 || opens + 60000 >= Date.parse(g.config.endsAt)) return fail(400, 'Plan de loting minstens één minuut vooruit en laat na de onthulling tijd over vóór het eventeinde.');
             this.#assign(g, draw);
-            g.reveal = { drawId: draw.id, at: a.at, opensAt: new Date(opens).toISOString(), headline: a.headline, message: a.message, startedAt: null, completedAt: null };
+            g.reveal = { drawId: draw.id, at: a.at, opensAt: new Date(opens).toISOString(), headline: a.headline, message: a.message, startedAt: null, completedAt: null, pace: 2 };
             g.published = true; g.status = 'setup';
             break;
           }

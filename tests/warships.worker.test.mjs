@@ -262,6 +262,61 @@ test('manual assignment keeps unknown EHB explicit and rejects duplicated player
 });
 
 const revealFields = (f, delay = 120000) => ({ drawId: (f.game.teamDraft || f.game.teamAssignment)?.id || f.game.reveal.drawId, at: new Date(Date.now() + delay).toISOString(), headline: 'Hijgend Hert vaart uit', message: 'Testaankondiging, geen echt event.' });
+
+test('only staff can force-start; locked fleets survive and unfinished fleets are generated privately once', async () => {
+  const mf = runtime();
+  try {
+    const f = await fixture(mf); await f.create();
+    await f.action('staff', 'force_start', {}, 409);
+    await f.action('staff', 'publish', { published: true });
+    await f.action('staff', 'force_start', {}, 409);
+    for (const [who, team] of [['a', 0], ['b', 1]]) {
+      await f.action(who, 'join', { team, rsn: `Hert ${who}` });
+      await f.action('staff', 'enrol', { userId: ids[who], accept: true });
+    }
+    await f.action('a', 'fleet', { placements: fleet, locked: true });
+    await f.action('b', 'fleet', { placements: fleet, locked: false });
+    await f.action('staff', 'start', {}, 409);
+    await f.action('a', 'force_start', {}, 403);
+    const started = await f.action('staff', 'force_start');
+    assert.equal(f.game.status, 'active'); assert.ok(f.game.startedAt);
+    assert.ok(f.game.teams.every(t => t.ready && t.fleet.length === 0), 'Staff cannot inspect either fleet');
+    assert.equal(f.game.audit.filter(a => a.action === 'auto_fleet_0').length, 0);
+    assert.equal(f.game.audit.filter(a => a.action === 'auto_fleet_1').length, 1);
+    const ownA = (await f.request('a', `/api/warships?id=${f.game.id}`)).data.game;
+    const ownB = (await f.request('b', `/api/warships?id=${f.game.id}`)).data.game;
+    assert.deepEqual(ownA.teams[0].fleet, fleet); assert.equal(validFleet(ownB.teams[1].fleet), true);
+    assert.equal(ownA.teams[1].fleet.length, 0); assert.equal(ownB.teams[0].fleet.length, 0);
+    const replay = await f.request('staff', '/api/warships/action', started.body);
+    assert.equal(replay.data.game.revision, f.game.revision);
+    assert.deepEqual((await f.request('b', `/api/warships?id=${f.game.id}`)).data.game.teams[1].fleet, ownB.teams[1].fleet);
+    await f.action('staff', 'force_start', {}, 409);
+    await f.action('b', 'fleet', { placements: fleet, locked: true }, 409);
+    await f.claim('a'); await f.approve();
+  } finally { await mf.dispose(); }
+});
+
+test('force-start permits unlinked captains, retains pending name links and persists generated ships', async () => {
+  const persist = await mkdtemp(path.join(tmpdir(), 'hh-warships-')); let mf = runtime({ persist });
+  try {
+    const f = await fixture(mf); await f.create();
+    await f.action('staff', 'manual_teams', { teams: [[101], [102]], captainIds: [101, 102] });
+    await f.action('staff', 'publish', { published: true });
+    await f.action('staff', 'force_start', {}, 409);
+    await f.action('staff', 'confirm_teams', { drawId: f.game.teamDraft.id });
+    await f.action('a', 'link_player', { playerId: 101 });
+    await f.action('staff', 'force_start');
+    assert.equal(f.game.requests.length, 1);
+    await f.action('staff', 'enrol', { userId: ids.a, accept: true });
+    const id = f.game.id, own = (await f.request('a', `/api/warships?id=${id}`)).data.game;
+    assert.equal(own.canCaptain, true); assert.equal(validFleet(own.teams[0].fleet), true);
+    assert.equal(own.teams[1].fleet.length, 0);
+    await mf.dispose(); mf = runtime({ persist });
+    const next = await fixture(mf), restored = (await next.request('a', `/api/warships?id=${id}`)).data.game;
+    assert.equal(restored.status, 'active'); assert.deepEqual(restored.teams[0].fleet, own.teams[0].fleet);
+    assert.equal(restored.teams[1].fleet.length, 0);
+  } finally { await mf.dispose(); assert.ok(path.resolve(persist).startsWith(path.resolve(tmpdir()) + path.sep + 'hh-warships-')); await rm(persist, { recursive: true, force: true }); }
+});
 async function setRevealTime(mf, f, elapsed) { const r = await mf.dispatchFetch(origin + '/__reveal-time', { method: 'POST', body: JSON.stringify({ id: f.game.id, elapsed }) }); assert.equal(r.status, 200); await f.refresh(); }
 async function inspectReveal(mf, f) { return (await mf.dispatchFetch(origin + '/__reveal-inspect?id=' + f.game.id)).json(); }
 async function prepareReveal(f) { await f.create(); await f.action('staff', 'draw_teams', { playerIds: [101, 102, 103, 104], captainIds: [101, 102] }); return f.action('staff', 'schedule_reveal', revealFields(f)); }
@@ -302,13 +357,17 @@ test('server alarm reveals progressively, survives duplicate delivery and opens 
     const f = await fixture(mf); await prepareReveal(f);
     for (const [actor, playerId] of [['a', 101], ['b', 102]]) { await f.action(actor, 'link_player', { playerId }); await f.action('staff', 'enrol', { userId: ids[actor], accept: true }); }
     const womCount = options.womRequests; options.womUnavailable = true;
-    await setRevealTime(mf, f, 4100);
+    await setRevealTime(mf, f, 5100);
     assert.equal(f.game.reveal.phase, 'drawing'); assert.equal(f.game.reveal.current.id, 101); assert.deepEqual(f.game.reveal.revealed, []);
     assert.equal(f.game.teamAssignment, null); assert.ok(f.game.fleetAccessLocked);
-    await setRevealTime(mf, f, 6100);
+    assert.equal(f.game.reveal.timing.stepMs, 9000);
+    await setRevealTime(mf, f, 9500);
+    assert.deepEqual(f.game.reveal.revealed, [], 'The name has a spotlight before joining a team');
+    await setRevealTime(mf, f, 13000);
     assert.deepEqual(f.game.reveal.revealed.map(p => p.id), [101]);
     await f.action('staff', 'cancel_reveal', {}, 409); await f.action('staff', 'start', {}, 409);
-    await setRevealTime(mf, f, 20000);
+    await f.action('staff', 'force_start', {}, 409);
+    await setRevealTime(mf, f, 50000);
     assert.equal(f.game.reveal.phase, 'open'); assert.equal(f.game.fleetAccessLocked, false);
     assert.equal(options.womRequests, womCount);
     const before = await inspectReveal(mf, f);
