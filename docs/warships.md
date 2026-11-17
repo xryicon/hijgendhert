@@ -50,15 +50,18 @@ Clanbeheer → Clanactiviteiten → Zeeslag Bingo beheren. Het bestaande, uitges
   Overige deelnemers kunnen hun WOM-naam kiezen voor controle door staff. De vlakke namenlijst toont geen teams of
   kapiteins. Ook staff ontvangt tijdens de aftelling geen teamindeling uit de API.
   Een nog niet bevestigd voorstel is altijd uitsluitend voor staff zichtbaar.
-- De server bewaart één uitslag en één tijdlijn: eerst zes Nederlandse spelregels
-  met vaste voice-over (70,5 seconden), daarna vijf seconden introductie,
+- De server bewaart één uitslag en één tijdlijn: eerst de door admins ingestelde
+  spelregels (8–45 seconden per kaart), daarna iedere ingestelde boss drop
+  gedurende acht seconden, vervolgens vijf seconden introductie,
   negen seconden per speler (beide kapiteins eerst), vijf seconden afsluiting.
   Per speler: vier seconden draaien, 2,6 seconden de naam groot in beeld,
   1,1 seconden bewegen naar de teamkaart, daarna 1,3 seconden rust.
   Beide teams staan tegenover elkaar met kapiteinskaarten, lege plaatsen en
   een gezamenlijke VS-presentatie. Bij minder-bewegingvoorkeur vervalt de vlucht.
   Bestaande geplande rondes behouden hun oorspronkelijke tijdlijn; opnieuw
-  plannen vóór de onthulling gebruikt het nieuwe tempo.
+  plannen vóór de onthulling gebruikt het nieuwe tempo. Een admin kan vóór de
+  start ook alleen de regels opslaan om een geplande introductie bij te werken;
+  de teams, accountkoppelingen en scheepsopstellingen blijven daarbij behouden.
   Alleen de huidige draai en al onthulde namen worden gedeeld. Ingelogde
   bezoekers volgen dezelfde tijdlijn; later aansluiten of verversen trekt niet
   opnieuw. Anonieme bezoekers zien de aankondiging en status, zonder namen.
@@ -165,7 +168,8 @@ vlootreset bij herindeling, afgeschermde toekomstige onthullingen, tijdlijn,
 planning/intrekken, dubbele alarmen en persistentie van planning na herstart.
 Ook staff-only force-start, generatie en behoud van vloten, koppelen na start,
 herhaling zonder herloting, de vertraagde onthulling en oude planningen worden
-gecontroleerd. De suite bevat zevenendertig tests. Geen productie-event of
+gecontroleerd. Ook aangepaste regels, adminrechten, verborgen toekomstige drops,
+validatie, conflicten, planning en persistentie worden getest. Geen productie-event of
 Discord-bericht wordt tijdens deze tests aangemaakt.
 
 Bossiconen gebruiken de bestaande lokale OSRS-assets. De voorgestelde itemnamen
@@ -206,5 +210,5 @@ en ontkoppeling, privacy vóór de onthulling, rolcontrole, herstart en paginaca
 Visuele browsercontrole is niet uitgevoerd; de controle is via broncode, types,
 build en geautomatiseerde tests uitgevoerd.
 
-De Nederlandse spelregelintroductie, audiobediening en herkomst van de gratis
-spraakbestanden staan beschreven in [zeeslag-voiceover.md](zeeslag-voiceover.md).
+De stille introductie en het beheer van regels en boss-onthullingen staan
+beschreven in [zeeslag-intro.md](zeeslag-intro.md).

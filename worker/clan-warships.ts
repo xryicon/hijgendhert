@@ -1,7 +1,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import { ammo, evidenceKey, finishAtDeadline, hits, otherTeam, shipCells, validFleet, warshipActionSchema, warshipView, type WarshipActor, type WarshipGame, type WarshipSummary } from '../lib/warships';
 import { balancedTeams, manualTeams, teamBalance, type SeaRoster, type SeaTeamDraw } from '../lib/warship-teams';
-import { advanceReveal, revealDuration, revealLocked } from '../lib/warship-reveal';
+import { advanceReveal, introRevealDuration, revealLocked } from '../lib/warship-reveal';
+import { defaultSeaRules, seaIntroSlides } from '../lib/warship-intro';
 import { generateFleet } from '../lib/warship-fleet';
 import { automaticSeaPlayer } from '../lib/warship-link';
 const fail = (status: number, error: string) => ({ ok: false as const, status, error });
@@ -101,12 +102,23 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
         if (['finished', 'cancelled'].includes(g.status)) return fail(409, 'Dit event is afgesloten.');
         const me = g.crew.find(p => p.userId === actor.id);
         const preparing = g.status === 'draft' || g.status === 'setup';
+        if (a.type === 'set_briefing' && !actor.admin) return fail(403, 'Alleen een Admin kan de introductieregels aanpassen.');
+        if (a.type === 'set_briefing' && (!preparing || (g.reveal && now >= Date.parse(g.reveal.at)))) return fail(409, 'De introductie is al begonnen. De regels liggen vast voor deze ronde.');
         if (['edit', 'enrol', 'remove_member', 'captain', 'start', 'force_start', 'review', 'cancel', 'draw_teams', 'manual_teams', 'confirm_teams', 'schedule_reveal', 'cancel_reveal', 'unlink_player'].includes(a.type) && !actor.staff) return fail(403, 'Alleen de clanleiding kan dit aanpassen.');
         if (['edit', 'join', 'remove_member', 'fleet', 'start', 'force_start', 'draw_teams', 'manual_teams', 'confirm_teams', 'schedule_reveal', 'cancel_reveal'].includes(a.type) && !preparing) return fail(409, 'Teams, vloot en regels liggen vast zodra de zeeslag start.');
         if (g.reveal && ['draw_teams', 'manual_teams', 'confirm_teams', 'remove_member', 'join'].includes(a.type)) return fail(409, 'De aangekondigde indeling ligt vast. Trek de aankondiging vóór de loting in om deze te wijzigen.');
         if (revealLocked(g, now) && ['fleet', 'start', 'force_start', 'captain', 'edit'].includes(a.type)) return fail(409, 'De teamgebieden openen na de aankondiging.');
         if (g.audit.length >= 2000 && a.type !== 'cancel') return fail(409, 'De eventlimiet is bereikt. Laat staff het event afsluiten.');
         switch (a.type) {
+          case 'set_briefing': {
+            if (g.reveal) {
+              const slides = seaIntroSlides(a.rules, g.config.objectives);
+              const opens = Date.parse(g.reveal.at) + introRevealDuration(g.teamAssignment!.players.length, slides);
+              if (opens + 60000 >= Date.parse(g.config.endsAt)) return fail(400, 'Deze introductie past niet vóór de eindtijd. Verkort de regels of pas eerst de planning aan.');
+              g.reveal = { ...g.reveal, pace: 4, slides, opensAt: new Date(opens).toISOString() };
+            }
+            g.briefingRules = a.rules; break;
+          }
           case 'edit':
             if (g.claims.length || Date.parse(a.config.endsAt) <= now || Date.parse(a.config.endsAt) > now + 90 * 86400000) return fail(400, 'Controleer de eindtijd.');
             g.config = a.config; break;
@@ -224,10 +236,11 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
             if (g.reveal && now >= Date.parse(g.reveal.at)) return fail(409, 'De aankondiging is al begonnen en kan niet opnieuw worden gepland.');
             const draw = g.teamDraft?.id === a.drawId ? g.teamDraft : g.teamAssignment?.id === a.drawId ? g.teamAssignment : null;
             if (!draw) return fail(409, 'Kies eerst een teamindeling en controleer het voorstel.');
-            const time = Date.parse(a.at), opens = time + revealDuration(draw.players.length);
+            const slides = seaIntroSlides(g.briefingRules || defaultSeaRules(), g.config.objectives);
+            const time = Date.parse(a.at), opens = time + introRevealDuration(draw.players.length, slides);
             if (time < now + 60000 || time > now + 90 * 86400000 || opens + 60000 >= Date.parse(g.config.endsAt)) return fail(400, 'Plan de loting minstens één minuut vooruit en laat na de onthulling tijd over vóór het eventeinde.');
             this.#assign(g, draw);
-            g.reveal = { drawId: draw.id, at: a.at, opensAt: new Date(opens).toISOString(), headline: a.headline, message: a.message, startedAt: null, completedAt: null, pace: 3 };
+            g.reveal = { drawId: draw.id, at: a.at, opensAt: new Date(opens).toISOString(), headline: a.headline, message: a.message, startedAt: null, completedAt: null, pace: 4, slides };
             g.published = true; g.status = 'setup';
             break;
           }

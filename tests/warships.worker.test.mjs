@@ -12,7 +12,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const source = `import {warshipRoute} from './lib/warship-route'; import {seal,discordConfig} from './lib/discord-auth'; import {ClanWarships as BaseWarships} from './worker/clan-warships';
 export class ClanWarships extends BaseWarships {
   async shiftReveal(id, elapsed) { const row=this.ctx.storage.sql.exec('SELECT data FROM sea_games WHERE id = ?',id).toArray()[0]; const g=JSON.parse(row.data); const duration=Date.parse(g.reveal.opensAt)-Date.parse(g.reveal.at); g.reveal.at=new Date(Date.now()-elapsed).toISOString();g.reveal.opensAt=new Date(Date.parse(g.reveal.at)+duration).toISOString();this.ctx.storage.sql.exec('UPDATE sea_games SET data = ? WHERE id = ?',JSON.stringify(g),id);await this.ctx.storage.deleteAlarm(); }
-  async inspectReveal(id) { const row=this.ctx.storage.sql.exec('SELECT data FROM sea_games WHERE id = ?',id).toArray()[0]; const g=JSON.parse(row.data);return {alarm:await this.ctx.storage.getAlarm(),reveal:g.reveal,revision:g.revision,audit:g.audit}; }
+  async inspectReveal(id) { const row=this.ctx.storage.sql.exec('SELECT data FROM sea_games WHERE id = ?',id).toArray()[0]; const g=JSON.parse(row.data);return {alarm:await this.ctx.storage.getAlarm(),reveal:g.reveal,revision:g.revision,audit:g.audit,briefingRules:g.briefingRules,teamAssignment:g.teamAssignment,crew:g.crew,fleets:g.fleets}; }
   repeatAlarm() {return this.alarm();}
 }
 export default { async fetch(request,env) { const url=new URL(request.url); const stub=env.WARSHIPS.getByName('clan:7059'); if(url.pathname==='/__fixture') {const id=url.searchParams.get('id'); return new Response(await seal(discordConfig(env),'session',{accessToken:'test-access-'+id,userId:id,expiresAt:Date.now()+3600000}));} if(url.pathname==='/__reveal-time'){const b=await request.json();await stub.shiftReveal(b.id,b.elapsed);await stub.repeatAlarm();return new Response('ok');} if(url.pathname==='/__reveal-inspect')return Response.json(await stub.inspectReveal(url.searchParams.get('id')));if(url.pathname==='/__reveal-alarm'){await stub.repeatAlarm();return new Response('ok');} return await warshipRoute(request,env) || new Response('Not found',{status:404}); } };`;
@@ -20,8 +20,8 @@ const bundle = await build({ stdin: { contents: source, resolveDir: root, loader
 const pure = await build({ entryPoints: [path.join(root, 'lib/warships.ts')], bundle: true, write: false, format: 'esm', platform: 'node' });
 const { validFleet, shipCells, warshipView, finishAtDeadline, starterDrops, warshipActionSchema } = await import(`data:text/javascript;base64,${Buffer.from(pure.outputFiles[0].text).toString('base64')}`);
 const origin = 'https://clan.example';
-const ids = { staff: '1197327572720169001', a: '1197327572720169002', b: '1197327572720169003', spectator: '1197327572720169004' };
-const env = { APP_ORIGIN: origin, DISCORD_CLIENT_ID: '1569436253043167305', DISCORD_CLIENT_SECRET: 'test-only-client-secret', DISCORD_SESSION_SECRET: randomBytes(32).toString('base64url'), DISCORD_GUILD_ID: '1073630238115897455', DISCORD_MEMBER_ROLE_IDS: '1326459850837987430,1408990525180084265' };
+const ids = { staff: '1197327572720169001', a: '1197327572720169002', b: '1197327572720169003', spectator: '1197327572720169004', admin: '1197327572720169005' };
+const env = { APP_ORIGIN: origin, DISCORD_CLIENT_ID: '1569436253043167305', DISCORD_CLIENT_SECRET: 'test-only-client-secret', DISCORD_SESSION_SECRET: randomBytes(32).toString('base64url'), DISCORD_GUILD_ID: '1073630238115897455', DISCORD_MEMBER_ROLE_IDS: '1326459850837987430,1408990525180084265,1197327572720169030' };
 const fleet = [{ ship: 0, cell: 0, vertical: false }, { ship: 1, cell: 16, vertical: false }, { ship: 2, cell: 32, vertical: false }, { ship: 3, cell: 48, vertical: false }];
 const womPlayers = [900, 100, 700, 300, null].map((ehb, i) => ({ id: 101 + i, username: `hert ${i + 1}`, displayName: `Hert ${i + 1}`, ehb, updatedAt: '2026-11-16T12:00:00Z' }));
 function runtime(options = {}) {
@@ -33,7 +33,7 @@ function runtime(options = {}) {
     }
     assert.equal(new URL(request.url).origin, 'https://discord.com');
     const id = request.headers.get('Authorization').replace('Bearer test-access-', '');
-    return Response.json({ nick: options.members?.[id]?.nick, user: { id, username: options.members?.[id]?.username || (id === ids.staff ? 'Havenmeester' : `Hert${id.slice(-1)}`) }, roles: options.revoked ? [] : [id === ids.staff ? '1408990525180084265' : '1326459850837987430'] });
+    return Response.json({ nick: options.members?.[id]?.nick, user: { id, username: options.members?.[id]?.username || (id === ids.staff ? 'Havenmeester' : `Hert${id.slice(-1)}`) }, roles: options.revoked ? [] : [id === ids.admin ? '1197327572720169030' : id === ids.staff ? '1408990525180084265' : '1326459850837987430'] });
   } });
   return mf;
 }
@@ -357,22 +357,22 @@ test('server alarm reveals progressively, survives duplicate delivery and opens 
     const f = await fixture(mf); await prepareReveal(f);
     for (const [actor, playerId] of [['a', 101], ['b', 102]]) { await f.action(actor, 'link_player', { playerId }); await f.action('staff', 'enrol', { userId: ids[actor], accept: true }); }
     const womCount = options.womRequests; options.womUnavailable = true;
-    assert.equal(f.game.reveal.briefing.durationMs, 70500);
+    assert.equal(f.game.reveal.briefing.durationMs, 79000);
     await setRevealTime(mf, f, 35000);
     assert.equal(f.game.reveal.current, null); assert.deepEqual(f.game.reveal.revealed, []);
     assert.equal(f.game.myTeam, null); assert.ok(f.game.fleetAccessLocked);
     await f.action('staff', 'force_start', {}, 409);
-    await setRevealTime(mf, f, 75600);
+    await setRevealTime(mf, f, 84100);
     assert.equal(f.game.reveal.phase, 'drawing'); assert.equal(f.game.reveal.current.id, 101); assert.deepEqual(f.game.reveal.revealed, []);
     assert.equal(f.game.teamAssignment, null); assert.ok(f.game.fleetAccessLocked);
     assert.equal(f.game.reveal.timing.stepMs, 9000);
-    await setRevealTime(mf, f, 80000);
+    await setRevealTime(mf, f, 88500);
     assert.deepEqual(f.game.reveal.revealed, [], 'The name has a spotlight before joining a team');
-    await setRevealTime(mf, f, 83500);
+    await setRevealTime(mf, f, 92000);
     assert.deepEqual(f.game.reveal.revealed.map(p => p.id), [101]);
     await f.action('staff', 'cancel_reveal', {}, 409); await f.action('staff', 'start', {}, 409);
     await f.action('staff', 'force_start', {}, 409);
-    await setRevealTime(mf, f, 120500);
+    await setRevealTime(mf, f, 130000);
     assert.equal(f.game.reveal.phase, 'open'); assert.equal(f.game.fleetAccessLocked, false);
     assert.equal(options.womRequests, womCount);
     const before = await inspectReveal(mf, f);
@@ -432,7 +432,7 @@ test('verified Discord names link once, keep teams private until reveal and surv
     options.members[ids.spectator] = { nick: 'Hert 1' };
     assert.equal((await f.request('spectator', `/api/warships?id=${g.id}`)).data.game.linkedPlayer, null);
     await f.refresh(); assert.equal(f.game.audit.filter(a => a.action === 'auto_link_player').length, 1);
-    await setRevealTime(mf, f, 120500);
+    await setRevealTime(mf, f, 130000);
     const open = (await f.request('a', `/api/warships?id=${g.id}`)).data.game;
     assert.equal(open.myTeam, 0); assert.equal(open.canCaptain, true);
     await f.action('a', 'fleet', { placements: fleet, locked: true });
@@ -467,7 +467,7 @@ test('staff can remove an automatic account link without losing the player, ship
   try {
     const f = await fixture(mf); await prepareReveal(f);
     await f.request('a', `/api/warships?id=${f.game.id}`); await f.refresh();
-    await setRevealTime(mf, f, 120500);
+    await setRevealTime(mf, f, 130000);
     await f.action('a', 'fleet', { placements: fleet, locked: true });
     await f.action('staff', 'force_start');
     await f.action('a', 'unlink_player', { playerId: 101 }, 403);
@@ -493,4 +493,86 @@ test('automatic account ownership persists across a runtime restart', async () =
     const next = await fixture(mf), restored = (await next.request('a', `/api/warships?id=${id}`)).data.game;
     assert.deepEqual(restored.linkedPlayer, linked.linkedPlayer); assert.equal(restored.revision, linked.revision);
   } finally { await mf.dispose(); assert.ok(path.resolve(persist).startsWith(path.resolve(tmpdir()) + path.sep + 'hh-warships-')); await rm(persist, { recursive: true, force: true }); }
+});
+
+
+const customRules = [{id:'clan',title:'Samen uitvaren',text:'We spelen voor de clan.',seconds:12},{id:'proof',title:'Bewijs je drop',text:'Stuur een screenshot met spelernaam en tijdstip.',seconds:16}];
+test('only verified admins edit briefing rules, with validation, conflicts and idempotency enforced', async () => {
+  const mf=runtime();
+  try {
+    const f=await fixture(mf); await f.create(); await f.action('staff','publish',{published:true});
+    assert.equal(f.game.canEditRules,false);
+    await f.action('staff','set_briefing',{rules:customRules},403);
+    await f.action('a','set_briefing',{rules:customRules},403);
+    await f.action('a','set_briefing',{rules:customRules,admin:true},400);
+    await f.action('admin','set_briefing',{rules:[]},400);
+    const previous=f.game.revision;
+    const saved=await f.action('admin','set_briefing',{rules:customRules});
+    assert.equal(f.game.canEditRules,true); assert.deepEqual(f.game.briefingRules,customRules);
+    assert.equal((await f.request('admin','/api/warships/action',saved.body)).data.game.revision,f.game.revision);
+    await f.action('admin','set_briefing',{rules:customRules,revision:previous},409);
+  } finally {await mf.dispose();}
+});
+test('updating a planned briefing preserves teams and account links and recalculates its opening', async () => {
+  const mf=runtime();
+  try {
+    const f=await fixture(mf); await prepareReveal(f);
+    await f.action('a','link_player',{playerId:101}); await f.action('staff','enrol',{userId:ids.a,accept:true});
+    const before=await inspectReveal(mf,f);
+    await f.action('admin','set_briefing',{rules:customRules});
+    const after=await inspectReveal(mf,f);
+    assert.deepEqual(after.teamAssignment,before.teamAssignment); assert.deepEqual(after.crew,before.crew); assert.deepEqual(after.fleets,before.fleets);
+    assert.equal(after.reveal.at,before.reveal.at); assert.equal(after.alarm,before.alarm);
+    assert.equal(after.reveal.pace,4); assert.equal(Date.parse(after.reveal.opensAt)-Date.parse(after.reveal.at),82000);
+    assert.deepEqual(after.reveal.slides.map(s=>s.kind),['rule','rule','drop']);
+    await setRevealTime(mf,f,15000);
+    await f.action('admin','set_briefing',{rules:customRules},409);
+    await f.action('staff','force_start',{},409);
+    assert.equal((await inspectReveal(mf,f)).alarm,Date.parse(f.game.reveal.opensAt));
+    await setRevealTime(mf,f,28500);
+    const publicGame=(await f.request(null,'/api/warships?id='+f.game.id)).data.game;
+    assert.equal(publicGame.config.objectives[0].item,'Tanzanite fang'); assert.equal(publicGame.reveal.current,null);
+    await f.action('staff','force_start',{},409);
+    await setRevealTime(mf,f,83000); await f.action('staff','force_start');
+    await f.action('admin','set_briefing',{rules:customRules},409);
+  } finally {await mf.dispose();}
+});
+test('the public API reveals bosses only at their scheduled step and never leaks future items through config', async () => {
+  const mf=runtime();
+  try {
+    const f=await fixture(mf); await f.create();
+    const objectives=[...f.game.config.objectives,{id:crypto.randomUUID(),boss:'vorkath',item:'Dragonbone necklace',shots:3,limit:2}];
+    await f.action('staff','edit',{config:{...f.game.config,objectives}});
+    await f.action('admin','set_briefing',{rules:customRules});
+    await f.action('staff','draw_teams',{playerIds:[101,102],captainIds:[101,102]});
+    await f.action('staff','schedule_reveal',revealFields(f));
+    for(const viewer of [null,'a']) {
+      const g=(await f.request(viewer,'/api/warships?id='+f.game.id)).data.game;
+      assert.deepEqual(g.config.objectives,[]); assert.ok(!JSON.stringify(g).includes('Tanzanite fang')); assert.ok(!JSON.stringify(g).includes('Dragonbone necklace'));
+    }
+    assert.equal(f.game.config.objectives.length,2);
+    await setRevealTime(mf,f,28500);
+    const first=(await f.request('a','/api/warships?id='+f.game.id)).data.game;
+    assert.equal(first.config.objectives.length,1); assert.ok(!JSON.stringify(first).includes('Dragonbone necklace'));
+    assert.equal(first.reveal.current,null);
+    await setRevealTime(mf,f,36500);
+    const second=(await f.request('a','/api/warships?id='+f.game.id)).data.game;
+    assert.equal(second.config.objectives.length,2); assert.equal(second.reveal.current,null);
+  } finally {await mf.dispose();}
+});
+test('an overlong briefing is rejected atomically and custom rules survive a restart', async () => {
+  const persist=await mkdtemp(path.join(tmpdir(),'hh-warships-')); let mf=runtime({persist});
+  try {
+    const f=await fixture(mf); await f.create();
+    await f.action('staff','edit',{config:{...f.game.config,endsAt:new Date(Date.now()+300000).toISOString()}});
+    await f.action('admin','set_briefing',{rules:customRules});
+    await f.action('staff','draw_teams',{playerIds:[101,102],captainIds:[101,102]});
+    await f.action('staff','schedule_reveal',revealFields(f));
+    const before=await inspectReveal(mf,f), id=f.game.id;
+    await f.action('admin','set_briefing',{rules:Array.from({length:12},(_,i)=>({...customRules[0],id:'rule-'+i,seconds:45}))},400);
+    assert.deepEqual(await inspectReveal(mf,f),before);
+    await mf.dispose(); mf=runtime({persist}); const next=await fixture(mf);
+    const g=(await next.request('admin','/api/warships?id='+id)).data.game;
+    assert.deepEqual(g.briefingRules,customRules); assert.deepEqual(g.reveal.briefing.slides,before.reveal.slides);
+  } finally {await mf.dispose(); assert.ok(path.resolve(persist).startsWith(path.resolve(tmpdir())+path.sep+'hh-warships-'));await rm(persist,{recursive:true,force:true});}
 });

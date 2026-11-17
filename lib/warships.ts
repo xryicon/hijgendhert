@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { captainIdsSchema, teamPlayerIds, womPlayerId, teamBalance, type SeaTeamDraw, type SeaDrawLog } from './warship-teams';
 import { revealLocked, revealView, type SeaReveal } from './warship-reveal';
+import { defaultSeaRules, seaRulesSchema, type SeaRule } from './warship-intro';
 
 export const SEA_SIZE = 8;
 export const FLEET = [{ name: 'Het Vlaggenschip', length: 4 }, { name: 'De Jager', length: 3 }, { name: 'De Stormvanger', length: 3 }, { name: 'Het Hert', length: 2 }] as const;
@@ -48,9 +49,10 @@ export const warshipActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('unlink_player'), ...ref, playerId: womPlayerId }).strict(),
   z.object({ type: z.literal('schedule_reveal'), ...ref, drawId: id, at: z.string().datetime({ offset: true }), headline: text(100), message: text(500) }).strict(),
   z.object({ type: z.literal('cancel_reveal'), ...ref }).strict(),
+  z.object({ type: z.literal('set_briefing'), ...ref, rules: seaRulesSchema }).strict(),
 ]);
 export type WarshipAction = z.infer<typeof warshipActionSchema>;
-export type WarshipActor = { id: string; name: string; username?: string; staff: boolean };
+export type WarshipActor = { id: string; name: string; username?: string; staff: boolean; admin?: boolean };
 export type Crew = { userId: string; name: string; rsn: string; team: Team; captain: boolean; playerId?: number; ehb?: number | null; linkMethod?: 'automatic' | 'staff' };
 export type JoinRequest = Omit<Crew, 'captain'> & { at: string };
 export type DropClaim = { id: string; userId: string; name: string; rsn: string; team: Team; objectiveId: string; evidence: string; droppedAt: string; submittedAt: string; status: 'pending' | 'approved' | 'rejected'; reviewer: string | null; reviewedAt: string | null; reason: string };
@@ -63,6 +65,7 @@ export type WarshipGame = {
   teamDraft?: SeaTeamDraw; teamAssignment?: SeaTeamDraw; drawLog?: SeaDrawLog[];
   reveal?: SeaReveal;
   manualLinkUsers?: string[];
+  briefingRules?: SeaRule[];
 };
 export function shipCells(p: Placement): number[] {
   const length = FLEET[p.ship]?.length;
@@ -95,10 +98,15 @@ export function warshipView(g: WarshipGame, actor: WarshipActor | null, now = Da
   const locked = revealLocked(g, now);
   const ownTeam = locked ? null : me?.team ?? null;
   const reveal = g.status === 'finished';
+  const presentation = revealView(g, !!actor, now, !!actor?.staff);
+  const visibleDrops = presentation?.briefing?.slides?.filter(s => s.kind === 'drop').map(s => s.id);
+  const config = visibleDrops && !actor?.staff ? { ...g.config, objectives: g.config.objectives.filter(o => visibleDrops.includes(o.id)) } : g.config;
   return {
-    id: g.id, revision: g.revision, config: g.config, status: g.status, published: g.published, createdAt: g.createdAt,
+    id: g.id, revision: g.revision, config, status: g.status, published: g.published, createdAt: g.createdAt,
     startedAt: g.startedAt, finishedAt: g.finishedAt, winner: g.winner, finishReason: g.finishReason,
-    serverTime: new Date(now).toISOString(), reveal: revealView(g, !!actor, now), fleetAccessLocked: locked,
+    serverTime: new Date(now).toISOString(), reveal: presentation, fleetAccessLocked: locked,
+    canEditRules: !!actor?.admin,
+    briefingRules: actor?.staff ? g.briefingRules || defaultSeaRules() : [],
     linkedPlayer: me ? { playerId: me.playerId || null, rsn: me.rsn, automatic: me.linkMethod === 'automatic' } : null,
     lobbyPlayers: actor && g.teamAssignment ? g.crew.map(p => ({ playerId: p.playerId!, rsn: p.rsn, linked: !!p.userId })).sort((a, b) => a.rsn.localeCompare(b.rsn)) : [],
     myTeam: ownTeam, canManage: !!actor?.staff, canCaptain: !locked && !!me?.captain, signedIn: !!actor,
