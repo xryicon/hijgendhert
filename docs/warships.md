@@ -106,13 +106,16 @@ Clanbeheer → Clanactiviteiten → Zeeslag Bingo beheren. Het bestaande, uitges
 
 ## Boss drops en schoten
 
-- Alleen bemanningsleden kunnen drops indienen, met een tijdstip op secondenniveau
+- Alleen bemanningsleden kunnen drops indienen. Discord-screenshots met een dropnaam
+  worden via Apps → Zeeslag-drop gekoppeld; zie [zeeslag-bewijs.md](zeeslag-bewijs.md).
+  De bestaande bewijslinks blijven bruikbaar, met een tijdstip op secondenniveau
   en een HTTPS-bewijslink naar een Discord-bericht, Discord-afbeelding of i.imgur.com.
-  De link wordt nooit door de server opgehaald. Staff controleert de speler,
+  De link wordt nooit door de server opgehaald. Een Admin controleert de speler,
   het item en het moment; er is geen automatische RuneLite- of WOM-dropdetectie.
 - Alleen drops tijdens het actieve event tellen. Dezelfde bewijs-URL kan niet
   worden hergebruikt, ook niet met een andere querystring. Eén bewijs per drop.
   Afwijzingen hebben een reden; goedgekeurde beloningen zijn definitief.
+- Alleen de Discord-rol Admin mag dropbewijs goedkeuren of afwijzen.
 - Een goedkeuring levert de ingestelde munitie op. Alleen de teamkapitein vuurt.
   Een schot kost één munitie en een vak kan maar eenmaal beschoten worden. Teams
   hoeven niet op hun beurt te wachten en kunnen schoten bewaren.
@@ -142,7 +145,9 @@ aan. De server accepteert geen team, status, rol of beloning uit clientclaims.
 `warshipView()` maakt een expliciete gegevensselectie: geen vijandelijke posities
 in HTML, JSON of clientcode. Alleen het eigen team ziet de eigen vloot tijdens het
 event; ook staff heeft geen extra inzage. Gezonken schepen worden zichtbaar.
-Bewijslinks zijn uitsluitend zichtbaar voor het eigen team en staff. Publieke
+Wachtende, afgewezen en nog ongebruikte bewijslinks zijn uitsluitend zichtbaar
+voor het eigen team en staff. Goedgekeurd bewijs dat een schot heeft betaald,
+kan ook door de andere ingedeelde ploeg worden bekeken via dat beschoten vak. Publieke
 bezoekers ontvangen geen Discord-ID's, bewijslinks, aanvragen of beheerlog.
 Alle pagina-/API-antwoorden zijn private/no-store.
 

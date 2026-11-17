@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, generateKeyPairSync, sign } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -9,19 +9,21 @@ import path from 'node:path';
 const requireWrangler = createRequire(import.meta.resolve('wrangler/package.json'));
 const { build } = requireWrangler('esbuild'), { Miniflare } = requireWrangler('miniflare');
 const root = fileURLToPath(new URL('../', import.meta.url));
-const source = `import {warshipRoute} from './lib/warship-route'; import {seal,discordConfig} from './lib/discord-auth'; import {ClanWarships as BaseWarships} from './worker/clan-warships';
+const pair=generateKeyPairSync('ed25519');
+const proofChannel='555555555555555555';
+const source = `import {warshipRoute} from './lib/warship-route'; import {seal,discordConfig,discordInteraction} from './lib/discord-auth'; import {ClanWarships as BaseWarships} from './worker/clan-warships';
 export class ClanWarships extends BaseWarships {
   async shiftReveal(id, elapsed) { const row=this.ctx.storage.sql.exec('SELECT data FROM sea_games WHERE id = ?',id).toArray()[0]; const g=JSON.parse(row.data); const duration=Date.parse(g.reveal.opensAt)-Date.parse(g.reveal.at); g.reveal.at=new Date(Date.now()-elapsed).toISOString();g.reveal.opensAt=new Date(Date.parse(g.reveal.at)+duration).toISOString();this.ctx.storage.sql.exec('UPDATE sea_games SET data = ? WHERE id = ?',JSON.stringify(g),id);await this.ctx.storage.deleteAlarm(); }
   async inspectReveal(id) { const row=this.ctx.storage.sql.exec('SELECT data FROM sea_games WHERE id = ?',id).toArray()[0]; const g=JSON.parse(row.data);return {alarm:await this.ctx.storage.getAlarm(),reveal:g.reveal,revision:g.revision,audit:g.audit,briefingRules:g.briefingRules,teamAssignment:g.teamAssignment,crew:g.crew,fleets:g.fleets}; }
   repeatAlarm() {return this.alarm();}
 }
-export default { async fetch(request,env) { const url=new URL(request.url); const stub=env.WARSHIPS.getByName('clan:7059'); if(url.pathname==='/__fixture') {const id=url.searchParams.get('id'); return new Response(await seal(discordConfig(env),'session',{accessToken:'test-access-'+id,userId:id,expiresAt:Date.now()+3600000}));} if(url.pathname==='/__reveal-time'){const b=await request.json();await stub.shiftReveal(b.id,b.elapsed);await stub.repeatAlarm();return new Response('ok');} if(url.pathname==='/__reveal-inspect')return Response.json(await stub.inspectReveal(url.searchParams.get('id')));if(url.pathname==='/__reveal-alarm'){await stub.repeatAlarm();return new Response('ok');} return await warshipRoute(request,env) || new Response('Not found',{status:404}); } };`;
+export default { async fetch(request,env) { const url=new URL(request.url); const stub=env.WARSHIPS.getByName('clan:7059'); if(url.pathname==='/__fixture') {const id=url.searchParams.get('id'); return new Response(await seal(discordConfig(env),'session',{accessToken:'test-access-'+id,userId:id,expiresAt:Date.now()+3600000}));} if(url.pathname==='/__reveal-time'){const b=await request.json();await stub.shiftReveal(b.id,b.elapsed);await stub.repeatAlarm();return new Response('ok');} if(url.pathname==='/__reveal-inspect')return Response.json(await stub.inspectReveal(url.searchParams.get('id')));if(url.pathname==='/__reveal-alarm'){await stub.repeatAlarm();return new Response('ok');} if(url.pathname==='/api/discord/interactions')return discordInteraction(request,env);return await warshipRoute(request,env) || new Response('Not found',{status:404}); } };`;
 const bundle = await build({ stdin: { contents: source, resolveDir: root, loader: 'ts' }, bundle: true, write: false, format: 'esm', platform: 'neutral', target: 'es2022', external: ['node:crypto', 'cloudflare:workers'] });
 const pure = await build({ entryPoints: [path.join(root, 'lib/warships.ts')], bundle: true, write: false, format: 'esm', platform: 'node' });
 const { validFleet, shipCells, warshipView, finishAtDeadline, starterDrops, warshipActionSchema } = await import(`data:text/javascript;base64,${Buffer.from(pure.outputFiles[0].text).toString('base64')}`);
 const origin = 'https://clan.example';
 const ids = { staff: '1197327572720169001', a: '1197327572720169002', b: '1197327572720169003', spectator: '1197327572720169004', admin: '1197327572720169005' };
-const env = { APP_ORIGIN: origin, DISCORD_CLIENT_ID: '1569436253043167305', DISCORD_CLIENT_SECRET: 'test-only-client-secret', DISCORD_SESSION_SECRET: randomBytes(32).toString('base64url'), DISCORD_GUILD_ID: '1073630238115897455', DISCORD_MEMBER_ROLE_IDS: '1326459850837987430,1408990525180084265,1197327572720169030' };
+const env = { DISCORD_PUBLIC_KEY:pair.publicKey.export({type:'spki',format:'der'}).subarray(-32).toString('hex'),DISCORD_BOT_TOKEN:'test-only-bot-token',APP_ORIGIN: origin, DISCORD_CLIENT_ID: '1569436253043167305', DISCORD_CLIENT_SECRET: 'test-only-client-secret', DISCORD_SESSION_SECRET: randomBytes(32).toString('base64url'), DISCORD_GUILD_ID: '1073630238115897455', DISCORD_MEMBER_ROLE_IDS: '1326459850837987430,1408990525180084265,1197327572720169030' };
 const fleet = [{ ship: 0, cell: 0, vertical: false }, { ship: 1, cell: 16, vertical: false }, { ship: 2, cell: 32, vertical: false }, { ship: 3, cell: 48, vertical: false }];
 const womPlayers = [900, 100, 700, 300, null].map((ehb, i) => ({ id: 101 + i, username: `hert ${i + 1}`, displayName: `Hert ${i + 1}`, ehb, updatedAt: '2026-11-16T12:00:00Z' }));
 function runtime(options = {}) {
@@ -32,6 +34,16 @@ function runtime(options = {}) {
       return options.womUnavailable ? new Response('Unavailable', { status: 503 }) : Response.json({ id: 7059, memberships: womPlayers.map(player => ({ player })) });
     }
     assert.equal(new URL(request.url).origin, 'https://discord.com');
+    if(request.headers.get('Authorization')==='Bot '+env.DISCORD_BOT_TOKEN) {
+      const url=new URL(request.url);
+      if(url.pathname.endsWith('/commands')) { options.commandRegistrations=(options.commandRegistrations||0)+1;assert.deepEqual(await request.json(),{name:'Zeeslag-drop',type:3});return Response.json({id:'777777777777777777'}); }
+      if(url.pathname==='/api/v10/channels/'+proofChannel)return Response.json({id:proofChannel,guild_id:options.foreignChannel?'999999999999999999':env.DISCORD_GUILD_ID,type:0});
+      if(url.searchParams.has('limit'))return Response.json([]);
+      options.proofReads=(options.proofReads||0)+1;
+      if(options.proofError)return Response.json({retry_after:120},{status:options.proofError,headers:{'Retry-After':'120'}});
+      const message=options.discordMessages?.[url.pathname.split('/').at(-1)];
+      return message?Response.json(message):Response.json({error:'missing'},{status:404});
+    }
     const id = request.headers.get('Authorization').replace('Bearer test-access-', '');
     return Response.json({ nick: options.members?.[id]?.nick, user: { id, username: options.members?.[id]?.username || (id === ids.staff ? 'Havenmeester' : `Hert${id.slice(-1)}`) }, roles: options.revoked ? [] : [id === ids.admin ? '1197327572720169030' : id === ids.staff ? '1408990525180084265' : '1326459850837987430'] });
   } });
@@ -66,7 +78,7 @@ async function fixture(mf) {
   };
   let evidence = 0;
   const claim = async (who = 'a') => action(who, 'claim', { objectiveId: game.config.objectives[0].id, evidence: `https://discord.com/channels/111/222/${++evidence}`, droppedAt: new Date().toISOString() });
-  const approve = async () => { const result = await request('staff', `/api/warships?id=${game.id}`); game = result.data.game; return action('staff', 'review', { claimId: game.claims.at(-1).id, approve: true, reason: '' }); };
+  const approve = async () => { const result = await request('staff', `/api/warships?id=${game.id}`); game = result.data.game; return action('admin', 'review', { claimId: game.claims.at(-1).id, approve: true, reason: '' }); };
   const refresh = async () => { game = (await request('staff', `/api/warships?id=${game.id}`)).data.game; return game; };
   return { cookies, request, action, create, start, claim, approve, refresh, get game() { return game; } };
 }
@@ -575,4 +587,105 @@ test('an overlong briefing is rejected atomically and custom rules survive a res
     const g=(await next.request('admin','/api/warships?id='+id)).data.game;
     assert.deepEqual(g.briefingRules,customRules); assert.deepEqual(g.reveal.briefing.slides,before.reveal.slides);
   } finally {await mf.dispose(); assert.ok(path.resolve(persist).startsWith(path.resolve(tmpdir())+path.sep+'hh-warships-'));await rm(persist,{recursive:true,force:true});}
+});
+
+
+let messageId=800000000000000000n;
+function screenshotMessage(author=ids.a,patch={}) {
+  const id=String(++messageId),attachmentId=String(++messageId);
+  return {id,channel_id:proofChannel,timestamp:new Date().toISOString(),content:'Tanzanite fang',author:{id:author,username:'Testhert'},attachments:[{id:attachmentId,filename:'drop.png',content_type:'image/png',size:100,url:'https://cdn.discordapp.com/attachments/'+proofChannel+'/'+attachmentId+'/drop.png?ex='+Math.floor((Date.now()+3600000)/1000).toString(16)}],...patch};
+}
+async function seaInteraction(mf,who,data,extra={}) {
+  const timestamp=String(Math.floor(Date.now()/1000));
+  const value={id:String(++messageId),type:2,application_id:env.DISCORD_CLIENT_ID,guild_id:env.DISCORD_GUILD_ID,channel_id:proofChannel,member:{roles:[who==='admin'?'1197327572720169030':who==='staff'?'1408990525180084265':'1326459850837987430'],user:{id:ids[who],username:who}},data,...extra};
+  const body=JSON.stringify(value),signature=sign(null,Buffer.from(timestamp+body),pair.privateKey).toString('hex');
+  const r=await mf.dispatchFetch(origin+'/api/discord/interactions',{method:'POST',headers:{'X-Signature-Timestamp':timestamp,'X-Signature-Ed25519':signature},body});
+  assert.equal(r.status,200);return r.json();
+}
+const submitScreenshot=(mf,who,message,extra={})=>seaInteraction(mf,who,{name:'Zeeslag-drop',type:3,target_id:message.id,resolved:{messages:{[message.id]:message}}},extra);
+async function proofSetup(f) {
+  const r=await f.request('staff','/api/admin/warships/discord',{revision:0,channelId:proofChannel,enabled:true});
+  assert.equal(r.status,200,JSON.stringify(r.data));
+}
+async function reviewScreenshot(mf,f,claim,who='admin',action='yes',extra={}) {
+  return seaInteraction(mf,who,{custom_id:'hh:sea:'+action+':'+f.game.id+':'+claim.id},{type:3,message:{id:'777777777777777779',author:{id:env.DISCORD_CLIENT_ID}},...extra});
+}
+test('Discord proof settings are staff-only, disabled by default and register only the named command',async()=>{
+  const options={},mf=runtime(options);
+  try{
+    const f=await fixture(mf);
+    assert.equal((await f.request('a','/api/admin/warships/discord')).status,403);
+    const initial=await f.request('staff','/api/admin/warships/discord');assert.equal(initial.data.settings.enabled,false);
+    await proofSetup(f);assert.equal(options.commandRegistrations,1);
+    assert.equal((await f.request('staff','/api/admin/warships/discord',{revision:0,channelId:proofChannel,enabled:false})).status,409);
+    options.foreignChannel=true;
+    assert.equal((await f.request('staff','/api/admin/warships/discord',{revision:1,channelId:proofChannel,enabled:true})).status,400);
+    assert.equal((await f.request('staff','/api/admin/warships/discord')).data.settings.revision,1);
+  }finally{await mf.dispose();}
+});
+test('caption and uploader link to a pending claim, only Admin approves and every spent shot opens the same protected proof',async()=>{
+  const options={discordMessages:{}},mf=runtime(options);
+  try{
+    const f=await fixture(mf);await f.start();await proofSetup(f);
+    const message=screenshotMessage();options.discordMessages[message.id]=message;
+    const submitted=await submitScreenshot(mf,'a',message);assert.equal(submitted.type,4);assert.match(submitted.data.embeds[0].description,/Wacht op een admin/);
+    await f.refresh();assert.equal(f.game.claims.length,1);const claim=f.game.claims[0];assert.equal(claim.rsn,'Hert a');assert.equal(claim.status,'pending');assert.equal(f.game.teams[0].ammo,0);
+    await submitScreenshot(mf,'a',message);await f.refresh();assert.equal(f.game.claims.length,1);
+    const endpoint='/api/warships/evidence?gameId='+f.game.id+'&claimId='+claim.id;
+    assert.equal((await f.request('b',endpoint)).status,404);assert.equal((await f.request('a',endpoint)).status,200);
+    assert.equal((await reviewScreenshot(mf,f,claim,'staff')).data.flags,64);
+    await f.action('staff','review',{claimId:claim.id,approve:true,reason:''},403);
+    const reviewed=await reviewScreenshot(mf,f,claim);assert.equal(reviewed.type,7);
+    await f.refresh();assert.equal(f.game.teams[0].ammo,5);
+    await reviewScreenshot(mf,f,claim);await f.refresh();assert.equal(f.game.teams[0].ammo,5);
+    assert.equal((await f.request('b',endpoint)).status,404,'Unspent approved proof remains private');
+    for(const cell of [62,63])await f.action('a','fire',{cell});
+    for(const cell of [62,63]){
+      const evidence=await f.request('b','/api/warships/evidence?gameId='+f.game.id+'&team=0&cell='+cell);
+      assert.equal(evidence.status,200);assert.equal(evidence.data.proof.claimId,claim.id);assert.equal(evidence.data.proof.reviewer,'admin');
+    }
+    assert.equal((await f.request(null,endpoint)).status,401);assert.equal((await f.request('spectator',endpoint)).status,404);
+    const publicGame=(await f.request(null,'/api/warships?id='+f.game.id)).data.game;assert.ok(publicGame.shots.every(s=>!('claimId'in s)));assert.ok(!JSON.stringify(publicGame).includes(message.id));
+    for(const who of ['a','b']){
+      const image=await mf.dispatchFetch(origin+'/api/warships/proof?gameId='+f.game.id+'&claimId='+claim.id,{headers:{Cookie:f.cookies[who]},redirect:'manual'});
+      assert.equal(image.status,302);assert.equal(image.headers.get('Location'),message.attachments[0].url);assert.match(image.headers.get('Cache-Control'),/no-store/);
+    }
+    assert.equal(options.proofReads,1,'Signed attachment URLs are refreshed once and reused briefly');
+  }finally{await mf.dispose();}
+});
+test('unknown drops, other users uploads, wrong channels, bot messages and unsafe attachments never earn claims',async()=>{
+  const mf=runtime();
+  try{
+    const f=await fixture(mf);await f.start();await proofSetup(f);
+    const message=screenshotMessage();
+    for(const [who,m,extra] of [
+      ['a',{...message,content:'some drop'},{}],
+      ['b',message,{}],
+      ['a',message,{channel_id:'999999999999999999'}],
+      ['a',{...message,author:{...message.author,bot:true}},{}],
+      ['a',{...message,timestamp:new Date(Date.now()-86400000).toISOString()},{}],
+      ['a',{...message,attachments:[{...message.attachments[0],url:'https://evil.example/a.png'}]},{}],
+      ['a',{...message,attachments:[{...message.attachments[0],content_type:'image/svg+xml'}]},{}],
+      ['a',{...message,attachments:[{...message.attachments[0],size:9*1024*1024}]},{}],
+    ]){const r=await submitScreenshot(mf,who,m,extra);assert.equal(r.data.flags,64);await f.refresh();assert.equal(f.game.claims.length,0);}
+    const source=screenshotMessage();await submitScreenshot(mf,'admin',source);await f.refresh();assert.equal(f.game.claims[0].userId,ids.a,'Admin import retains original uploader');
+    const rejected=await reviewScreenshot(mf,f,f.game.claims[0],'admin','reject',{type:5,data:{custom_id:'hh:sea:reject:'+f.game.id+':'+f.game.claims[0].id,components:[{components:[{custom_id:'reason',value:'Naam op het bewijs klopt niet.'}]}]}});
+    assert.equal(rejected.type,7);await f.refresh();assert.equal(f.game.claims[0].status,'rejected');assert.equal(f.game.teams[0].ammo,0);
+  }finally{await mf.dispose();}
+});
+test('Discord proof, shot links and channel settings persist; removed images and rate limits fail clearly',async()=>{
+  const persist=await mkdtemp(path.join(tmpdir(),'hh-warships-')),options={persist,discordMessages:{}};let mf=runtime(options);
+  try{
+    const f=await fixture(mf);await f.start();await proofSetup(f);
+    const message=screenshotMessage();await submitScreenshot(mf,'a',message);await f.refresh();const claim=f.game.claims[0],id=f.game.id;
+    await reviewScreenshot(mf,f,claim);await f.refresh();await f.action('a','fire',{cell:63});
+    await mf.dispose();mf=runtime(options);const next=await fixture(mf);
+    assert.equal((await next.request('staff','/api/admin/warships/discord')).data.settings.channelId,proofChannel);
+    assert.equal((await next.request('b','/api/warships/evidence?gameId='+id+'&team=0&cell=63')).data.proof.claimId,claim.id);
+    const endpoint='/api/warships/proof?gameId='+id+'&claimId='+claim.id;
+    assert.equal((await next.request('b',endpoint)).status,404);
+    options.proofError=429;
+    assert.equal((await next.request('b',endpoint)).status,503);const reads=options.proofReads;
+    assert.equal((await next.request('b',endpoint)).status,503);assert.equal(options.proofReads,reads);
+  }finally{await mf.dispose();assert.ok(path.resolve(persist).startsWith(path.resolve(tmpdir())+path.sep+'hh-warships-'));await rm(persist,{recursive:true,force:true});}
 });

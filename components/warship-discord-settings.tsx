@@ -1,0 +1,16 @@
+'use client';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Camera, Check } from 'lucide-react';
+import { EMPTY_SEA_DISCORD, type SeaDiscordSettings } from '@/lib/warship-proof';
+type State={settings:SeaDiscordSettings;botConfigured:boolean};
+export default function WarshipDiscordSettings() {
+  const [state,setState]=useState<State|null>(null),[settings,setSettings]=useState(EMPTY_SEA_DISCORD),[error,setError]=useState(''),[saved,setSaved]=useState(false),[busy,setBusy]=useState(false);
+  async function load(body?:SeaDiscordSettings) { const r=await fetch('/api/admin/warships/discord',{cache:'no-store',signal:AbortSignal.timeout(20000),...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});const data=await r.json() as State & {error?:string};if(!r.ok)throw Error(data.error||'Instellingen konden niet worden geladen.');setState(data);setSettings(data.settings); }
+  useEffect(()=>{void load().catch(e=>setError(e.message));},[]);
+  async function save(e:FormEvent) {e.preventDefault();setBusy(true);setSaved(false);setError('');try{await load(settings);setSaved(true);}catch(e){setError(e instanceof Error?e.message:'Probeer opnieuw.');}finally{setBusy(false);}}
+  return <div className="sea-discord-settings"><div className="clan-admin-section-title"><Camera size={24}/><div><h2>Zeeslag · screenshotbewijs</h2><p>Dropnaam en screenshot in Discord. Na goedkeuring telt de drop mee op de website.</p></div></div>
+    <ol><li>Plaats één screenshot met de volledige dropnaam, bijvoorbeeld <strong>Tanzanite fang</strong>. Zet bij een gedeelde drop ook de bossnaam erbij.</li><li>Open het menu van het bericht → <strong>Apps → Zeeslag-drop</strong>. De bot koppelt de dropnaam en het Discordaccount automatisch.</li><li>Een <strong>Admin</strong> kiest Goedkeuren of Afwijzen. Daarna verdient het team munitie en kan de tegenstander het gebruikte bewijs via een beschoten vak bekijken.</li></ol>
+    <form onSubmit={save}><fieldset disabled={busy||!state}><label>Bewijskanaal-ID<input inputMode="numeric" pattern="[0-9]{17,20}" placeholder="Later instellen" value={settings.channelId} onChange={e=>{setSettings({...settings,channelId:e.target.value.trim()});setSaved(false);}}/></label><label className="sync-switch"><input type="checkbox" checked={settings.enabled} onChange={e=>{setSettings({...settings,enabled:e.target.checked});setSaved(false);}}/><span>{settings.enabled?'Ingeschakeld':'Uitgeschakeld'}</span></label><p className="admin-date-note">Bij inschakelen wordt het commando automatisch toegevoegd. De bot heeft Kanaal bekijken, Berichten verzenden, Links insluiten en Berichtgeschiedenis lezen nodig. Bewaar de oorspronkelijke screenshotberichten: Discord is de opslag.</p>{state&&!state.botConfigured&&<p className="admin-date-note">Voeg eerst DISCORD_BOT_TOKEN toe in Cloudflare. Het kanaal kun je alvast bewaren.</p>}<button className="button gold" type="submit">{busy?'Opslaan…':'Bewijskanaal bewaren'}</button></fieldset></form>
+    {error&&<p className="clan-admin-feedback error" role="alert">{error} <button type="button" onClick={()=>void load().then(()=>setError('')).catch(e=>setError(e.message))}>Opnieuw laden</button></p>}{saved&&<p className="clan-admin-feedback" role="status"><Check size={16}/> Instellingen opgeslagen.</p>}
+  </div>;
+}

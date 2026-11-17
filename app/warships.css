@@ -239,3 +239,29 @@
 @media(max-width:390px){.sea-hero-copy{padding-right:0}.sea-hero-mark{display:none}.sea-tabs>button svg{display:none}.sea-rule-edit-fields{grid-template-columns:1fr}.sea-drop-rewards>span{font-size:9px;gap:5px;padding:8px}.sea-rule-slide>p{font-size:12px;line-height:1.6}}
 @media(max-height:570px){.sea-drop-slide .sea-rule-emblem{width:55px;height:55px;margin-bottom:7px}.sea-drop-slide .metric-image{width:42px!important;height:42px!important}.sea-drop-rewards{margin:10px 0}.sea-drop-rewards>span{padding:7px 12px;font-size:10px}.sea-drop-rewards strong{font-size:19px}.sea-rule-slide>.sea-drop-proof{font-size:9px}.sea-intro-track{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.sea-team-progress>span{transition:none}}
+
+/* Proof is opened from a spent shot; aiming remains a separate action. */
+.sea-cell.has-evidence{cursor:pointer!important}
+.sea-cell.has-evidence:hover{border-color:#ddbe80;box-shadow:inset 0 0 16px #d4b47722}
+.sea-proof-mark{position:absolute;right:4px;bottom:2px;font-size:10px;line-height:1;color:#d9c595}
+.sea-proof-dialog{box-sizing:border-box;width:min(960px,calc(100vw - 30px));max-height:calc(100dvh - 30px);padding:0;border:1px solid #bea16b70;border-radius:6px;background:#111d16;color:#daceb1;box-shadow:0 24px 90px #0009;overflow:auto}
+.sea-proof-dialog::backdrop{background:#050b08dc;backdrop-filter:blur(5px)}
+.sea-proof-content{padding:25px 28px}
+.sea-proof-content>header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-bottom:20px;border-bottom:1px solid #b9a16b33}
+.sea-proof-content small{font-size:8px;letter-spacing:1.8px;color:#bca372}
+.sea-proof-content h2{font:24px/1.3 Cinzel,Georgia,serif;margin:9px 0 0;color:#e6d7b5}
+.sea-proof-content button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;background:#23301d;border:1px solid #bca16b44;border-radius:3px;color:#d4bc87;cursor:pointer}
+.sea-proof-content button:focus-visible,.sea-proof-content a:focus-visible{outline:2px solid #e7c589;outline-offset:3px}
+.sea-proof-subject{display:flex;align-items:center;gap:16px;padding:21px 0}
+.sea-proof-subject>div{flex:1;min-width:0}.sea-proof-subject h3{font:19px/1.4 Cinzel,Georgia,serif;color:#e1cda1;margin:7px 0}.sea-proof-subject p{font-size:11px;color:#a8b69b;margin:0}
+.sea-proof-status{display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid #bfa36b3d;font-size:10px;color:#c4ae7b;background:#7c66221a;border-radius:3px}
+.sea-proof-status.approved{color:#b7d0a2;border-color:#a5bf7a40;background:#29421b55}.sea-proof-status.rejected{color:#dfab93;background:#54281c44}
+.sea-proof-image{min-height:180px;display:grid;place-items:center;border:1px solid #ab98632d;background:#070e0b;border-radius:4px;overflow:hidden}
+.sea-proof-image>img{display:block;width:100%;max-height:58dvh;object-fit:contain}
+.sea-proof-image>div{text-align:center;max-width:460px;padding:35px 25px}.sea-proof-image svg{margin:0 auto;color:#a48b5b}.sea-proof-image p,.sea-proof-empty{font-size:12px;line-height:1.8;color:#a6b49a}
+.sea-proof-empty{text-align:center;padding:50px 25px}.sea-proof-empty>svg{margin:0 auto 15px;color:#bca16b}
+.sea-proof-meta{display:flex;flex-wrap:wrap;gap:20px 30px;margin:20px 0}.sea-proof-meta dt{font-size:9px;color:#8fa184;margin-bottom:7px}.sea-proof-meta dd{font-size:12px;color:#d1c7aa;margin:0}
+.sea-proof-reason{font-size:12px;line-height:1.7;border-left:2px solid #bba16b;padding:10px 15px;background:#25311d66}
+.sea-proof-content footer{display:flex;align-items:center;justify-content:space-between;gap:18px;border-top:1px solid #b9a16b33;padding-top:18px;font-size:10px;line-height:1.7;color:#8f9f82}.sea-proof-content footer>a{display:inline-flex;align-items:center;gap:7px;flex-shrink:0;color:#d8bd84;text-decoration:underline;text-underline-offset:4px}
+.sea-discord-settings>ol{display:grid;gap:12px;padding-left:20px;font-size:12px;line-height:1.8;color:#aeb79e;margin:20px 0 28px}.sea-discord-settings>ol strong{color:#d5c396;font-weight:500}.sea-discord-settings form{max-width:650px}
+@media(max-width:640px){.sea-proof-content{padding:18px}.sea-proof-content h2{font-size:21px}.sea-proof-subject{flex-wrap:wrap;gap:12px}.sea-proof-status{margin-left:60px}.sea-proof-content footer{align-items:flex-start;flex-direction:column}.sea-proof-image>img{max-height:48dvh}.sea-proof-content small{letter-spacing:1px}.sea-proof-mark{font-size:8px;right:2px}}

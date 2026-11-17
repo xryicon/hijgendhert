@@ -12,6 +12,8 @@ export type DiscordEnv = {
   DISCORD_GUILD_ID?: string;
   DISCORD_MEMBER_ROLE_IDS?: string;
   DISCORD_PUBLIC_KEY?: string;
+  DISCORD_BOT_TOKEN?: string;
+  WARSHIPS?: DurableObjectNamespace<import('../worker/clan-warships').ClanWarships>;
   DISCORD_SESSION_SECRET?: string;
   PROGRESS?: DurableObjectNamespace<ClanProgress>;
   DISCORD_SYNC?: DurableObjectNamespace<import('../worker/clan-discord').ClanDiscord>;
@@ -370,7 +372,8 @@ export async function discordInteraction(request: Request, env: DiscordEnv, now 
     const key = await crypto.subtle.importKey('raw', new Uint8Array(Buffer.from(publicKey, 'hex')), 'Ed25519', false, ['verify']);
     const valid = await crypto.subtle.verify('Ed25519', key, new Uint8Array(Buffer.from(signature, 'hex')), new Uint8Array(Buffer.concat([Buffer.from(timestamp), body])));
     if (!valid) return json({ error: 'Invalid signature' }, 401);
-    const interaction = z.object({ id: snowflake.optional(), type: z.number().int(), application_id: snowflake, guild_id: snowflake.optional(), channel_id: snowflake.optional(), message: z.object({ id: snowflake }).optional(), data: z.object({ name: z.string().optional(), custom_id: z.string().max(100).optional() }).optional(), member: memberSchema.optional() }).safeParse(JSON.parse(body.toString('utf8')));
+    const rawInteraction = JSON.parse(body.toString('utf8'));
+    const interaction = z.object({ id: snowflake.optional(), type: z.number().int(), application_id: snowflake, guild_id: snowflake.optional(), channel_id: snowflake.optional(), message: z.object({ id: snowflake }).optional(), data: z.object({ name: z.string().optional(), custom_id: z.string().max(100).optional() }).optional(), member: memberSchema.optional() }).safeParse(rawInteraction);
     if (!interaction.success || interaction.data.application_id !== env.DISCORD_CLIENT_ID) return json({ error: 'Invalid application' }, 400);
     if (interaction.data.type === 1) return json({ type: 1 });
     const config = discordConfig(env);
@@ -378,6 +381,13 @@ export async function discordInteraction(request: Request, env: DiscordEnv, now 
     const command = interaction.data;
     if (command.guild_id !== config.guildId) return ephemeral('Dit commando hoort bij de Discord-server van Hijgend Hert.');
     if (command.member?.pending || !config.roleIds.some(id => command.member?.roles.includes(id))) return ephemeral('Voor de ledenomgeving heb je de rol Member, Admin of Staff team nodig. Vraag de clanleiding om hulp als je rol ontbreekt.');
+    if (command.data?.name === 'Zeeslag-drop' || command.data?.custom_id?.startsWith('hh:sea:')) {
+      if (!env.WARSHIPS || !command.member?.user) return ephemeral('Zeeslag is nog niet beschikbaar.');
+      const roles = command.member.roles;
+      const actor = { id: command.member.user.id, name: command.member.nick || command.member.user.global_name || command.member.user.username, username: command.member.user.username, admin: roles.includes('1197327572720169030'), staff: roles.includes('1197327572720169030') || roles.includes('1408990525180084265') };
+      try { return json(await env.WARSHIPS.getByName('clan:7059').discordDropInteraction(rawInteraction, actor)); }
+      catch { return ephemeral('De drop kon niet worden bevestigd. Probeer dezelfde actie opnieuw; bewijs wordt nooit dubbel beloond.'); }
+    }
     if (command.type === 3) {
       const match = /^hh:event:(join|leave):([a-f0-9-]{36})$/.exec(command.data?.custom_id || '');
       if (!match || !z.string().uuid().safeParse(match[2]).success || !command.id || !command.channel_id || !command.message || !command.member?.user) return ephemeral('Deze knop is niet geldig. Open het event op de website.');

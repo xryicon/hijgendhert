@@ -1,3 +1,7 @@
+import { z } from 'zod';
+import { discordBotRequest, DeliveryError } from '../lib/discord-delivery';
+import { EMPTY_SEA_DISCORD, seaDiscordSettingsSchema, discordDropMessageSchema, discordScreenshotSchema, safeDiscordAttachment, matchDiscordDrop, nextShotClaim, discordClaimCard, type SeaDiscordSettings, type DiscordDropProof } from '../lib/warship-proof';
+import type { DropClaim, Team } from '../lib/warships';
 import { DurableObject } from 'cloudflare:workers';
 import { ammo, evidenceKey, finishAtDeadline, hits, otherTeam, shipCells, validFleet, warshipActionSchema, warshipView, type WarshipActor, type WarshipGame, type WarshipSummary } from '../lib/warships';
 import { balancedTeams, manualTeams, teamBalance, type SeaRoster, type SeaTeamDraw } from '../lib/warship-teams';
@@ -10,6 +14,9 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env);
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS sea_games (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, data TEXT NOT NULL)');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS sea_discord_settings (id INTEGER PRIMARY KEY, data TEXT NOT NULL)');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS sea_proof_cache (id TEXT PRIMARY KEY, url TEXT NOT NULL, expires INTEGER NOT NULL)');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS sea_discord_pause (id INTEGER PRIMARY KEY, until_ms INTEGER NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS sea_requests (id TEXT PRIMARY KEY, actor TEXT NOT NULL, game_id TEXT NOT NULL, payload TEXT NOT NULL)');
   }
   #read(id: string) {
@@ -64,6 +71,132 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
     }
     return { ok: true as const, game: warshipView(g, actor) };
   }
+
+  #addClaim(g: WarshipGame, a: { objectiveId: string; evidence: string; droppedAt: string }, actor: WarshipActor, at: string, discordProof?: DiscordDropProof) {
+    const me = g.crew.find(p => p.userId === actor.id), now = Date.parse(at);
+    if (g.status !== 'active' || !me) return fail(403, 'Alleen ingedeelde deelnemers kunnen tijdens de zeeslag drops melden.');
+    const objective = g.config.objectives.find(o => o.id === a.objectiveId);
+    if (!objective) return fail(400, 'Kies een drop uit deze ronde.');
+    if (g.claims.length >= 500 || g.claims.filter(c => c.userId === actor.id && c.status === 'pending').length >= 10) return fail(409, 'Wacht eerst op de beoordeling van openstaande drops.');
+    if (Date.parse(a.droppedAt) < Math.floor(Date.parse(g.startedAt!) / 1000) * 1000 || Date.parse(a.droppedAt) > now || Date.parse(a.droppedAt) >= Date.parse(g.config.endsAt)) return fail(400, 'Het screenshotbericht moet tijdens dit event geplaatst zijn. Een admin controleert ook het dropmoment in de screenshot.');
+    if (g.claims.some(c => evidenceKey(c.evidence) === evidenceKey(a.evidence) || discordProof && c.discordProof?.attachmentId === discordProof.attachmentId)) return fail(409, 'Dit bewijs is al ingediend. Gebruik één bewijs per drop.');
+    if (g.claims.filter(c => c.team === me.team && c.objectiveId === objective.id && c.status !== 'rejected').length >= objective.limit) return fail(409, 'De limiet voor deze drop is bereikt of wacht op beoordeling.');
+    const claim: DropClaim = { id: crypto.randomUUID(), userId: actor.id, name: actor.name, rsn: me.rsn, team: me.team, objectiveId: objective.id, evidence: a.evidence, droppedAt: a.droppedAt, submittedAt: at, status: 'pending', reviewer: null, reviewedAt: null, reason: '', ...(discordProof ? { discordProof } : {}) };
+    g.claims.push(claim);
+    return { ok: true as const, claim };
+  }
+  getDiscordSettings() {
+    const row = this.ctx.storage.sql.exec<{data: string}>('SELECT data FROM sea_discord_settings WHERE id = 1').toArray()[0];
+    return { settings: row ? JSON.parse(row.data) as SeaDiscordSettings : EMPTY_SEA_DISCORD, botConfigured: !!this.env.DISCORD_BOT_TOKEN };
+  }
+  async saveDiscordSettings(input: unknown) {
+    const parsed = seaDiscordSettingsSchema.safeParse(input);
+    if (!parsed.success) return fail(400, 'Controleer het kanaal-ID en de instellingen.');
+    const value = parsed.data;
+    if (value.revision !== this.getDiscordSettings().settings.revision) return fail(409, 'De instellingen zijn gewijzigd. Laad opnieuw.');
+    if (value.enabled) {
+      if (!this.env.DISCORD_BOT_TOKEN) return fail(400, 'Voeg eerst DISCORD_BOT_TOKEN toe in Cloudflare.');
+      try {
+        const { body } = await discordBotRequest(this.env.DISCORD_BOT_TOKEN, '/channels/' + value.channelId);
+        if (body.guild_id !== this.env.DISCORD_GUILD_ID || Number(body.type) !== 0) return fail(400, 'Kies een tekstkanaal in de Hijgend Hert-server.');
+        await discordBotRequest(this.env.DISCORD_BOT_TOKEN, '/channels/' + value.channelId + '/messages?limit=1');
+        await discordBotRequest(this.env.DISCORD_BOT_TOKEN, '/applications/' + this.env.DISCORD_CLIENT_ID + '/guilds/' + this.env.DISCORD_GUILD_ID + '/commands', {method:'POST',body:JSON.stringify({name:'Zeeslag-drop',type:3})});
+      } catch (error) { return fail(400, error instanceof DeliveryError ? 'Discord kon het kanaal of commando niet bevestigen (HTTP ' + error.status + '). Controleer de botrechten.' : 'De Discord-verbinding is tijdelijk niet beschikbaar.'); }
+    }
+    if (value.revision !== this.getDiscordSettings().settings.revision) return fail(409, 'De instellingen zijn gewijzigd. Laad opnieuw.');
+    this.ctx.storage.sql.exec('INSERT INTO sea_discord_settings VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data', JSON.stringify({...value,revision:value.revision+1}));
+    return {ok:true as const,...this.getDiscordSettings()};
+  }
+  async discordDropInteraction(input: unknown, actor: WarshipActor) {
+    const reply = (content: string) => ({type:4,data:{content,flags:64,allowed_mentions:{parse:[]}}});
+    const snowflake = z.string().regex(/^\d{17,20}$/);
+    const parsed = z.object({ id:snowflake, type:z.number(), application_id:snowflake, guild_id:snowflake, channel_id:snowflake,
+      message:z.object({id:snowflake,author:z.object({id:snowflake})}).optional(),
+      data:z.object({name:z.string().optional(),type:z.number().optional(),target_id:snowflake.optional(),resolved:z.object({messages:z.record(z.unknown()).optional()}).optional(),custom_id:z.string().max(100).optional(),components:z.array(z.object({components:z.array(z.object({custom_id:z.string(),value:z.string().max(200)}))})).optional()})
+    }).safeParse(input);
+    if (!parsed.success) return reply('Ongeldige Zeeslag-actie.');
+    const i = parsed.data, settings = this.getDiscordSettings();
+    if (!settings.settings.enabled || !settings.botConfigured) return reply('Zeeslag-bewijs staat nog uit. Laat de clanleiding eerst het kanaal instellen.');
+    if (i.application_id !== this.env.DISCORD_CLIENT_ID || i.guild_id !== this.env.DISCORD_GUILD_ID || i.channel_id !== settings.settings.channelId) return reply('Gebruik het ingestelde Zeeslag-bewijskanaal.');
+    if (i.type === 2 && i.data.type === 3 && i.data.name === 'Zeeslag-drop') {
+      const message = discordDropMessageSchema.safeParse(i.data.resolved?.messages?.[i.data.target_id || '']);
+      if (!message.success) return reply('Plaats één PNG-, JPG- of WebP-screenshot (max. 8 MB) en zet de volledige dropnaam in het bericht. Kies daarna Apps → Zeeslag-drop.');
+      const m = message.data, attachment = m.attachments[0];
+      if (m.id !== i.data.target_id || m.channel_id !== i.channel_id || m.author.bot || attachment.ephemeral || !safeDiscordAttachment(attachment.url, m.channel_id, attachment.id)) return reply('Gebruik een echt screenshotbericht van een deelnemer in dit kanaal.');
+      if (m.author.id !== actor.id && !actor.admin) return reply('Je kunt alleen je eigen screenshot indienen. Een Admin kan dit voor een deelnemer doen.');
+      const active = this.ctx.storage.sql.exec<{id:string}>('SELECT id FROM sea_games ORDER BY created_at DESC LIMIT 50').toArray().map(r=>this.#read(r.id)!).find(g=>g.published && g.status==='active');
+      if (!active) return reply('Er is momenteel geen actieve zeeslag.');
+      if (m.author.id === actor.id) this.getGame(active.id, actor);
+      const g = this.#read(active.id)!;
+      const old = g.claims.find(c=>c.discordProof?.messageId === m.id && c.discordProof?.channelId === m.channel_id);
+      if (old) return {type:4,data:discordClaimCard(g,old,this.env.APP_ORIGIN!)};
+      const objective = matchDiscordDrop(m.content,g.config.objectives);
+      if (!objective) return reply('De dropnaam is onbekend of niet eenduidig. Gebruik de volledige naam uit Boss drops, eventueel met de bossnaam, en vermeld één drop per bericht.');
+      const proof: DiscordDropProof = {guildId:i.guild_id,channelId:m.channel_id,messageId:m.id,attachmentId:attachment.id,filename:attachment.filename,contentType:attachment.content_type,size:attachment.size,authorId:m.author.id,caption:m.content.slice(0,1000)};
+      const submitter = {id:m.author.id,name:m.author.id===actor.id?actor.name:m.author.global_name||m.author.username,staff:false};
+      const result = this.#addClaim(g,{objectiveId:objective.id,evidence:'https://discord.com/channels/'+i.guild_id+'/'+m.channel_id+'/'+m.id,droppedAt:m.timestamp},submitter,new Date().toISOString(),proof);
+      if (!result.ok) return reply(result.error);
+      g.revision++; g.audit.push({at:new Date().toISOString(),actor:actor.id,name:actor.name,action:'discord_claim'});
+      this.#save(g);
+      await this.#armAlarm();
+      return {type:4,data:discordClaimCard(g,result.claim,this.env.APP_ORIGIN!)};
+    }
+    if (![3,5].includes(i.type) || i.message?.author.id !== this.env.DISCORD_CLIENT_ID) return reply('Gebruik de knoppen onder een Zeeslag-bewijsbericht.');
+    const match = /^hh:sea:(yes|no|reject):([a-f0-9-]{36}):([a-f0-9-]{36})$/.exec(i.data.custom_id||'');
+    if (!match || !z.string().uuid().safeParse(match[2]).success || !z.string().uuid().safeParse(match[3]).success) return reply('Ongeldige bewijsactie.');
+    if (!actor.admin) return reply('Alleen de Discord-rol Admin kan dit bewijs goedkeuren of afwijzen.');
+    const g = this.#read(match[2]), claim = g?.claims.find(c=>c.id===match[3]);
+    if (!g || !claim?.discordProof || claim.discordProof.channelId !== i.channel_id) return reply('Dit bewijs is niet beschikbaar in dit kanaal.');
+    if (claim.status !== 'pending') return {type:7,data:discordClaimCard(g,claim,this.env.APP_ORIGIN!)};
+    if (match[1] === 'no' && i.type === 3) return {type:9,data:{title:'Drop afwijzen',custom_id:'hh:sea:reject:'+g.id+':'+claim.id,components:[{type:1,components:[{type:4,custom_id:'reason',style:2,label:'Waarom wordt de drop afgewezen?',required:true,min_length:3,max_length:200}]}]}};
+    const approve = match[1] === 'yes' && i.type === 3;
+    const reason = i.data.components?.flatMap(c=>c.components).find(c=>c.custom_id==='reason')?.value.trim() || '';
+    if (!approve && !(match[1] === 'reject' && i.type === 5 && reason.length>=3)) return reply('Vul een reden voor afwijzing in.');
+    const result = await this.mutate({type:'review',gameId:g.id,revision:g.revision,requestId:crypto.randomUUID(),claimId:claim.id,approve,reason:approve?'':reason},actor);
+    if (!result.ok) return reply(result.error);
+    const current = this.#read(g.id)!;
+    return {type:7,data:discordClaimCard(current,current.claims.find(c=>c.id===claim.id)!,this.env.APP_ORIGIN!)};
+  }
+  getEvidence(gameId: string, actor: WarshipActor, query: {claimId?:string;team?:Team;cell?:number}) {
+    const g = this.#read(gameId), me = g?.crew.find(p=>p.userId===actor.id);
+    if (!g || (!actor.staff && (!g.published || !me))) return fail(404,'Dit bewijs is niet beschikbaar.');
+    const shot = query.team !== undefined ? g.shots.find(s=>s.team===query.team&&s.cell===query.cell) : undefined;
+    const claimId = query.team !== undefined ? shot?.claimId : query.claimId;
+    const claim = g.claims.find(c=>c.id===claimId);
+    if (!claim) return fail(404,'Voor dit oudere schot is geen afzonderlijk dropbewijs opgeslagen.');
+    const shared = claim.status==='approved' && g.shots.some(s=>s.claimId===claim.id);
+    if (!actor.staff && me?.team!==claim.team && !shared) return fail(404,'Dit bewijs is nog niet gedeeld met de tegenstander.');
+    const objective = g.config.objectives.find(o=>o.id===claim.objectiveId)!;
+    return {ok:true as const,proof:{claimId:claim.id,rsn:claim.rsn,team:g.config.teams[claim.team],boss:objective.boss,item:objective.item,status:claim.status,reviewer:claim.reviewer,reviewedAt:claim.reviewedAt,droppedAt:claim.droppedAt,reason:claim.reason,sourceUrl:claim.evidence,imageAvailable:!!claim.discordProof,shot:shot?{cell:shot.cell,team:shot.team,result:shot.result,at:shot.at}:null}};
+  }
+  async getScreenshot(gameId:string,claimId:string,actor:WarshipActor) {
+    const access=this.getEvidence(gameId,actor,{claimId});
+    if (!access.ok) return access;
+    const claim=this.#read(gameId)!.claims.find(c=>c.id===claimId)!, proof=claim.discordProof;
+    if (!proof || !this.env.DISCORD_BOT_TOKEN) return fail(404,'Geen Discord-screenshot beschikbaar.');
+    const key=gameId+':'+claimId, now=Date.now();
+    const cached=this.ctx.storage.sql.exec<{url:string;expires:number}>('SELECT url,expires FROM sea_proof_cache WHERE id = ?',key).toArray()[0];
+    if(cached&&cached.expires>now)return {ok:true as const,url:cached.url};
+    const pause=this.ctx.storage.sql.exec<{until_ms:number}>('SELECT until_ms FROM sea_discord_pause WHERE id = 1').toArray()[0];
+    if(pause&&pause.until_ms>now)return fail(503,'Discord is tijdelijk druk. Probeer het bewijs straks opnieuw.');
+    try {
+      const {body,cooldown}=await discordBotRequest(this.env.DISCORD_BOT_TOKEN,'/channels/'+proof.channelId+'/messages/'+proof.messageId);
+      if(cooldown)this.ctx.storage.sql.exec('INSERT INTO sea_discord_pause VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET until_ms = excluded.until_ms',now+cooldown*1000);
+      const owner=z.object({id:z.string()}).safeParse(body.author);
+      const attachment=Array.isArray(body.attachments)?body.attachments.map(a=>discordScreenshotSchema.safeParse(a)).find(a=>a.success&&a.data.id===proof.attachmentId):null;
+      if(body.id!==proof.messageId||body.channel_id!==proof.channelId||!owner.success||owner.data.id!==proof.authorId||!attachment?.success||attachment.data.ephemeral||attachment.data.size!==proof.size||attachment.data.content_type!==proof.contentType||!safeDiscordAttachment(attachment.data.url,proof.channelId,proof.attachmentId))return fail(404,'Het oorspronkelijke screenshot is verwijderd of gewijzigd in Discord.');
+      const ex=new URL(attachment.data.url).searchParams.get('ex');
+      const expiry=ex&&/^[0-9a-f]+$/i.test(ex)?parseInt(ex,16)*1000-60000:now+60000;
+      this.ctx.storage.sql.exec('INSERT INTO sea_proof_cache VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET url = excluded.url, expires = excluded.expires',key,attachment.data.url,Math.min(now+300000,expiry));
+      return {ok:true as const,url:attachment.data.url};
+    } catch(error) {
+      if(error instanceof DeliveryError&&[403,404].includes(error.status))return fail(404,'Het screenshot ontbreekt of de bot heeft geen toegang meer tot het kanaal.');
+      const seconds=error instanceof DeliveryError?error.retrySeconds:30;
+      this.ctx.storage.sql.exec('INSERT INTO sea_discord_pause VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET until_ms = excluded.until_ms',now+seconds*1000);
+      return fail(503,'Discord kan het screenshot even niet laden. Probeer straks opnieuw.');
+    }
+  }
+
   async replay(input: unknown, actor: WarshipActor) {
     const parsed = warshipActionSchema.safeParse(input);
     if (!parsed.success) return fail(400, 'Controleer de invoer.');
@@ -102,6 +235,7 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
         if (['finished', 'cancelled'].includes(g.status)) return fail(409, 'Dit event is afgesloten.');
         const me = g.crew.find(p => p.userId === actor.id);
         const preparing = g.status === 'draft' || g.status === 'setup';
+        if (a.type === 'review' && !actor.admin) return fail(403, 'Alleen een Admin kan dropbewijs goedkeuren of afwijzen.');
         if (a.type === 'set_briefing' && !actor.admin) return fail(403, 'Alleen een Admin kan de introductieregels aanpassen.');
         if (a.type === 'set_briefing' && (!preparing || (g.reveal && now >= Date.parse(g.reveal.at)))) return fail(409, 'De introductie is al begonnen. De regels liggen vast voor deze ronde.');
         if (['edit', 'enrol', 'remove_member', 'captain', 'start', 'force_start', 'review', 'cancel', 'draw_teams', 'manual_teams', 'confirm_teams', 'schedule_reveal', 'cancel_reveal', 'unlink_player'].includes(a.type) && !actor.staff) return fail(403, 'Alleen de clanleiding kan dit aanpassen.');
@@ -184,14 +318,9 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
             if (Date.parse(g.config.endsAt) <= now) return fail(400, 'De eindtijd is verstreken.');
             g.status = 'active'; g.startedAt = at; g.requests = []; break;
           case 'claim': {
-            if (g.status !== 'active' || !me) return fail(403, 'Alleen deelnemers kunnen tijdens de zeeslag drops melden.');
-            const objective = g.config.objectives.find(o => o.id === a.objectiveId);
-            if (!objective) return fail(400, 'Kies een drop uit deze ronde.');
-            if (g.claims.length >= 500 || g.claims.filter(c => c.userId === actor.id && c.status === 'pending').length >= 10) return fail(409, 'Wacht eerst op de beoordeling van openstaande drops.');
-            if (Date.parse(a.droppedAt) < Math.floor(Date.parse(g.startedAt!) / 1000) * 1000 || Date.parse(a.droppedAt) > now || Date.parse(a.droppedAt) >= Date.parse(g.config.endsAt)) return fail(400, 'De drop moet tijdens dit event behaald zijn.');
-            if (g.claims.some(c => evidenceKey(c.evidence) === evidenceKey(a.evidence))) return fail(409, 'Dit bewijs is al ingediend. Gebruik één bewijs per drop.');
-            if (g.claims.filter(c => c.team === me.team && c.objectiveId === objective.id && c.status !== 'rejected').length >= objective.limit) return fail(409, 'De limiet voor deze drop is bereikt of wacht op beoordeling.');
-            g.claims.push({ id: crypto.randomUUID(), userId: actor.id, name: actor.name, rsn: me.rsn, team: me.team, objectiveId: objective.id, evidence: a.evidence, droppedAt: a.droppedAt, submittedAt: at, status: 'pending', reviewer: null, reviewedAt: null, reason: '' }); break;
+            const result = this.#addClaim(g, a, actor, at);
+            if (!result.ok) return result;
+            break;
           }
           case 'review': {
             if (g.status !== 'active') return fail(409, 'De zeeslag is niet actief.');
@@ -206,9 +335,11 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
             if (g.status !== 'active' || !me?.captain) return fail(403, 'Alleen de kapitein kan tijdens de zeeslag vuren.');
             if (ammo(g, me.team) < 1) return fail(409, 'Geen schoten over. Laat eerst een boss-drop goedkeuren.');
             if (g.shots.some(s => s.team === me.team && s.cell === a.cell)) return fail(409, 'Dit vak is al beschoten.');
+            const credit = nextShotClaim(g, me.team);
+            if (!credit) return fail(409, 'Geen goedgekeurd dropbewijs beschikbaar voor dit schot.');
             const target = g.fleets[otherTeam(me.team)].find(p => shipCells(p).includes(a.cell));
             const sunk = target && shipCells(target).every(cell => cell === a.cell || g.shots.some(s => s.team === me.team && s.cell === cell));
-            g.shots.push({ team: me.team, cell: a.cell, result: target ? sunk ? 'sunk' : 'hit' : 'miss', sunkShip: sunk ? target.ship : null, at });
+            g.shots.push({ claimId: credit.id, team: me.team, cell: a.cell, result: target ? sunk ? 'sunk' : 'hit' : 'miss', sunkShip: sunk ? target.ship : null, at });
             if (hits(g, me.team) === 12) { g.status = 'finished'; g.winner = me.team; g.finishedAt = at; g.finishReason = 'De volledige vijandelijke vloot is gezonken.'; }
             break;
           }

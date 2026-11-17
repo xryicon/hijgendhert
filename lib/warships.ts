@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { DiscordDropProof } from './warship-proof';
 import { captainIdsSchema, teamPlayerIds, womPlayerId, teamBalance, type SeaTeamDraw, type SeaDrawLog } from './warship-teams';
 import { revealLocked, revealView, type SeaReveal } from './warship-reveal';
 import { defaultSeaRules, seaRulesSchema, type SeaRule } from './warship-intro';
@@ -55,8 +56,8 @@ export type WarshipAction = z.infer<typeof warshipActionSchema>;
 export type WarshipActor = { id: string; name: string; username?: string; staff: boolean; admin?: boolean };
 export type Crew = { userId: string; name: string; rsn: string; team: Team; captain: boolean; playerId?: number; ehb?: number | null; linkMethod?: 'automatic' | 'staff' };
 export type JoinRequest = Omit<Crew, 'captain'> & { at: string };
-export type DropClaim = { id: string; userId: string; name: string; rsn: string; team: Team; objectiveId: string; evidence: string; droppedAt: string; submittedAt: string; status: 'pending' | 'approved' | 'rejected'; reviewer: string | null; reviewedAt: string | null; reason: string };
-export type SeaShot = { team: Team; cell: number; result: 'hit' | 'miss' | 'sunk'; sunkShip: number | null; at: string };
+export type DropClaim = { id: string; userId: string; name: string; rsn: string; team: Team; objectiveId: string; evidence: string; droppedAt: string; submittedAt: string; status: 'pending' | 'approved' | 'rejected'; reviewer: string | null; reviewedAt: string | null; reason: string; discordProof?: DiscordDropProof };
+export type SeaShot = { team: Team; cell: number; result: 'hit' | 'miss' | 'sunk'; sunkShip: number | null; at: string; claimId?: string };
 export type WarshipGame = {
   id: string; revision: number; config: WarshipConfig; status: 'draft' | 'setup' | 'active' | 'finished' | 'cancelled'; published: boolean;
   createdAt: string; startedAt: string | null; finishedAt: string | null; winner: Team | null; finishReason: string;
@@ -105,7 +106,7 @@ export function warshipView(g: WarshipGame, actor: WarshipActor | null, now = Da
     id: g.id, revision: g.revision, config, status: g.status, published: g.published, createdAt: g.createdAt,
     startedAt: g.startedAt, finishedAt: g.finishedAt, winner: g.winner, finishReason: g.finishReason,
     serverTime: new Date(now).toISOString(), reveal: presentation, fleetAccessLocked: locked,
-    canEditRules: !!actor?.admin,
+    canEditRules: !!actor?.admin, canReview: !!actor?.admin,
     briefingRules: actor?.staff ? g.briefingRules || defaultSeaRules() : [],
     linkedPlayer: me ? { playerId: me.playerId || null, rsn: me.rsn, automatic: me.linkMethod === 'automatic' } : null,
     lobbyPlayers: actor && g.teamAssignment ? g.crew.map(p => ({ playerId: p.playerId!, rsn: p.rsn, linked: !!p.userId })).sort((a, b) => a.rsn.localeCompare(b.rsn)) : [],
@@ -118,7 +119,7 @@ export function warshipView(g: WarshipGame, actor: WarshipActor | null, now = Da
       fleet: reveal || ownTeam === team ? g.fleets[team] : [],
       revealedCells: g.shots.filter(s => s.team === otherTeam(team) && s.sunkShip !== null).flatMap(s => shipCells(g.fleets[team].find(p => p.ship === s.sunkShip)!)),
     })),
-    shots: g.shots, crew: actor && !locked ? g.crew.map(p => ({ ...p, linked: !!p.userId, userId: actor.staff || p.userId === actor.id ? p.userId : '' })) : [],
+    shots: g.shots.map(({ claimId: _proof, ...shot }) => shot), crew: actor && !locked ? g.crew.map(p => ({ ...p, linked: !!p.userId, userId: actor.staff || p.userId === actor.id ? p.userId : '' })) : [],
     requests: actor ? g.requests.filter(r => actor.staff || r.userId === actor.id).map(r => ({ ...r, team: locked ? null : r.team })) : [],
     claims: actor ? g.claims.filter(c => actor.staff || c.team === ownTeam).map(c => ({ ...c, userId: actor.staff || c.userId === actor.id ? c.userId : '' })) : [],
     progress: g.config.objectives.map(o => ({ id: o.id, counts: ([0, 1] as Team[]).map(team => g.claims.filter(c => c.team === team && c.objectiveId === o.id && c.status === 'approved').length) })),
