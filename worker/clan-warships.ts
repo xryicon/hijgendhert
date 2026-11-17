@@ -227,7 +227,7 @@ export class ClanWarships extends DurableObject<Cloudflare.Env> {
             const time = Date.parse(a.at), opens = time + revealDuration(draw.players.length);
             if (time < now + 60000 || time > now + 90 * 86400000 || opens + 60000 >= Date.parse(g.config.endsAt)) return fail(400, 'Plan de loting minstens één minuut vooruit en laat na de onthulling tijd over vóór het eventeinde.');
             this.#assign(g, draw);
-            g.reveal = { drawId: draw.id, at: a.at, opensAt: new Date(opens).toISOString(), headline: a.headline, message: a.message, startedAt: null, completedAt: null, pace: 2 };
+            g.reveal = { drawId: draw.id, at: a.at, opensAt: new Date(opens).toISOString(), headline: a.headline, message: a.message, startedAt: null, completedAt: null, pace: 3 };
             g.published = true; g.status = 'setup';
             break;
           }

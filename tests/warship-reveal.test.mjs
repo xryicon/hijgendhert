@@ -8,10 +8,10 @@ const bundle = await build({ stdin: { contents: `export * from './lib/warship-re
 const { revealDuration, revealView, generateFleet, validFleet } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const at = Date.parse('2026-11-17T12:00:00Z');
 const players = [{ id: 1, rsn: 'Kapitein A', team: 0, captain: true }, { id: 2, rsn: 'Kapitein B', team: 1, captain: true }, { id: 3, rsn: 'Hert A', team: 0, captain: false }];
-const game = pace => ({ status: 'setup', teamAssignment: { mode: 'random', players }, reveal: { drawId: 'test', at: new Date(at).toISOString(), opensAt: new Date(at + (pace === 2 ? revealDuration(3) : 13800)).toISOString(), headline: 'Test', message: 'Test', pace } });
+const game = pace => ({ status: 'setup', teamAssignment: { mode: 'random', players }, reveal: { drawId: 'test', at: new Date(at).toISOString(), opensAt: new Date(at + (pace === 2 ? revealDuration(3, 2) : 13800)).toISOString(), headline: 'Test', message: 'Test', pace } });
 test('cinematic timing gives each name a spotlight and a flight before arrival, including late joins', () => {
   const g = game(2);
-  assert.equal(revealDuration(3), 37000);
+  assert.equal(revealDuration(3, 2), 37000);
   assert.equal(revealView(g, true, at - 1).current, null);
   assert.equal(revealView(g, true, at + 5000).current.id, 1);
   for (const elapsed of [8999, 9000, 11599, 11600, 12699]) assert.deepEqual(revealView(g, true, at + elapsed).revealed, []);

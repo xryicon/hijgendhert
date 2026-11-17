@@ -50,7 +50,8 @@ Clanbeheer → Clanactiviteiten → Zeeslag Bingo beheren. Het bestaande, uitges
   Overige deelnemers kunnen hun WOM-naam kiezen voor controle door staff. De vlakke namenlijst toont geen teams of
   kapiteins. Ook staff ontvangt tijdens de aftelling geen teamindeling uit de API.
   Een nog niet bevestigd voorstel is altijd uitsluitend voor staff zichtbaar.
-- De server bewaart één uitslag en één tijdlijn: vijf seconden introductie,
+- De server bewaart één uitslag en één tijdlijn: eerst zes Nederlandse spelregels
+  met vaste voice-over (70,5 seconden), daarna vijf seconden introductie,
   negen seconden per speler (beide kapiteins eerst), vijf seconden afsluiting.
   Per speler: vier seconden draaien, 2,6 seconden de naam groot in beeld,
   1,1 seconden bewegen naar de teamkaart, daarna 1,3 seconden rust.
@@ -154,7 +155,7 @@ toont Zeeslag de wachttijd en herstelknop en pauzeert het extra leesverzoeken.
 
 ## Validatie
 
-`node --test tests/warship-link.test.mjs tests/warship-reveal.test.mjs tests/warship-teams.test.mjs tests/warships.worker.test.mjs` test de
+`node --test tests/warship-briefing.test.mjs tests/warship-link.test.mjs tests/warship-reveal.test.mjs tests/warship-teams.test.mjs tests/warships.worker.test.mjs` test de
 balans tegen een onafhankelijke volledige zoekactie voor kleine groepen, grote
 en oneven groepen, kapiteins, ontbrekende EHB en de echte lokale Workers/SQLite
 met gesimuleerde Discord-accounts. Controleert privacy, rollen, CSRF, geometrie,
@@ -164,7 +165,7 @@ vlootreset bij herindeling, afgeschermde toekomstige onthullingen, tijdlijn,
 planning/intrekken, dubbele alarmen en persistentie van planning na herstart.
 Ook staff-only force-start, generatie en behoud van vloten, koppelen na start,
 herhaling zonder herloting, de vertraagde onthulling en oude planningen worden
-gecontroleerd. De suite bevat tweeëndertig tests. Geen productie-event of
+gecontroleerd. De suite bevat zevenendertig tests. Geen productie-event of
 Discord-bericht wordt tijdens deze tests aangemaakt.
 
 Bossiconen gebruiken de bestaande lokale OSRS-assets. De voorgestelde itemnamen
@@ -204,3 +205,6 @@ De tests controleren naamconflicten, bescherming van bestaande claims, afwijzing
 en ontkoppeling, privacy vóór de onthulling, rolcontrole, herstart en paginacapaciteit.
 Visuele browsercontrole is niet uitgevoerd; de controle is via broncode, types,
 build en geautomatiseerde tests uitgevoerd.
+
+De Nederlandse spelregelintroductie, audiobediening en herkomst van de gratis
+spraakbestanden staan beschreven in [zeeslag-voiceover.md](zeeslag-voiceover.md).

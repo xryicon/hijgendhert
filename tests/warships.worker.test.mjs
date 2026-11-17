@@ -357,17 +357,22 @@ test('server alarm reveals progressively, survives duplicate delivery and opens 
     const f = await fixture(mf); await prepareReveal(f);
     for (const [actor, playerId] of [['a', 101], ['b', 102]]) { await f.action(actor, 'link_player', { playerId }); await f.action('staff', 'enrol', { userId: ids[actor], accept: true }); }
     const womCount = options.womRequests; options.womUnavailable = true;
-    await setRevealTime(mf, f, 5100);
+    assert.equal(f.game.reveal.briefing.durationMs, 70500);
+    await setRevealTime(mf, f, 35000);
+    assert.equal(f.game.reveal.current, null); assert.deepEqual(f.game.reveal.revealed, []);
+    assert.equal(f.game.myTeam, null); assert.ok(f.game.fleetAccessLocked);
+    await f.action('staff', 'force_start', {}, 409);
+    await setRevealTime(mf, f, 75600);
     assert.equal(f.game.reveal.phase, 'drawing'); assert.equal(f.game.reveal.current.id, 101); assert.deepEqual(f.game.reveal.revealed, []);
     assert.equal(f.game.teamAssignment, null); assert.ok(f.game.fleetAccessLocked);
     assert.equal(f.game.reveal.timing.stepMs, 9000);
-    await setRevealTime(mf, f, 9500);
+    await setRevealTime(mf, f, 80000);
     assert.deepEqual(f.game.reveal.revealed, [], 'The name has a spotlight before joining a team');
-    await setRevealTime(mf, f, 13000);
+    await setRevealTime(mf, f, 83500);
     assert.deepEqual(f.game.reveal.revealed.map(p => p.id), [101]);
     await f.action('staff', 'cancel_reveal', {}, 409); await f.action('staff', 'start', {}, 409);
     await f.action('staff', 'force_start', {}, 409);
-    await setRevealTime(mf, f, 50000);
+    await setRevealTime(mf, f, 120500);
     assert.equal(f.game.reveal.phase, 'open'); assert.equal(f.game.fleetAccessLocked, false);
     assert.equal(options.womRequests, womCount);
     const before = await inspectReveal(mf, f);
@@ -427,7 +432,7 @@ test('verified Discord names link once, keep teams private until reveal and surv
     options.members[ids.spectator] = { nick: 'Hert 1' };
     assert.equal((await f.request('spectator', `/api/warships?id=${g.id}`)).data.game.linkedPlayer, null);
     await f.refresh(); assert.equal(f.game.audit.filter(a => a.action === 'auto_link_player').length, 1);
-    await setRevealTime(mf, f, 50000);
+    await setRevealTime(mf, f, 120500);
     const open = (await f.request('a', `/api/warships?id=${g.id}`)).data.game;
     assert.equal(open.myTeam, 0); assert.equal(open.canCaptain, true);
     await f.action('a', 'fleet', { placements: fleet, locked: true });
@@ -462,7 +467,7 @@ test('staff can remove an automatic account link without losing the player, ship
   try {
     const f = await fixture(mf); await prepareReveal(f);
     await f.request('a', `/api/warships?id=${f.game.id}`); await f.refresh();
-    await setRevealTime(mf, f, 50000);
+    await setRevealTime(mf, f, 120500);
     await f.action('a', 'fleet', { placements: fleet, locked: true });
     await f.action('staff', 'force_start');
     await f.action('a', 'unlink_player', { playerId: 101 }, 403);

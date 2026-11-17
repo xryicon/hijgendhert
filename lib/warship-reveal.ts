@@ -1,12 +1,14 @@
 import type { SeaTeamDraw } from './warship-teams';
 import type { WarshipGame } from './warships';
+import { SEA_BRIEFING_MS } from './warship-briefing';
 export const CINEMATIC_REVEAL = { introMs: 5000, stepMs: 9000, spinMs: 4000, spotlightMs: 2600, flightMs: 1100, outroMs: 5000 };
+const BRIEFED_REVEAL = { ...CINEMATIC_REVEAL, introMs: SEA_BRIEFING_MS + CINEMATIC_REVEAL.introMs };
 const LEGACY_REVEAL = { introMs: 4000, stepMs: 2600, spinMs: 1800, spotlightMs: 0, flightMs: 0, outroMs: 2000 };
-export type SeaReveal = { drawId: string; at: string; opensAt: string; headline: string; message: string; startedAt: string | null; completedAt: string | null; pace?: 2 };
+export type SeaReveal = { drawId: string; at: string; opensAt: string; headline: string; message: string; startedAt: string | null; completedAt: string | null; pace?: 2 | 3 };
 // A deployment must not change the timing of an already announced round.
-export const revealTiming = (reveal: SeaReveal) => reveal.pace === 2 ? CINEMATIC_REVEAL : LEGACY_REVEAL;
+export const revealTiming = (reveal: SeaReveal) => reveal.pace === 3 ? BRIEFED_REVEAL : reveal.pace === 2 ? CINEMATIC_REVEAL : LEGACY_REVEAL;
 export const revealSequence = (draw: SeaTeamDraw) => [draw.players.find(p => p.captain && p.team === 0)!, draw.players.find(p => p.captain && p.team === 1)!, ...draw.players.filter(p => !p.captain)];
-export const revealDuration = (players: number) => CINEMATIC_REVEAL.introMs + players * CINEMATIC_REVEAL.stepMs + CINEMATIC_REVEAL.outroMs;
+export const revealDuration = (players: number, pace: 2 | 3 = 3) => (pace === 3 ? BRIEFED_REVEAL : CINEMATIC_REVEAL).introMs + players * CINEMATIC_REVEAL.stepMs + CINEMATIC_REVEAL.outroMs;
 export const revealLocked = (g: WarshipGame, now = Date.now()) => !!g.reveal && g.status !== 'cancelled' && now < Date.parse(g.reveal.opensAt);
 export function advanceReveal(g: WarshipGame, now = Date.now()) {
   if (!g.reveal || g.status === 'cancelled') return false;
@@ -35,6 +37,7 @@ export function revealView(g: WarshipGame, signedIn: boolean, now = Date.now()) 
   const person = (p: typeof sequence[number]) => ({ id: p.id, rsn: p.rsn, team: p.team, captain: p.captain });
   return { drawId: reveal.drawId, at: reveal.at, opensAt: reveal.opensAt, headline: reveal.headline, message: reveal.message,
     phase, count: sequence.length, index, mode: draw.mode, timing,
+    briefing: reveal.pace === 3 ? { durationMs: SEA_BRIEFING_MS, firstSpinAt: new Date(Date.parse(reveal.at) + timing.introMs).toISOString() } : null,
     pool: signedIn ? draw.players.map(p => ({ id: p.id, rsn: p.rsn })).sort((a, b) => a.rsn.localeCompare(b.rsn)) : [],
     current: signedIn && current ? person(current) : null,
     revealed: signedIn ? sequence.slice(0, count).map(person) : [],
